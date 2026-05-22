@@ -1,7 +1,7 @@
 """stdout / stderr helpers with a strict split.
 
 Rule: **results go to stdout, diagnostics and errors go to stderr.** Agents
-parsing specifix output can rely on this invariant. JSON mode routes structured
+parsing devague output can rely on this invariant. JSON mode routes structured
 payloads to the same streams — it never mixes them.
 """
 
@@ -11,7 +11,7 @@ import json
 import sys
 from typing import Any, TextIO
 
-from specifix.cli._errors import SpecifixError
+from devague.cli._errors import DevagueError
 
 
 def emit_result(data: Any, *, json_mode: bool, stream: TextIO | None = None) -> None:
@@ -27,8 +27,8 @@ def emit_result(data: Any, *, json_mode: bool, stream: TextIO | None = None) -> 
         s.write("\n")
 
 
-def emit_error(err: SpecifixError, *, json_mode: bool, stream: TextIO | None = None) -> None:
-    """Write a :class:`SpecifixError` to stderr (text or JSON)."""
+def emit_error(err: DevagueError, *, json_mode: bool, stream: TextIO | None = None) -> None:
+    """Write a :class:`DevagueError` to stderr (text or JSON)."""
     s = stream if stream is not None else sys.stderr
     if json_mode:
         json.dump(err.to_dict(), s, ensure_ascii=False)

@@ -1,4 +1,4 @@
-# Per-machine config for specifix's vendored skills.
+# Per-machine config for devague's vendored skills.
 #
 # Skills read .claude/skills.local.yaml (git-ignored) and fall back to this
 # committed .example. Copy this file to .claude/skills.local.yaml and fill in
@@ -6,7 +6,7 @@
 # .example — keep those in the git-ignored copy only.
 
 # Path to the local Culture server manifest, used by skills that resolve
-# Culture agent suffixes or mesh channels. Leave empty if specifix is not yet
+# Culture agent suffixes or mesh channels. Leave empty if devague is not yet
 # a registered mesh agent.
 culture_server_yaml: ""
 

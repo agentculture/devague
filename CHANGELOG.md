@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-05-23
+
+### Changed
+
+- Renamed the package and CLI `specifix` → `devague` (PyPI distribution
+  `devague`; the orphaned `specifix 0.1.0` is left as-is). Console script,
+  `python -m`, `culture.yaml` suffix, SonarCloud key, and docs all updated.
+
+### Removed
+
+- The placeholder `whoami` verb (the `learn` / `explain` affordances remain).
+
 ## [0.1.0] - 2026-05-22
 
 ### Added
