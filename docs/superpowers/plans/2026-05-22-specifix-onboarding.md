@@ -5,7 +5,7 @@ CLI chassis with placeholder verbs, CI, lint configs, `culture.yaml`, and six
 vendored skills — in a single PR that closes issue #2.
 
 **Architecture:** Mirror the `appsec` greenfield sibling. A hatchling-built
-`specifix-cli` package exposes a `specifix` CLI: a real argparse chassis
+`specifix` package exposes a `specifix` CLI: a real argparse chassis
 (`specifix/cli/`) with structured errors, a strict stdout/stderr split, and
 `--json` support, plus three honest placeholder verbs (`learn` / `explain` /
 `whoami`). Six canonical skills are copied verbatim from the local `../steward`
@@ -47,7 +47,7 @@ before the next.
 ## Known not-green at merge (tracked, not blockers)
 
 - `publish.yml` runs red until PyPI Trusted Publishing is configured for
-  `specifix-cli`.
+  `specifix`.
 - The SonarCloud quality gate does not report until `agentculture_specifix`
   is registered (scan step gated on `SONAR_TOKEN_PRESENT`).
 - CLI verbs are placeholder stubs; the specifix spec-creation product is

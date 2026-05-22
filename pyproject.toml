@@ -1,5 +1,5 @@
 [project]
-name = "specifix-cli"
+name = "specifix"
 version = "0.1.0"
 description = "specifix — owns spec creation for changes (greenfield AgentCulture sibling)."
 readme = "README.md"

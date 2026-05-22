@@ -34,7 +34,7 @@ sibling agents) is a separate later effort.
 |----------|--------|
 | Scope | Onboarding infrastructure only; agent product deferred. |
 | CLI verbs | `learn` / `explain` / `whoami` as honest placeholder stubs — each prints one "not yet implemented; specifix is greenfield" line and exits 0, with a structured `--json` payload. |
-| Scaffold model | Mirror the `appsec` sibling — the most recent greenfield sibling that resolved this exact onboarding. Package name `specifix-cli`, import `specifix`, console script `specifix` (per issue §1, mirroring `steward-cli`/`steward`). |
+| Scaffold model | Mirror the `appsec` sibling — the most recent greenfield sibling that resolved this exact onboarding. PyPI distribution `specifix`, import `specifix`, console script `specifix`. (Issue §1 suggested `specifix-cli`, but the bare `specifix` name matches the registered PyPI Trusted-Publishing project and what `appsec` actually shipped.) |
 | Skills | Vendor all **six** canonical skills directly from `../steward` (not from appsec — avoids inheriting appsec's documented divergences): `cicd`, `communicate`, `version-bump`, `run-tests`, `sonarclaude`, `doc-test-alignment`. Vendored verbatim — no divergence to record. |
 | PR strategy | One PR for everything: full scaffold + all six vendored skills + provenance ledger. One version bump (`0.1.0`). Closes issue #2. Pushed and opened directly per the branch-finishing default. |
 
@@ -43,7 +43,7 @@ sibling agents) is a separate later effort.
 The repo mirrors the established sibling skeleton:
 
 - **Package + CLI chassis** (`specifix/`): `__init__.py` (`__version__` via
-  `importlib.metadata.version("specifix-cli")`), `__main__.py`
+  `importlib.metadata.version("specifix")`), `__main__.py`
   (`python -m specifix`), and `cli/` with `__init__.py` (argparse dispatch,
   structured-error routing, `--json` hint), `_errors.py` (`SpecifixError` +
   exit-code policy), `_output.py` (strict stdout/stderr split), and
@@ -85,7 +85,7 @@ The repo mirrors the established sibling skeleton:
 ### Known not-green at merge (not blockers)
 
 - `publish.yml` runs red until PyPI Trusted Publishing is configured for
-  `specifix-cli` (a manual maintainer step: register on PyPI/TestPyPI,
+  `specifix` (a manual maintainer step: register on PyPI/TestPyPI,
   configure the OIDC publisher, create the `pypi` / `testpypi` environments).
 - The SonarCloud quality gate does not report until `agentculture_specifix`
   is registered on sonarcloud.io and the GitHub App is installed. The scan

@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Status
 
 **Scaffolded (greenfield product).** The AgentCulture sibling skeleton has
-landed: a `specifix-cli` package with the argparse CLI chassis, tests, CI, the
+landed: the `specifix` package with the argparse CLI chassis, tests, CI, the
 six vendored skills, and `culture.yaml`. The CLI verbs (`learn` / `explain` /
 `whoami`) are **honest placeholder stubs** — the actual spec-creation product is
 not implemented yet. Run `git ls-files` to see the real surface rather than

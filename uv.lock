@@ -574,7 +574,7 @@ wheels = [
 ]
 
 [[package]]
-name = "specifix-cli"
+name = "specifix"
 version = "0.1.0"
 source = { editable = "." }
 

@@ -4,7 +4,7 @@ from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _v
 
 try:
-    __version__ = _v("specifix-cli")
+    __version__ = _v("specifix")
 except PackageNotFoundError:  # pragma: no cover  — editable install without metadata
     __version__ = "0.0.0+local"
 
