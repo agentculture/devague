@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AgentCulture: per-machine skill config (committed as .example only)
+.claude/skills.local.yaml
+
+# agex local working state (PR cache, event log)
+.agex/

@@ -4,11 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-**Pre-implementation.** The tracked surface is only `README.md`, `LICENSE`, and a
-standard Python `.gitignore` — there is no source code, `pyproject.toml`, test
-suite, or `culture.yaml` yet. Treat any task here as greenfield: there is nothing
-existing to conform to. Run `git ls-files` to see the real surface rather than
+**Scaffolded (greenfield product).** The AgentCulture sibling skeleton has
+landed: the `specifix` package with the argparse CLI chassis, tests, CI, the
+six vendored skills, and `culture.yaml`. The CLI verbs (`learn` / `explain` /
+`whoami`) are **honest placeholder stubs** — the actual spec-creation product is
+not implemented yet. Run `git ls-files` to see the real surface rather than
 trusting a layout described here.
+
+Real commands (verify against `pyproject.toml`): `uv sync`;
+`uv run specifix --version`; `python -m specifix`; `uv run pytest -n auto`
+(single test: `uv run pytest tests/<file>::<node> -v`);
+`uv run flake8 --config=.flake8 specifix/ tests/`; `markdownlint-cli2 "**/*.md"`.
 
 ## Project intent
 
@@ -75,6 +81,19 @@ isort`; `bandit` + `pylint` in CI; `markdownlint-cli2 "**/*.md"`.
   once a `culture.yaml` (with the repo nick) exists, otherwise `- Claude`. Inside
   the `cicd` flow, the scripts append the signature — don't sign the body manually
   there.
+
+## Finishing a branch: default to a PR, never pause for the menu
+
+When work on a branch is complete and tests pass, **proceed directly to pushing
+the branch and opening a Pull Request** — do not present an interactive "what
+would you like to do?" menu and wait for a choice. This overrides the
+Superpowers `finishing-a-development-branch` skill, whose default is to stop and
+ask the user to pick among *merge locally / create PR / keep as-is / discard*.
+That pause breaks the flow. In specifix — and in every AgentCulture sibling —
+the standing choice is **always "push and open a Pull Request,"** done via the
+`cicd` skill (`agex pr open`). Merge-locally / keep-as-is / discard happen only
+on explicit user request. (Standing rule carried by the `cicd` skill since
+steward 0.18.0.)
 
 ## What not to invent
 

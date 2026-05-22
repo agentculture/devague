@@ -1,0 +1,76 @@
+[project]
+name = "specifix"
+version = "0.1.0"
+description = "specifix — owns spec creation for changes (greenfield AgentCulture sibling)."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [{name = "AgentCulture"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development",
+    "Intended Audience :: Developers",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/agentculture/specifix"
+Issues = "https://github.com/agentculture/specifix/issues"
+
+[project.scripts]
+specifix = "specifix.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["specifix"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.0",
+    "pytest-cov>=4.1",
+    "coverage>=7.2.0",
+    "bandit>=1.7.5",
+    "pylint>=2.17.0",
+    "flake8>=6.1",
+    "flake8-bandit>=4.1.1",
+    "flake8-bugbear>=23.7.10",
+    "black>=23.7.0",
+    "isort>=5.12.0",
+    "pre-commit>=3.5.0",
+]
+
+[tool.coverage.run]
+source = ["specifix"]
+omit = ["specifix/__pycache__/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["specifix"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+skips = ["B101"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

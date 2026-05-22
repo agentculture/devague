@@ -1,0 +1,41 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
+  workflow_dispatch:
+
+jobs:
+  security-scans:
+    name: Security Scans
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
+
+      - run: uv python install 3.12
+
+      - run: uv sync
+
+      - name: Run Bandit
+        run: uv run bandit -r specifix/ -f json -o bandit-results.json -c pyproject.toml
+        continue-on-error: true
+
+      - name: Run Pylint
+        run: uv run pylint specifix/ --output-format=json:pylint-results.json,text
+        continue-on-error: true
+
+      - name: Upload Security Results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: security-results
+          path: |
+            bandit-results.json
+            pylint-results.json

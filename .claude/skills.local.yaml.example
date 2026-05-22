@@ -1,0 +1,19 @@
+# Per-machine config for specifix's vendored skills.
+#
+# Skills read .claude/skills.local.yaml (git-ignored) and fall back to this
+# committed .example. Copy this file to .claude/skills.local.yaml and fill in
+# real values for the local machine. No /home/<user>/... paths in the tracked
+# .example — keep those in the git-ignored copy only.
+
+# Path to the local Culture server manifest, used by skills that resolve
+# Culture agent suffixes or mesh channels. Leave empty if specifix is not yet
+# a registered mesh agent.
+culture_server_yaml: ""
+
+# Map of sibling-project names to their local checkout paths. Used by
+# cross-repo skills (e.g. communicate, cicd delta) to locate siblings
+# without hard-coded absolute paths. Relative paths are resolved from the
+# repo root.
+sibling_projects: {}
+  # steward: ../steward
+  # agtag: ../agtag
