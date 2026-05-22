@@ -1,0 +1,17 @@
+[flake8]
+max-line-length = 100
+extend-select = B
+extend-ignore =
+    # whitespace before ':' — conflicts with black
+    E203,
+    # line break before binary operator — conflicts with black
+    W503
+exclude =
+    .venv,
+    .git,
+    __pycache__,
+    dist,
+    build
+per-file-ignores =
+    # Bandit S-rules are noisy in tests (assert, subprocess, etc.) — mute them.
+    tests/*:S101,S404,S603

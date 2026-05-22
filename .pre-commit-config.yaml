@@ -1,0 +1,37 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-ast
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: markdownlint-cli2
+        name: markdownlint-cli2 (check)
+        description: Lint markdown (no auto-fix).
+        entry: markdownlint-cli2
+        language: system
+        types: [markdown]
+
+      - id: flake8
+        name: flake8
+        entry: uv run flake8 --config=.flake8
+        language: system
+        types: [python]
+
+      - id: isort
+        name: isort
+        entry: uv run isort
+        language: system
+        types: [python]
+
+      - id: black
+        name: black
+        entry: uv run black
+        language: system
+        types: [python]
