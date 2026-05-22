@@ -1719,14 +1719,18 @@ Expected: all tests pass; coverage ≥ 70%; flake8/black/isort/markdownlint clea
 
 - [ ] **Step 2: End-to-end smoke (manual)**
 
+From the repo root (so `uv run` resolves the project), exercise the chain, then
+clean up the artifacts it writes:
+
 ```bash
-cd /tmp && rm -rf dv && mkdir dv && cd dv
-uv run --project /home/spark/git/specifix devague new "Specs in minutes"
-uv run --project /home/spark/git/specifix devague capture --kind audience "developers" --origin user
-uv run --project /home/spark/git/specifix devague converge      # reports gaps
+uv run devague new "Specs in minutes"
+uv run devague capture --kind audience "developers" --origin user
+uv run devague converge      # reports the remaining gaps
+rm -rf .devague docs/specs   # cleanup — these are smoke-test artifacts
 ```
 
-Expected: `new` creates `.devague/frames/specs-in-minutes.json`; `converge` lists the remaining gaps. (Clean up `/tmp/dv` after.)
+Expected: `new` creates `.devague/frames/specs-in-minutes.json`; `converge`
+lists the remaining gaps.
 
 - [ ] **Step 3: Update `CLAUDE.md` Status + add a working-backwards section**
 

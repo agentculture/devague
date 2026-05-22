@@ -40,8 +40,10 @@
 
 - [ ] **Step 1: Move the package directory**
 
+From the repo root (the local checkout dir name is cosmetic; `origin` tracks
+`agentculture/devague`):
+
 ```bash
-cd /home/spark/git/specifix   # local dir name is cosmetic; origin tracks agentculture/devague
 git mv specifix devague
 git rm devague/cli/_commands/whoami.py
 ```
