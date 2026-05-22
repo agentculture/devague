@@ -222,3 +222,6 @@ __marimo__/
 
 # agex local working state (PR cache, event log)
 .agex/
+
+# devague: local current-frame pointer (frames under .devague/frames/ are committed)
+.devague/current
