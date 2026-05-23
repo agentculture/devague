@@ -4,11 +4,13 @@ The peer of :mod:`devague.convergence`. A plan converges when every coverage tar
 is covered by a confirmed task, every confirmed task carries acceptance criteria, the
 dependency graph is sound (no dangling refs, no cycles), nothing is left proposed, and
 no blocking risk remains. Reuses :class:`devague.convergence.ConvergenceResult` so both
-engines report the same ``{passed, missing}`` shape.
+engines report the same structured ``{ready, blockers, warnings, parked_items,
+required_next_moves}`` shape (the CLI serializes ``ready`` as ``ready_for_plan``).
 """
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from devague.convergence import ConvergenceResult
@@ -123,6 +125,43 @@ def _missing_risks(plan: Plan) -> list[str]:
     return [f"blocking risk {r.id} unresolved" for r in plan.risks if r.kind == "unknown_blocking"]
 
 
+def _parked_items(plan: Plan) -> list[str]:
+    """Tracked, non-blocking risks (everything but unknown_blocking)."""
+    return [f"[{r.kind}] {r.text}" for r in plan.risks if r.kind != "unknown_blocking"]
+
+
+def suggest_move(blocker: str) -> str:
+    """Map a single plan blocker to the recommended next ``devague plan`` move."""
+    if "no tasks yet" in blocker:
+        return 'devague plan task "<summary>" --covers <c*/h*> --accept "<criterion>"'
+    m = re.search(r"coverage target (\w+) ", blocker)
+    if m:
+        tid = m.group(1)
+        return (
+            f'cover {tid}: devague plan task "<summary>" --covers {tid} --accept "<...>"'
+            f"   (or: devague plan cover <tN> --target {tid})"
+        )
+    m = re.search(r"task (t\d+) has no acceptance", blocker)
+    if m:
+        return f'devague plan accept {m.group(1)} "<acceptance criterion>"'
+    m = re.search(r"task (t\d+) still proposed", blocker)
+    if m:
+        tid = m.group(1)
+        return (
+            f"this is an LLM proposal — the USER decides: "
+            f"devague plan confirm {tid} (or reject {tid})"
+        )
+    m = re.search(r"task (t\d+) depends on (?:unknown|rejected) task (t\d+)", blocker)
+    if m:
+        return f"fix {m.group(1)}'s dependency on {m.group(2)} (add it, or drop the dep)"
+    if "dependency cycle" in blocker:
+        return "break the dependency cycle: re-point one task's --dep so the graph is acyclic"
+    m = re.search(r"blocking risk (r\d+)", blocker)
+    if m:
+        return f"resolve {m.group(1)}: cover it with a task, or re-record it as non-blocking"
+    return "devague plan show     # inspect and decide"
+
+
 def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> ConvergenceResult:
     """Evaluate the plan gate against ``targets`` (defaults to the plan's snapshot).
 
@@ -131,7 +170,7 @@ def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> Conv
     snapshot.
     """
     tgs = plan.targets if targets is None else targets
-    missing = (
+    blockers = (
         _missing_tasks(plan)
         + _missing_coverage(plan, tgs)
         + _missing_acceptance(plan)
@@ -139,4 +178,9 @@ def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> Conv
         + _missing_dep_integrity(plan)
         + _missing_risks(plan)
     )
-    return ConvergenceResult(passed=not missing, missing=missing)
+    return ConvergenceResult(
+        ready=not blockers,
+        blockers=blockers,
+        parked_items=_parked_items(plan),
+        required_next_moves=[suggest_move(b) for b in blockers],
+    )

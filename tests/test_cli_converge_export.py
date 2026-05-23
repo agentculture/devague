@@ -29,14 +29,14 @@ def test_converge_reports_gaps_then_passes(tmp_path, monkeypatch, capsys) -> Non
     rc = main(["converge", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["passed"] is False and payload["missing"]
+    assert payload["ready_for_spec"] is False and payload["blockers"]
 
     _converged(monkeypatch, tmp_path)
     capsys.readouterr()  # drain _converged output
     rc = main(["converge", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["passed"] is True
+    assert payload["ready_for_spec"] is True
 
 
 def test_export_blocked_until_converged(tmp_path, monkeypatch, capsys) -> None:
@@ -65,7 +65,7 @@ def test_converge_demotes_converged_frame_when_gate_fails(tmp_path, monkeypatch,
     rc = main(["converge", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["passed"] is True
+    assert payload["ready_for_spec"] is True
     assert store.load(store.current_slug()).status == "converged"
     # Add a blocking vagueness item — gate now fails.
     main(["park", "scale?", "--kind", "unknown_blocking"])
@@ -74,7 +74,7 @@ def test_converge_demotes_converged_frame_when_gate_fails(tmp_path, monkeypatch,
     rc = main(["converge", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["passed"] is False
+    assert payload["ready_for_spec"] is False
     assert store.load(store.current_slug()).status == "drafting"
 
 
@@ -106,8 +106,8 @@ def test_converge_llm_honesty_blocks_until_confirmed(tmp_path, monkeypatch, caps
     rc = main(["converge", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["passed"] is False
-    assert any("c2" in m and "honesty" in m for m in payload["missing"])
+    assert payload["ready_for_spec"] is False
+    assert any("c2" in m and "honesty" in m for m in payload["blockers"])
 
     # Discover the honesty id via show --json.
     main(["show", "--json"])
@@ -123,4 +123,4 @@ def test_converge_llm_honesty_blocks_until_confirmed(tmp_path, monkeypatch, caps
     rc = main(["converge", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["passed"] is True
+    assert payload["ready_for_spec"] is True
