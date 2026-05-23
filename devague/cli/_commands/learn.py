@@ -55,9 +55,7 @@ ASSIGN_TO_WORKFORCE_GUIDANCE = {
         "criteria, dependency graph is acyclic), you can fan out its waves to "
         "parallel agents working in isolated git worktrees."
     ),
-    "prerequisites": (
-        "A converged plan with deterministic dependency waves " "(devague plan waves)."
-    ),
+    "prerequisites": ("A converged plan with deterministic dependency waves (devague plan waves)."),
     "human_gates": (
         "The human approves at exactly three points: (1) the exported spec, "
         "(2) the implementation split plan (plan/tasks map, per-task "
