@@ -255,10 +255,15 @@ def cmd_plan_converge(args: argparse.Namespace) -> int:
             json_mode=True,
         )
     elif result.ready:
-        emit_result("converged ✓", json_mode=False)
+        msg = "converged ✓"
+        if result.warnings:
+            msg += "\nwarnings:\n" + "\n".join(f"  - {w}" for w in result.warnings)
+        emit_result(msg, json_mode=False)
     else:
-        lines = "\n".join(f"  - {b}" for b in result.blockers)
-        emit_result("not converged:\n" + lines, json_mode=False)
+        msg = "not converged:\n" + "\n".join(f"  - {b}" for b in result.blockers)
+        if result.warnings:
+            msg += "\nwarnings:\n" + "\n".join(f"  - {w}" for w in result.warnings)
+        emit_result(msg, json_mode=False)
     return 0
 
 
