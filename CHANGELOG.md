@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-05-23
+
+### Added
+
+- **Spec→plan engine** — a deterministic structural peer of the working-backwards frame engine that turns a converged spec into a buildable plan. New modules: `devague/plan.py` (Plan / Task / PlanRisk / CoverageTarget domain), `plan_convergence.py` (coverage + acceptance + acyclic-dependency + blocking-risk gate, reusing `ConvergenceResult`), `plan_store.py` (`.devague/plans/`), and `render/plan_md.py` (topologically-ordered buildable plan).
+- Nested `devague plan` CLI group (`new` / `task` / `accept` / `depend` / `cover` / `confirm` / `reject` / `risk` / `converge` / `export` / `show` / `list` / `learn` / `explain`), all with `--json`. `plan new` requires a converged source frame; `converge`/`export` re-evaluate against the **live** frame and refuse on frame drift (deleted or regressed).
+- New first-party **`/spec-to-plan`** skill (`.claude/skills/spec-to-plan/`): a portable wrapper (`scripts/spec-to-plan.sh`) forwarding to `devague plan` plus a `status` next-move helper over the plan gate.
+
+### Changed
+
+- **Renamed the `devague` skill to `think`** (`.claude/skills/think/`, `scripts/think.sh`) — clearer idea→spec framing and to pair with the new `/spec-to-plan` sibling. The product/CLI/repo name stays `devague`; only the skill identity changed. `docs/skill-sources.md` and downstream steward re-vendoring must relearn the new name. ("devague" remains a trigger keyword on `/think`.)
+
 ## [0.3.3] - 2026-05-23
 
 ### Added

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# devague.sh — operate the devague working-backwards spec tool.
+# think.sh — drive devague's working-backwards idea→spec engine (the /think skill).
 #
+# The skill is named `think`; the product/CLI it drives is `devague` (the spec→plan
+# half lives in the sibling /spec-to-plan skill, which drives `devague plan`).
 # devague turns a vague feature idea into a buildable spec by working backwards.
 # This wrapper is the agent-facing operator for the deterministic devague CLI:
 # it resolves the CLI portably, forwards every move verbatim, and adds one
@@ -47,12 +49,12 @@ EOF
 
 usage() {
     cat <<'EOF'
-devague.sh — operate the devague working-backwards spec tool.
+think.sh — drive devague's working-backwards idea→spec engine (the /think skill).
 
 Usage:
-  devague.sh <move> [args...]    forward a devague move
-  devague.sh status [--frame S]  where the frame stands + the next move
-  devague.sh help                this help
+  think.sh <move> [args...]    forward a devague move
+  think.sh status [--frame S]  where the frame stands + the next move
+  think.sh help                this help
 
 Moves (forwarded to the devague CLI; run `devague learn` for the full method):
   new          start a frame from the announcement ("pretend it shipped")
@@ -73,6 +75,9 @@ any move for structured output.
 Note: `status` is a wrapper-only verb (the CLI has no `status`); everything
 else is forwarded verbatim, so new devague moves work without editing this
 script.
+
+Next leg: once a frame exports a spec, hand off to the /spec-to-plan skill
+(`devague plan ...`) to turn that spec into a buildable plan.
 EOF
 }
 

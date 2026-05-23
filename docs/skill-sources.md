@@ -27,14 +27,22 @@ rows.
 
 ## Origin skills (outbound)
 
-Not every skill here is inbound. The `devague` skill is **authored and
-maintained in this repo** — devague is its origin/upstream, not a downstream
-consumer. The devague agent dogfoods it to operate the devague CLI while
-improving the tool. The flow runs the *opposite* direction of the table above.
+Not every skill here is inbound. The `think` and `spec-to-plan` skills are
+**authored and maintained in this repo** — devague is their origin/upstream, not
+a downstream consumer. The devague agent dogfoods them to operate the devague CLI
+while improving the tool. The flow runs the *opposite* direction of the table
+above. (The skill names are `think` / `spec-to-plan`; the product/CLI they drive
+is `devague`. `think` was renamed from `devague` in 0.4.0 — when steward re-vendors,
+it must relearn the new name and pick up the new `spec-to-plan` sibling.)
 
 | Skill | Origin | Downstream | Notes |
 |-------|--------|------------|-------|
-| `devague` | **devague** (here: `.claude/skills/devague/`) | `steward`, then the AgentCulture mesh | Operator for the deterministic devague CLI: portable resolution + a `status` next-move helper over the convergence gate. When ready, `steward` re-vendors it from `../devague/.claude/skills/devague/` and broadcasts it to the mesh. `cite, don't import` still applies — downstream copies it, no symlink/dependency. Written portable-first so it passes steward's `portability-lint.sh`. |
+| `think` | **devague** (here: `.claude/skills/think/`) | `steward`, then the AgentCulture mesh | Operator for the **idea→spec** leg of the deterministic devague CLI: portable resolution + a `status` next-move helper over the frame convergence gate. Renamed from `devague` in 0.4.0. When ready, `steward` re-vendors it from `../devague/.claude/skills/think/` and broadcasts it to the mesh. |
+| `spec-to-plan` | **devague** (here: `.claude/skills/spec-to-plan/`) | `steward`, then the AgentCulture mesh | Operator for the **spec→plan** leg (`devague plan ...`): portable resolution + a `status` next-move helper over the plan convergence gate. New in 0.4.0. Re-vendor from `../devague/.claude/skills/spec-to-plan/`. |
+
+`cite, don't import` applies to both — downstream copies them, no
+symlink/dependency. Written portable-first so they pass steward's
+`portability-lint.sh`.
 
 ## Vendoring policy
 
