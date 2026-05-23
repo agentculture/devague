@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-05-23
+
+### Added
+
+- **Plan persistence hardening (#18).** Plans now carry an integer `schema_version` (`PLAN_SCHEMA_VERSION = 1`), written on save and checked on load — the plan-engine peer of the frame `schema_version` contract (#5). `plan_store.load` fails closed with a clean `DevagueError` (exit 1 + upgrade hint) when a plan declares a newer unsupported schema; pre-0.7.0 plans without the key load silently as the current schema.
+- Loaded-object validation for plans: `Task.origin` / `Task.status` and `PlanRisk.kind` are now validated at construction (via `__post_init__`), so a hand-edited or corrupted plan file surfaces an actionable "malformed plan" `DevagueError` instead of a traceback. (Task/dep/cover *id* cross-references are deliberately not validated at load — coverage and acyclic-dependency checks already run against the live frame in `plan converge`.)
+
+### Changed
+
+- `devague/cli/_plans.py` `resolve_plan` now distinguishes an invalid `--plan` slug, a newer-schema plan, a missing plan, and a malformed plan file — each with its own remediation hint (mirroring the frame `resolve`).
+
 ## [0.6.1] - 2026-05-23
 
 ### Fixed

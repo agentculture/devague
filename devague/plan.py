@@ -16,7 +16,12 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Optional
 
-from devague.frame import SPEC_AFFECTING_KINDS, VAGUENESS_KINDS, Frame
+from devague.frame import ORIGINS, SPEC_AFFECTING_KINDS, VAGUENESS_KINDS, Frame
+
+# Bump when the persisted plan shape changes incompatibly. `plan_store.load`
+# fails closed on a plan whose schema_version is newer/unknown (see #18; the
+# plan-engine peer of frame.SCHEMA_VERSION).
+PLAN_SCHEMA_VERSION = 1
 
 TASK_STATUSES = ("proposed", "confirmed", "rejected")
 # Risks reuse the frame's open-vagueness kinds: a plan risk is the task-level peer of
@@ -35,6 +40,12 @@ class Task:
     deps: list[str] = field(default_factory=list)  # task ids this task depends on
     covers: list[str] = field(default_factory=list)  # frame claim/honesty ids (c*/h*)
 
+    def __post_init__(self) -> None:
+        if self.origin not in ORIGINS:
+            raise ValueError(f"unknown task origin: {self.origin!r}")
+        if self.status not in TASK_STATUSES:
+            raise ValueError(f"unknown task status: {self.status!r}")
+
 
 @dataclass
 class PlanRisk:
@@ -42,6 +53,10 @@ class PlanRisk:
     text: str
     kind: str  # one of RISK_KINDS
     task_id: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        if self.kind not in RISK_KINDS:
+            raise ValueError(f"unknown plan risk kind: {self.kind!r}")
 
 
 @dataclass
@@ -62,6 +77,7 @@ class Plan:
     slug: str
     title: str
     frame_slug: str
+    schema_version: int = PLAN_SCHEMA_VERSION
     status: str = "drafting"  # drafting | converged | exported
     created: str = ""
     updated: str = ""
@@ -170,6 +186,8 @@ def from_dict(d: dict) -> Plan:
         slug=d["slug"],
         title=d["title"],
         frame_slug=d["frame_slug"],
+        # A pre-0.7.0 plan predates the field; treat it as the current schema.
+        schema_version=int(d.get("schema_version", PLAN_SCHEMA_VERSION)),
         status=d.get("status", "drafting"),
         created=d.get("created", ""),
         updated=d.get("updated", ""),

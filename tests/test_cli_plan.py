@@ -278,6 +278,29 @@ def test_resolve_plan_invalid_slug(tmp_path, monkeypatch, capsys) -> None:
     assert "invalid plan slug" in capsys.readouterr().err
 
 
+def test_resolve_plan_rejects_newer_schema(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    p = plan_store.path_for(slug)
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = raw["schema_version"] + 99
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    rc = main(["plan", "show", "--plan", slug])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "schema_version" in err and "upgrade" in err
+
+
+def test_resolve_plan_rejects_malformed_value(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    p = plan_store.path_for(slug)
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["tasks"][0]["origin"] = "alien"
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    rc = main(["plan", "show", "--plan", slug])
+    assert rc == 1
+    assert "malformed" in capsys.readouterr().err
+
+
 # ── learn / explain ───────────────────────────────────────────────────────────
 def test_learn_and_explain(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)

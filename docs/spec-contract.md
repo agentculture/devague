@@ -178,3 +178,14 @@ targets derived from a converged frame, Tasks (`origin`/`status` like claims,
 plus `deps`, `covers`, `acceptance_criteria`), and PlanRisks. It reuses the same
 structured convergence result, serialized under `ready_for_plan`. See
 `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
+
+Plans carry the same persistence contract as frames. Every plan has an integer
+`schema_version` (currently `1`, `PLAN_SCHEMA_VERSION`), written on save and
+checked on load: `plan_store.load` **fails closed** with a clean `DevagueError`
+(exit code 1, upgrade hint) when a plan declares a `schema_version` newer than
+this devague supports. A pre-0.7.0 plan with no `schema_version` key loads
+silently as the current schema. Loaded `Task.origin` / `Task.status` and
+`PlanRisk.kind` are validated at construction; an invalid value surfaces as a
+"malformed plan" `DevagueError` rather than a traceback. (Task/dep/cover **id**
+cross-references are deliberately *not* validated at load — coverage and acyclic
+dependency checks already run against the live frame in `plan converge`.)

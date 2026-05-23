@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from devague import plan_store, store
 from devague.frame import Frame
-from devague.plan import Plan
+from devague.plan import PLAN_SCHEMA_VERSION, Plan
 
 
 def _plan() -> Plan:
@@ -65,3 +67,30 @@ def test_plan_coexists_with_same_slug_frame(tmp_path, monkeypatch) -> None:
     # Both persist independently in their own directories.
     assert store.list_slugs() == ["demo"]
     assert plan_store.list_slugs() == ["demo"]
+
+
+def test_save_writes_schema_version(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    plan_store.save(_plan())
+    raw = json.loads(plan_store.path_for("demo").read_text(encoding="utf-8"))
+    assert raw["schema_version"] == PLAN_SCHEMA_VERSION
+    assert plan_store.load("demo").schema_version == PLAN_SCHEMA_VERSION
+
+
+def test_load_rejects_newer_schema_version(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    plan_store.save(_plan())
+    p = plan_store.path_for("demo")
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = PLAN_SCHEMA_VERSION + 99
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(plan_store.IncompatiblePlanSchemaError, match="schema_version"):
+        plan_store.load("demo")
+
+
+def test_load_legacy_plan_without_schema_version(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    plan_store.PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    legacy = {"slug": "demo", "title": "Demo", "frame_slug": "demo", "tasks": []}
+    plan_store.path_for("demo").write_text(json.dumps(legacy), encoding="utf-8")
+    assert plan_store.load("demo").schema_version == PLAN_SCHEMA_VERSION

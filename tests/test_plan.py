@@ -3,7 +3,15 @@ from __future__ import annotations
 import pytest
 
 from devague.frame import Frame
-from devague.plan import Plan, from_dict, targets_from_frame, to_dict
+from devague.plan import (
+    PLAN_SCHEMA_VERSION,
+    Plan,
+    PlanRisk,
+    Task,
+    from_dict,
+    targets_from_frame,
+    to_dict,
+)
 
 
 def _plan() -> Plan:
@@ -58,6 +66,41 @@ def test_set_status_transitions_and_reports_unknown() -> None:
     assert p.set_status("t1", "rejected") is True
     assert p.find_task("t1").status == "rejected"
     assert p.set_status("tX", "confirmed") is False
+
+
+def test_plan_carries_schema_version() -> None:
+    p = _plan()
+    assert p.schema_version == PLAN_SCHEMA_VERSION
+    assert to_dict(p)["schema_version"] == PLAN_SCHEMA_VERSION
+    assert from_dict(to_dict(p)).schema_version == PLAN_SCHEMA_VERSION
+
+
+def test_legacy_plan_without_schema_version_loads() -> None:
+    # A pre-0.7.0 plan has no schema_version key — it must still load.
+    p = from_dict({"slug": "s", "title": "t", "frame_slug": "s", "tasks": []})
+    assert p.schema_version == PLAN_SCHEMA_VERSION
+
+
+def test_dataclasses_validate_enums() -> None:
+    with pytest.raises(ValueError):
+        Task(id="t1", summary="x", origin="alien")
+    with pytest.raises(ValueError):
+        Task(id="t1", summary="x", status="weird")
+    with pytest.raises(ValueError):
+        PlanRisk(id="r1", text="x", kind="nope")
+
+
+def test_from_dict_rejects_malformed_enum_values() -> None:
+    # The load path reconstructs via from_dict, so a hand-edited bad value is caught.
+    with pytest.raises(ValueError):
+        from_dict(
+            {
+                "slug": "s",
+                "title": "t",
+                "frame_slug": "s",
+                "tasks": [{"id": "t1", "summary": "x", "origin": "alien"}],
+            }
+        )
 
 
 def test_roundtrip_preserves_nested_fields() -> None:
