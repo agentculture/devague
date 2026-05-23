@@ -1,0 +1,217 @@
+{
+  "slug": "devague-turns-a-converged-plan-into-parallel-simpl",
+  "title": "Devague plans get parallel, TDD-gated, simpler-model implementation via assign-to-workforce",
+  "frame_slug": "devague-turns-a-converged-plan-into-parallel-simpl",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-05-23T20:24:19Z",
+  "updated": "2026-05-23T20:35:22Z",
+  "targets": [
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "The devague/AgentCulture operator agent that implements a converged plan, plus the human who owns the merge gate. Per-task work may be delegated to cheaper/simpler models."
+    },
+    {
+      "id": "h20",
+      "kind": "honesty",
+      "text": "Each named audience really interacts with the flow: the operator agent drives waves and merges, the human owns the three gates (spec / split plan / PR), and cheaper models execute individual tasks \u2014 no silent fourth approver."
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "A converged plan can be built by fanning out independent tasks to parallel subagents \u2014 including a simpler model per task \u2014 instead of one agent building serially."
+    },
+    {
+      "id": "h21",
+      "kind": "honesty",
+      "text": "The parallel + cheap-model build yields the same result as a serial build would \u2014 fan-out changes speed and cost, not correctness; the merged result passes the same TDD tests."
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "'devague plan waves' emits the schedule, but there is no devague convention for who fans it out, how files stay contention-safe, how a task is accepted, or how plans should be authored to be parallel- and simple-model-friendly."
+    },
+    {
+      "id": "h22",
+      "kind": "honesty",
+      "text": "Today there genuinely is no devague convention for fan-out / contention / acceptance: 'devague plan waves' (#20) emits the schedule but stops at description, and nothing downstream consumes it yet."
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "Parallel + cheap-model execution makes plans much faster and cheaper to build and forces tighter task scoping \u2014 but only pays off if it stays safe and reviewable."
+    },
+    {
+      "id": "h23",
+      "kind": "honesty",
+      "text": "The speed/cost win is real, not assumed: parallel waves plus cheap per-task models cut wall-clock and token cost versus one serial agent, while the TDD gates keep quality from dropping."
+    },
+    {
+      "id": "c6",
+      "kind": "boundary",
+      "text": "Devague's CLI does not orchestrate: it does not spawn subagents, manage worktrees, mark tasks done, or pick a backend (#20 stands). This work is a convention + cited skill, not new CLI and not a CI/CD runner."
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "This work adds no LLM calls and no orchestration to the devague CLI."
+    },
+    {
+      "id": "c18",
+      "kind": "success_signal",
+      "text": "An operator takes a converged plan, runs 'devague plan waves', and presents the implementation split plan for the human to approve \u2014 the plan/tasks map, the per-task subagent + model assignment, and the go/no-go on assigning the plan to the workforce. Approved waves fan out to subagents in isolated worktrees with no live file races; the main agent merges each task's worktree gated by TDD (tests pass before and after merge) \u2014 no human per task. The human's remaining gates are the exported spec and the final PR."
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "Same-wave tasks touching the same file are made safe by isolated worktrees \u2014 the dependency graph alone does NOT guarantee file-disjointness; overlaps reconcile at merge."
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "Per-task merges need no human: the main agent gates each subagent's worktree merge with TDD (tests pass before and after merge). The human's three gates are the spec, the implementation split plan (plan map + assignments + go/no-go to workforce), and the final PR."
+    },
+    {
+      "id": "c20",
+      "kind": "announcement",
+      "text": "Devague turns a converged plan into parallel, simpler-model-executable work. /spec-to-plan yields plans whose tasks are independently parallelizable and given TDD acceptance criteria \u2014 scoped tightly enough for a cheap model to build test-first. A cited 'assign-to-workforce' skill (shared via 'devague learn') fans out 'devague plan waves' to one subagent per task per wave in isolated git worktrees; the main agent merges each task via TDD (its tests pass before AND after merge), while the human gates the spec, the implementation split plan, and the final PR. The CLI stays deterministic and non-orchestrating (#20)."
+    },
+    {
+      "id": "h17",
+      "kind": "honesty",
+      "text": "End-to-end the flow runs on a real converged plan \u2014 'devague plan waves' -> human approves the implementation split plan (plan map, per-task subagent/model assignment, go/no-go to workforce) -> one subagent per task per wave in isolated worktrees -> main-agent TDD-gated merges (tests pass before and after merge; no human per task) -> human spec & final-PR gates \u2014 without adding any orchestration or LLM call to the devague CLI."
+    },
+    {
+      "id": "c21",
+      "kind": "requirement",
+      "text": "/spec-to-plan yields plans whose tasks are independently parallelizable AND given TDD acceptance criteria \u2014 tests specified first, scoped tightly enough that a simpler/cheaper model can build each one test-first and have its output validated by those tests."
+    },
+    {
+      "id": "h18",
+      "kind": "honesty",
+      "text": "Within-wave independence is real: same-wave tasks have no inter-task dependency and can be built concurrently."
+    },
+    {
+      "id": "h19",
+      "kind": "honesty",
+      "text": "'Scoped for a simpler model' is operational via TDD, not a vibe: each task ships with tests crisp enough to validate a cheap model's output (the tests pass) without re-deriving the design."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Author the assign-to-workforce skill: SKILL.md + a portable helper script, plus its first-party provenance entry",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "SKILL.md documents the full flow: read 'devague plan waves' -> present the implementation split plan (tasks map + per-task subagent+model proposal) -> human go/no-go -> one subagent per task per wave in isolated git worktrees -> main-agent TDD-gated merge (the task's tests pass before AND after merge) -> human gates spec + split-plan + final PR",
+        "scripts/assign-to-workforce.sh resolves devague portably (mirrors think.sh) and prints the split-plan from 'devague plan waves --json'; on a converged plan it exits 0 and lists the waves",
+        "docs/skill-sources.md records assign-to-workforce as first-party (origin=devague); the skill states the CLI is never orchestrated by devague (#20)"
+      ],
+      "deps": [],
+      "covers": [
+        "c18",
+        "c20",
+        "h13",
+        "h14",
+        "h17"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "Document the assign-to-workforce convention in CLAUDE.md",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "CLAUDE.md gains a 'Subagent-driven implementation (assign-to-workforce)' section stating the three human gates (spec / implementation split plan / final PR), worktree contention safety, the main-agent TDD merge gate (no human per task), and the boundary that the CLI never spawns/orchestrates/marks-done/picks-backend (#20)",
+        "The section names the operator-agent and human roles and notes today's gap (waves emits the schedule but nothing downstream consumes it)",
+        "markdownlint-cli2 passes on CLAUDE.md and doc-test-alignment finds the section consistent with the skill"
+      ],
+      "deps": [],
+      "covers": [
+        "c2",
+        "c4",
+        "c5",
+        "c6",
+        "h5",
+        "h20",
+        "h22"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Add a deterministic, non-blocking plan_convergence warning for parallel/TDD fitness",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Tests written first: 'devague plan converge --json' emits a non-blocking warnings[] entry for a confirmed task with no acceptance criteria, and for an over-serialized graph (e.g. a needless single-task wave / trivial chain)",
+        "Warnings never change ready_for_plan/blockers \u2014 convergence still passes; a clean plan emits zero warnings",
+        "A unit test asserts same-wave tasks have no inter-task dependency (within-wave independence holds)"
+      ],
+      "deps": [],
+      "covers": [
+        "c21",
+        "h18",
+        "h19"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Carry assign-to-workforce invocation instructions in 'devague learn' (implements decision c17)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Tests written first: 'devague learn' (and --json) output contains an assign-to-workforce / subagent-driven-development section covering when to fan out, the three gates, and worktree+TDD",
+        "A unit test asserts the learn text includes the assign-to-workforce guidance"
+      ],
+      "deps": [],
+      "covers": []
+    },
+    {
+      "id": "t5",
+      "summary": "Coach /spec-to-plan to yield small, file-disjoint, TDD-accepted (parallelizable) tasks",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "spec-to-plan SKILL.md gains guidance: prefer many small, file-disjoint tasks; give each TDD acceptance criteria (tests first); reference the new convergence warning; state that a parallel build must equal a serial build because the tests are the contract",
+        "markdownlint-cli2 passes; the skill's worked example yields a plan whose waves contain >1 task (demonstrably parallel)"
+      ],
+      "deps": [],
+      "covers": [
+        "c3",
+        "h21"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Dogfood: run assign-to-workforce on a real converged plan and capture the worked example",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A worked example (in the skill or docs/) runs the flow on a real converged plan's waves: split-plan -> parallel subagents in worktrees -> TDD-gated merges, recording the qualitative speed/cost difference vs a serial build, with the TDD gates holding",
+        "The example is reproducible from the committed plan + 'devague plan waves' output"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "h23"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "Quantitative speed/cost benchmarking (measured wall-clock/token savings) is out of scope for #13; the win is demonstrated qualitatively via the worked example, not measured",
+      "kind": "unknown_nonblocking",
+      "task_id": "t6"
+    },
+    {
+      "id": "r2",
+      "text": "A turnkey orchestrator that actually spawns subagents/worktrees is out of scope; assign-to-workforce is operator guidance + a waves/split-plan helper \u2014 the operating agent performs the fan-out (CLI stays non-orchestrating, #20)",
+      "kind": "out_of_scope",
+      "task_id": "t1"
+    }
+  ]
+}
