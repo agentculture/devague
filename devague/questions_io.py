@@ -34,7 +34,9 @@ def parse(text: str) -> list[dict]:
         resolved = m.group("mark") == "x"
         decision = None
         if resolved and _DECIDED in rest:
-            rest, decision = rest.split(_DECIDED, 1)
+            # render() appends the decided tail last, so split from the right —
+            # otherwise a question whose *text* contains the delimiter corrupts.
+            rest, decision = rest.rsplit(_DECIDED, 1)
         items.append(
             {"id": m.group("id"), "text": rest.strip(), "resolved": resolved, "decision": decision}
         )

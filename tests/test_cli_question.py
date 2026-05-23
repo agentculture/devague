@@ -50,6 +50,19 @@ def test_question_resolve_records_decision(tmp_path, monkeypatch) -> None:
     assert items[0]["decision"] == "transactional"
 
 
+def test_question_text_containing_delimiter_round_trips(tmp_path, monkeypatch) -> None:
+    # Regression (Qodo, PR #23): a question whose text contains " — decided: "
+    # must not corrupt on resolve/parse — split from the right.
+    _seed(monkeypatch, tmp_path)
+    slug = store.current_slug()
+    tricky = "Should we use — decided: as syntax?"
+    main(["question", tricky])
+    main(["question", "--resolve", "q1", "--decision", "no"])
+    items = questions_io.parse(store.questions_path(slug).read_text())
+    assert items[0]["text"] == tricky
+    assert items[0]["decision"] == "no"
+
+
 def test_question_resolve_unknown_id_errors(tmp_path, monkeypatch, capsys) -> None:
     _seed(monkeypatch, tmp_path)
     main(["question", "q?"])
