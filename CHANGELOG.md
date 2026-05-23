@@ -15,6 +15,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - /think skill (SKILL.md): document the commit-then-/spec-to-plan close-out after a reviewed export (no "what next?" pause).
 
+### Fixed
+
+- `render/spec_md.py` + `render/plan_md.py`: exported markdown now satisfies the repo's own markdownlint config (blank line after every heading and before every list, MD022/MD032). Disabled MD036 for the renderers' italic metadata subtitle. Caught by dogfooding — `devague export` output was failing CI's markdown lint on `docs/specs` / `docs/plans`.
+
 ## [0.4.0] - 2026-05-23
 
 ### Added
