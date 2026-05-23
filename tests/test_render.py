@@ -132,6 +132,14 @@ def test_review_md_banner_and_proposed_only() -> None:
     assert_markdownlint_clean(out)
 
 
+def test_review_md_empty_when_no_proposals() -> None:
+    f = Frame(slug="rv2", title="All confirmed")
+    f.add_claim("announcement", "Shipped", origin="user")  # confirmed
+    out = render.render(f, "review-md")
+    assert "nothing awaiting review" in out.lower()
+    assert_markdownlint_clean(out)
+
+
 def test_unknown_format_raises() -> None:
     with pytest.raises(DevagueError):
         render.render(_frame(), "nope")
