@@ -45,7 +45,43 @@ def test_review_json_shape(tmp_path, monkeypatch, capsys) -> None:
     capsys.readouterr()
     assert main(["review", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert {"slug", "proposed_claims", "proposed_honesty"} <= payload.keys()
+    assert {"slug", "proposed_claims", "proposed_honesty", "path"} <= payload.keys()
     assert payload["proposed_claims"][0]["id"] == "c2"
     assert payload["proposed_honesty"][0]["id"] == "h1"
     assert payload["proposed_honesty"][0]["claim_id"] == "c1"
+
+
+def test_review_persists_artifact_to_devague_reviews(tmp_path, monkeypatch) -> None:
+    _seed_proposed(monkeypatch, tmp_path)
+    slug = store.current_slug()
+    assert main(["review"]) == 0
+    path = store.review_path(slug)
+    assert path.exists()
+    # Distinct from docs/specs/, and explicitly non-authoritative.
+    assert ".devague/reviews/" in path.as_posix()
+    assert "docs/specs/" not in path.as_posix()
+    assert "nothing confirmed yet" in path.read_text().lower()
+
+
+def test_review_manages_gitignore(tmp_path, monkeypatch) -> None:
+    _seed_proposed(monkeypatch, tmp_path)
+    main(["review"])
+    gi = (tmp_path / ".gitignore").read_text()
+    assert ".devague/reviews/" in gi
+
+
+def test_review_gitignore_append_is_idempotent(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / ".gitignore").write_text("*.pyc\n")
+    store.ensure_ignored(".devague/reviews/")
+    store.ensure_ignored(".devague/reviews/")  # second call must not duplicate
+    gi = (tmp_path / ".gitignore").read_text()
+    assert gi.count(".devague/reviews/") == 1
+    assert "*.pyc" in gi  # pre-existing entries preserved
+
+
+def test_review_no_write_skips_file(tmp_path, monkeypatch) -> None:
+    _seed_proposed(monkeypatch, tmp_path)
+    slug = store.current_slug()
+    assert main(["review", "--no-write"]) == 0
+    assert not store.review_path(slug).exists()

@@ -14,6 +14,12 @@ from devague.frame import SCHEMA_VERSION, Frame, from_dict, to_dict
 
 FRAMES_DIR = Path(".devague/frames")
 CURRENT = Path(".devague/current")
+REVIEWS_DIR = Path(".devague/reviews")
+QUESTIONS_DIR = Path(".devague/questions")
+
+# devague manages .gitignore so review/question working state is uncommitted by
+# default (decision c19, issue #17). The user opts in to promote one into docs.
+_IGNORE_HEADER = "# devague working state (not committed by default)"
 
 
 class IncompatibleSchemaError(ValueError):
@@ -48,6 +54,39 @@ def _now() -> str:
 
 def path_for(slug: str) -> Path:
     return FRAMES_DIR / f"{validate_slug(slug)}.json"
+
+
+def ensure_ignored(*patterns: str) -> None:
+    """Idempotently add ``patterns`` to ./.gitignore (devague-managed block).
+
+    Keeps ``.devague/`` working-state dirs uncommitted by default without
+    clobbering an existing .gitignore (decision c19, issue #17).
+    """
+    gi = Path(".gitignore")
+    existing = gi.read_text(encoding="utf-8").splitlines() if gi.exists() else []
+    missing = [p for p in patterns if p not in existing]
+    if not missing:
+        return
+    out = list(existing)
+    if out and out[-1].strip():
+        out.append("")
+    if _IGNORE_HEADER not in existing:
+        out.append(_IGNORE_HEADER)
+    out.extend(missing)
+    gi.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+def review_path(slug: str) -> Path:
+    return REVIEWS_DIR / f"{validate_slug(slug)}.md"
+
+
+def write_review(slug: str, content: str) -> Path:
+    """Persist a review artifact to .devague/reviews/<slug>.md (uncommitted)."""
+    REVIEWS_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_ignored(".devague/reviews/")
+    p = review_path(slug)
+    p.write_text(content, encoding="utf-8")
+    return p
 
 
 def unique_slug(base: str) -> str:
