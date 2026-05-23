@@ -33,7 +33,9 @@ def render(frame: Frame, fmt: str) -> str:
 
 # Register the built-in renderers (import-time side effect).
 from devague.render import frame_md as _frame_md  # noqa: E402
+from devague.render import review_md as _review_md  # noqa: E402
 from devague.render import spec_md as _spec_md  # noqa: E402
 
 register("frame-md", _frame_md.render_frame)
 register("spec-md", _spec_md.render_spec)
+register("review-md", _review_md.render_review)
