@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-05-23
+
+### Added
+
+- Spec contract (#5): claim kinds non_goal / requirement / assumption / decision, each with a documented convergence-gate role (requirement is spec-affecting; non_goal/decision are descriptive; an unconfirmed assumption is a warning, not a blocker).
+- Every frame carries a fail-closed schema_version: written on save, validated on load (a newer/unknown version is rejected with an actionable error); existing 0.4.0 frames still load.
+- docs/spec-contract.md — the documented source of truth for the entity model, the (state x origin) vocabulary, the structured convergence result, and the per-move input/output/transition/validation-error contract — plus a test-verified worked example at docs/examples/contract-example.json.
+- Contract test suite: claim provenance, honesty-condition confirmation, parking vagueness, structured convergence failure, lossless round-trip, schema versioning, and an offline-operation guarantee (no networking imports; a full session runs with sockets stubbed).
+
+### Changed
+
+- BREAKING: converge --json now emits the structured result {ready_for_spec, blockers, warnings, parked_items, required_next_moves} (plans: ready_for_plan) instead of {passed, missing}. The /think and /spec-to-plan status helpers were updated in the same change; required_next_moves is now derived by the CLI. capture --json now includes origin.
+- Frame loading raises distinct, actionable DevagueErrors (newer schema -> upgrade; malformed/hand-edited frame -> fix hint) instead of a generic 'invalid slug'.
+
 ## [0.4.1] - 2026-05-23
 
 ### Added
