@@ -1,14 +1,10 @@
-"""``devague reject`` — reject a claim or honesty condition."""
+"""``devague reject`` — reject one or more claims / honesty conditions."""
 
 from __future__ import annotations
 
 import argparse
 
-from devague.cli._commands.confirm import _transition
-
-
-def cmd_reject(args: argparse.Namespace) -> int:
-    return _transition(args, "rejected")
+from devague.cli._commands.confirm import cmd_reject
 
 
 def register(sub: argparse._SubParsersAction) -> None:
