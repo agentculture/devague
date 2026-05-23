@@ -19,6 +19,7 @@ CURRENT = Path(".devague/current")
 class IncompatibleSchemaError(ValueError):
     """A persisted frame declares a schema_version this devague cannot read."""
 
+
 # A safe slug is a bounded, lowercase, hyphen-separated token with no path
 # separators or `.` segments — so it can never escape FRAMES_DIR / SPECS_DIR.
 _SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,79}$")
