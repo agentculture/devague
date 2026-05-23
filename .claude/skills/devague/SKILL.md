@@ -64,11 +64,24 @@ Claim kinds: `announcement`, `audience`, `after_state`, `before_state`,
 `why_it_matters`, `boundary`, `success_signal`, `open_question`. Vagueness kinds:
 `unknown_nonblocking`, `unknown_blocking`, `out_of_scope`, `follow_up`.
 
+These are exactly the kinds the **shipped CLI enforces** (`CLAIM_KINDS` /
+`VAGUENESS_KINDS` in `devague/frame.py`) — the skill documents the surface as
+built, so every command here passes the CLI's `choices=` validation. A fuller
+proposed type/state set, plus the formal per-move input/output/transition
+contract, is tracked on the CLI side in
+[#5](https://github.com/agentculture/devague/issues/5); for the authoritative
+live shape of any move, run it with `--json` (or `devague learn --json` /
+`devague explain <move>`). When the CLI's contract grows, re-sync this list.
+
 ### `status` — the next-move helper
 
 `status` is a wrapper-only verb (the CLI has no `status`). It reads
 `converge --json` + `list --json` and prints where the current frame stands, the
-remaining gaps, and the recommended next move derived from the first gap:
+remaining gaps, and the recommended next move derived from the first gap.
+`converge --json` currently emits `{passed, missing}`, which is what the helper
+consumes; if [#5](https://github.com/agentculture/devague/issues/5) enriches that
+payload (e.g. structured `blockers` / `warnings` / `required_next_moves`),
+`status` will surface the richer fields then.
 
 ```text
 frame: my-feature    (1 frame total)
