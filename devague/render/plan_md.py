@@ -72,7 +72,7 @@ def render_plan(plan: Plan, frame: Optional[Frame]) -> str:
     out = [
         f"# Build Plan — {plan.title}",
         "",
-        f"_slug: {plan.slug} · status: {plan.status} · from frame: {plan.frame_slug}_",
+        f"slug: `{plan.slug}` · status: `{plan.status}` · from frame: `{plan.frame_slug}`",
         "",
     ]
     ann = _announcement(frame)

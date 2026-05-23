@@ -1,6 +1,6 @@
 # Build Plan — Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice
 
-_slug: devague-now-ships-a-documented-spec-contract-every · status: exported · from frame: devague-now-ships-a-documented-spec-contract-every_
+slug: `devague-now-ships-a-documented-spec-contract-every` · status: `exported` · from frame: `devague-now-ships-a-documented-spec-contract-every`
 
 > Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice
 
