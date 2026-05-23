@@ -10,10 +10,14 @@ import re
 import time
 from pathlib import Path
 
-from devague.frame import Frame, from_dict, to_dict
+from devague.frame import SCHEMA_VERSION, Frame, from_dict, to_dict
 
 FRAMES_DIR = Path(".devague/frames")
 CURRENT = Path(".devague/current")
+
+
+class IncompatibleSchemaError(ValueError):
+    """A persisted frame declares a schema_version this devague cannot read."""
 
 # A safe slug is a bounded, lowercase, hyphen-separated token with no path
 # separators or `.` segments — so it can never escape FRAMES_DIR / SPECS_DIR.
@@ -73,6 +77,11 @@ def load(slug: str) -> Frame:
         raise FileNotFoundError(slug)
     frame = from_dict(json.loads(p.read_text(encoding="utf-8")))
     validate_slug(frame.slug)  # reject a tampered file whose internal slug escapes
+    if frame.schema_version > SCHEMA_VERSION:
+        raise IncompatibleSchemaError(
+            f"frame {slug!r} uses schema_version {frame.schema_version}, but this "
+            f"devague supports up to {SCHEMA_VERSION}; upgrade devague to read it"
+        )
     return frame
 
 
