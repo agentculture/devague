@@ -396,3 +396,59 @@ def test_learn_and_explain(tmp_path, monkeypatch, capsys) -> None:
     assert json.loads(capsys.readouterr().out)["move"] == "task"
     assert main(["plan", "explain", "bogus"]) == 1
     assert "unknown plan move" in capsys.readouterr().err
+
+
+# ── converge surfaces warnings in text mode (PR #29) ────────────────────────────
+def test_plan_converge_text_surfaces_warnings(tmp_path, monkeypatch, capsys) -> None:
+    """Text-mode `plan converge` must show non-blocking warnings, like frame converge."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    # Three confirmed tasks in a serial chain (waves [[t1],[t2],[t3]]) that cover
+    # every target → the plan converges, but the over-serialized graph trips the
+    # non-blocking TDD-fitness warning.
+    main(
+        [
+            "plan",
+            "task",
+            "A",
+            "--accept",
+            "a",
+            "--covers",
+            "c1",
+            "--covers",
+            "c2",
+            "--covers",
+            "c3",
+            "--covers",
+            "c4",
+            "--covers",
+            "h1",
+            "--covers",
+            "h2",
+        ]
+    )
+    main(
+        [
+            "plan",
+            "task",
+            "B",
+            "--accept",
+            "b",
+            "--dep",
+            "t1",
+            "--covers",
+            "c5",
+            "--covers",
+            "c6",
+            "--covers",
+            "h3",
+            "--covers",
+            "h4",
+        ]
+    )
+    main(["plan", "task", "C", "--accept", "c", "--dep", "t2", "--covers", "h5", "--covers", "h6"])
+    capsys.readouterr()
+    assert main(["plan", "converge"]) == 0
+    out = capsys.readouterr().out
+    assert "converged ✓" in out
+    assert "warnings:" in out  # over-serialized chain → visible in default text output

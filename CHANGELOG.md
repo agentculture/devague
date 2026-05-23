@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-05-24
+
+### Added
+
+- Subagent-driven implementation via the new **assign-to-workforce** skill (#13). Fans out a converged plan's `devague plan waves` to one agent per task per wave in isolated git worktrees, with main-agent **TDD-gated merges** (the task's tests pass before AND after merge); the human gates the spec, the implementation split plan, and the final PR. devague's CLI stays deterministic and non-orchestrating (#20) — it only *describes* the graph. Ships a portable `assign-to-workforce.sh` helper and is recorded as a first-party skill.
+- `devague plan converge` now emits deterministic, **non-blocking warnings** for parallel/TDD fitness (#13): flags confirmed tasks with no acceptance criteria and over-serialized dependency graphs, without ever changing `ready_for_plan`/`blockers`.
+- `devague learn` documents how to invoke assign-to-workforce (#13).
+
+### Changed
+
+- `/spec-to-plan` now coaches small, file-disjoint, TDD-accepted (parallelizable) tasks, and `CLAUDE.md` documents the assign-to-workforce convention and its three human gates (#13).
+
 ## [0.9.1] - 2026-05-23
 
 ### Added

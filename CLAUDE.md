@@ -101,6 +101,56 @@ unchanged artifact overwrites the same file rather than spawning a duplicate.
 
 Full design: `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
 
+## Subagent-driven implementation (assign-to-workforce)
+
+**Converged plans execute in parallel via a cited `assign-to-workforce` skill**
+that fans out independent tasks to subagents in isolated git worktrees, keeping
+the devague CLI deterministic and non-orchestrating (#20).
+
+### The three human gates
+
+1. **Spec gate**: the exported frame/spec.
+2. **Implementation split plan gate**: the plan tasks map, per-task subagent +
+   model assignment, and the go/no-go decision on assigning the plan to the
+   workforce.
+3. **Final PR gate**: human code review of the merged result.
+
+### Worktree contention safety
+
+Each subagent runs in an isolated git worktree — one worktree per task per wave.
+Same-file overlaps between tasks (which the dependency graph does not
+guarantee to exclude) surface as merge conflicts at reconcile time, never as
+live races. The main/operating agent reconciles each merge.
+
+### Main-agent TDD merge gate (no human per task)
+
+The main agent gates each subagent's worktree merge with test-driven development:
+the task's tests must pass **before** the merge (validate the subagent's work)
+and **after** the merge (catch conflicts). No human is in the per-task loop.
+Per-task acceptance is uncommitted working state, mirroring the Human Review Loop
+(#17).
+
+### The boundary: devague stays deterministic
+
+The devague CLI never spawns subagents, manages worktrees, marks tasks done, or
+picks a backend (#20). Orchestration lives in the cited `assign-to-workforce`
+skill and this convention, not in new CLI and not in a CI/CD runner.
+
+### Roles
+
+- **Operator/main agent**: drives execution of waves and merges each subagent's
+  worktree (gated by TDD); owns the implementation split plan.
+- **Per-task subagents**: may be simpler or cheaper models; each builds a single
+  task test-first within its worktree.
+- **Human**: owns the three gates (spec, implementation split plan, final PR).
+
+### Current gap
+
+`devague plan waves [--json]` emits the scheduling metadata (`{plan, waves}`),
+but nothing downstream consumes it yet. The `assign-to-workforce` skill (cited
+from superpowers:subagent-driven-development) is what consumes waves and
+orchestrates the fan-out; its use is shared via `devague learn`.
+
 ## Project intent
 
 **devague** — an AgentCulture agent that turns a vague feature idea into a

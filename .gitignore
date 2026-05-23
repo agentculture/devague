@@ -230,3 +230,6 @@ __marimo__/
 .devague/questions/
 
 .devague/reviews/
+
+# claude agent worktrees (transient; harness-managed)
+.claude/worktrees/

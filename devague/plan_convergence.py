@@ -14,7 +14,7 @@ import re
 from typing import Optional
 
 from devague.convergence import ConvergenceResult
-from devague.plan import CoverageTarget, Plan, Task
+from devague.plan import CoverageTarget, Plan, Task, dependency_waves
 
 
 def _missing_tasks(plan: Plan) -> list[str]:
@@ -173,6 +173,60 @@ def suggest_move(blocker: str) -> str:
     return "devague plan show     # inspect and decide"
 
 
+def _tdd_fitness_warnings(plan: Plan) -> list[str]:
+    """Non-blocking warnings that flag poor parallel/TDD fitness.
+
+    Two deterministic, purely structural heuristics:
+
+    1. **Missing acceptance criteria on confirmed tasks.**
+       A confirmed task with zero acceptance criteria cannot be validated test-first.
+       This fires even though :func:`_missing_acceptance` already raises a blocker for
+       the same condition — the warning reinforces the TDD-fitness signal independently
+       of the gate, so it appears in ``warnings[]`` even when the plan has not converged.
+       Proposed and rejected tasks are excluded: proposed tasks are gated by the
+       "still proposed" blocker; rejected tasks are not built.
+
+    2. **Over-serialized dependency graph.**
+       When every wave produced by :func:`~devague.plan.dependency_waves` contains
+       exactly one active confirmed task AND there are at least three such tasks, the
+       plan is fully serial — every task blocks the next, no fan-out is possible.
+       This is the "needless single-task wave / trivial linear chain" pattern that
+       wastes parallel capacity.  The threshold of 3 is deliberate: a single task is
+       trivially serial (no parallelism to exploit) and a two-task chain is the minimal
+       producer/consumer relationship (also not actionable).  The heuristic only counts
+       **confirmed** active (non-rejected) tasks; proposed tasks are unresolved and may
+       be rejected, so counting them would produce unstable warnings.
+
+    Neither warning changes ``ready_for_plan`` or ``blockers``.
+    """
+    warnings: list[str] = []
+
+    # Heuristic 1: confirmed task with zero acceptance criteria.
+    for t in plan.tasks:
+        if t.status == "confirmed" and not t.acceptance_criteria:
+            warnings.append(
+                f"task {t.id} has no acceptance criteria"
+                " — add TDD acceptance tests before implementation"
+            )
+
+    # Heuristic 2: over-serialized graph.
+    active_confirmed = [t for t in plan.tasks if t.status == "confirmed"]
+    if len(active_confirmed) >= 3:
+        waves = dependency_waves(plan.tasks)
+        # Filter to waves that contain at least one confirmed task.
+        confirmed_ids = {t.id for t in active_confirmed}
+        confirmed_waves = [[tid for tid in w if tid in confirmed_ids] for w in waves]
+        confirmed_waves = [w for w in confirmed_waves if w]
+        if confirmed_waves and all(len(w) == 1 for w in confirmed_waves):
+            warnings.append(
+                f"plan has {len(active_confirmed)} confirmed tasks"
+                " forming a fully serial chain — consider parallelizing"
+                " independent tasks into the same wave"
+            )
+
+    return warnings
+
+
 def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> ConvergenceResult:
     """Evaluate the plan gate against ``targets`` (defaults to the plan's snapshot).
 
@@ -192,6 +246,7 @@ def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> Conv
     return ConvergenceResult(
         ready=not blockers,
         blockers=blockers,
+        warnings=_tdd_fitness_warnings(plan),
         parked_items=_parked_items(plan),
         required_next_moves=[suggest_move(b) for b in blockers],
     )

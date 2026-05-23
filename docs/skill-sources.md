@@ -39,6 +39,7 @@ it must relearn the new name and pick up the new `spec-to-plan` sibling.)
 |-------|--------|------------|-------|
 | `think` | **devague** (here: `.claude/skills/think/`) | `steward`, then the AgentCulture mesh | Operator for the **idea→spec** leg of the deterministic devague CLI: portable resolution + a `status` next-move helper over the frame convergence gate. Renamed from `devague` in 0.4.0. When ready, `steward` re-vendors it from `../devague/.claude/skills/think/` and broadcasts it to the mesh. |
 | `spec-to-plan` | **devague** (here: `.claude/skills/spec-to-plan/`) | `steward`, then the AgentCulture mesh | Operator for the **spec→plan** leg (`devague plan ...`): portable resolution + a `status` next-move helper over the plan convergence gate. New in 0.4.0. Re-vendor from `../devague/.claude/skills/spec-to-plan/`. |
+| `assign-to-workforce` | **devague** (here: `.claude/skills/assign-to-workforce/`) | `steward`, then the AgentCulture mesh | Operator for the **implementation** leg (fan out `devague plan waves` to parallel agents in isolated git worktrees, with TDD-gated merges by the main agent). Three human gates only: spec / implementation split plan / final PR. The devague CLI remains non-orchestrating (#20) — this skill is the convention + helper, not new CLI behavior. New in 0.7.0. Re-vendor from `../devague/.claude/skills/assign-to-workforce/`. |
 
 `cite, don't import` applies to both — downstream copies them, no
 symlink/dependency. Written portable-first so they pass steward's
