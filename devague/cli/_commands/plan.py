@@ -32,6 +32,7 @@ PLANS_OUT_DIR = Path("docs/plans")
 
 _JSON_HELP = "Emit structured JSON."
 _TASK_ID_HELP = "Task id."
+_RESOLVE_HINT = "resolve: "  # prefix for a "; "-joined blocker remediation hint
 
 PLAN_MOVES = {
     "new": "Start a plan from a converged frame (derives coverage targets).",
@@ -105,7 +106,7 @@ def cmd_plan_new(args: argparse.Namespace) -> int:
         raise DevagueError(
             EXIT_USER_ERROR,
             f"frame '{frame.slug}' has not converged; cannot start a plan",
-            "resolve: " + "; ".join(result.blockers),
+            _RESOLVE_HINT + "; ".join(result.blockers),
         )
     if plan_store.path_for(frame.slug).exists():
         raise DevagueError(
@@ -270,7 +271,7 @@ def cmd_plan_export(args: argparse.Namespace) -> int:
         raise DevagueError(
             EXIT_USER_ERROR,
             "plan has not converged; cannot export",
-            "resolve: " + "; ".join(result.blockers),
+            _RESOLVE_HINT + "; ".join(result.blockers),
         )
     plan.status = "exported"
     text = plan_md.render_plan(plan, frame)
@@ -300,7 +301,7 @@ def cmd_plan_waves(args: argparse.Namespace) -> int:
         raise DevagueError(
             EXIT_USER_ERROR,
             "cannot derive waves: the dependency graph is not sound",
-            "resolve: " + "; ".join(blockers),
+            _RESOLVE_HINT + "; ".join(blockers),
         )
     waves = dependency_waves(plan.tasks)
     if getattr(args, "json", False):
