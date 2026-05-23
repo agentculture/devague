@@ -5,6 +5,71 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-05-23
+
+### Security
+
+- `store.validate_slug()` now guards every slug-derived path (`--frame`,
+  `.devague/current`, and a persisted `frame.slug`) against path traversal and
+  absolute paths via a strict allowlist, closing an arbitrary file read/write
+  through `load()` / `save()` / `export`.
+
+### Fixed
+
+- `devague new` no longer silently overwrites an existing frame when two titles
+  slugify to the same value: `store.unique_slug()` allocates `<slug>-2`,
+  `<slug>-3`, … and the chosen slug is surfaced in the output.
+
+### Changed
+
+- `devague new` and `devague learn` now use issue #4's exact entry point —
+  first question *"What's the announcement?"* with the "users, teammates, or
+  yourself" supporting prompt.
+- Documented the canonical ten-stage guided sequence (Announcement → Spec) in
+  the design doc and `devague learn` (also exposed via `learn --json`), while
+  keeping the engine move-driven rather than a rigid wizard.
+- Raised the coverage gate from 70 % to 95 %.
+- Cleared four SonarCloud maintainability findings on the new code: collapsed
+  the redundant `return 0` paths in `show` / `list` (S3516) and reduced the
+  cognitive complexity of `render_frame` and `convergence.evaluate` below the
+  threshold by extracting focused helpers (S3776). Behavior unchanged.
+
+## [0.3.1] - 2026-05-23
+
+### Fixed
+
+- `converge` now demotes a `converged` frame back to `drafting` when a new
+  blocking item is added and the gate re-runs (was stuck at `converged`).
+- Removed the unreachable `parked` value from `CLAIM_STATUSES` and
+  `Claim.status`; the `park` move records open vagueness, not a claim status.
+  Updated convergence message wording, spec, and plan to match.
+- `export --format` is now constrained to `choices=("spec-md",)`, preventing
+  `--format frame-md` from silently writing the Announcement Frame as a spec.
+
+## [0.3.0] - 2026-05-23
+
+### Added
+
+- The working-backwards engine: a deterministic Frame state machine
+  (`devague/frame.py`, `store.py`, `convergence.py`) and the moves
+  `new` / `capture` / `interrogate` / `confirm` / `reject` / `park` /
+  `converge` / `export` / `show` / `list`, plus a pluggable renderer
+  registry (`frame-md`, `spec-md`). `export` is gated on convergence;
+  LLM-proposed claims and honesty conditions require user confirmation.
+- Real `learn` / `explain` bodies teaching the method and the moves.
+
+## [0.2.0] - 2026-05-23
+
+### Changed
+
+- Renamed the package and CLI `specifix` → `devague` (PyPI distribution
+  `devague`; the orphaned `specifix 0.1.0` is left as-is). Console script,
+  `python -m`, `culture.yaml` suffix, SonarCloud key, and docs all updated.
+
+### Removed
+
+- The placeholder `whoami` verb (the `learn` / `explain` affordances remain).
+
 ## [0.1.0] - 2026-05-22
 
 ### Added

@@ -4,38 +4,66 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-**Scaffolded (greenfield product).** The AgentCulture sibling skeleton has
-landed: the `specifix` package with the argparse CLI chassis, tests, CI, the
-six vendored skills, and `culture.yaml`. The CLI verbs (`learn` / `explain` /
-`whoami`) are **honest placeholder stubs** — the actual spec-creation product is
-not implemented yet. Run `git ls-files` to see the real surface rather than
-trusting a layout described here.
+**Working-backwards engine landed (v0.3.0).** The full deterministic spec
+engine is implemented: Frame domain model, persistent JSON store, convergence
+gate, pluggable renderer registry, and all CLI moves — `new` / `capture` /
+`interrogate` / `confirm` / `reject` / `park` / `converge` / `export` / `show`
+/ `list` — plus real `learn` / `explain` bodies that teach the method.
+Coverage is 94 %; all linters pass. Run `git ls-files` to see the real surface.
 
-Real commands (verify against `pyproject.toml`): `uv sync`;
-`uv run specifix --version`; `python -m specifix`; `uv run pytest -n auto`
-(single test: `uv run pytest tests/<file>::<node> -v`);
-`uv run flake8 --config=.flake8 specifix/ tests/`; `markdownlint-cli2 "**/*.md"`.
+Real commands: `uv sync`; `uv run devague --version`; `python -m devague`;
+`uv run pytest -n auto` (single test: `uv run pytest tests/<file>::<node> -v`);
+`uv run flake8 --config=.flake8 devague/ tests/`; `uv run black devague/ tests/`;
+`uv run isort --profile black devague/ tests/`; `markdownlint-cli2 "**/*.md"`.
+
+## Working-backwards method
+
+The agent drives the **deterministic** CLI — no LLM calls inside the CLI
+itself. The workflow:
+
+1. `devague new "<announcement>"` — the announcement-first entry point. The
+   canonical first question is *"What's the announcement?"* ("Pretend this
+   shipped successfully — what would you announce to users, teammates, or
+   yourself?"). Creates a Frame seeded with the announcement claim
+   (auto-confirmed, since it comes from the user). `devague learn` documents the
+   full ten-stage guided sequence.
+2. `devague capture --kind <kind> "<text>"` — add claims; LLM-proposed ones
+   (`--origin llm`) land as `proposed` and require explicit user `confirm`.
+3. `devague interrogate <claim-id>` — attach honesty conditions and hard
+   questions; honesty conditions from the LLM are also `proposed`.
+4. `devague confirm <id>` / `reject` / `park` — **all honesty conditions
+   routed through the user**; the agent must not auto-confirm LLM proposals.
+5. `devague converge` — evaluates the convergence gate; lists remaining gaps.
+6. `devague export` — only succeeds after `converge` passes; writes a
+   buildable spec-md to `docs/specs/`.
+
+Full design: `docs/superpowers/specs/2026-05-23-devague-working-backwards-design.md`.
 
 ## Project intent
 
-**specifix** — an AgentCulture agent that *owns spec creation for changes* (per
-`README.md`). The expected niche is producing the design/spec artifact that
-precedes implementation, in the spirit of the brainstorming → spec → plan
-workflow the workspace already uses (`docs/superpowers/specs/`,
-`docs/superpowers/plans/` in sibling repos).
+**devague** — an AgentCulture agent that turns a vague feature idea into a
+**buildable spec** by working backwards. The method: start from the
+announcement ("pretend it shipped — what would you announce?"), build an
+**Announcement Frame** by capturing and classifying claims, pressure-testing
+them with honesty conditions and hard questions, parking unresolved uncertainty
+as first-class "open vagueness," and only exporting a buildable spec once the
+frame *converges*.
 
-Before designing a bespoke spec format or transport, check what already exists:
-the `superpowers:brainstorming`, `superpowers:writing-plans`, and
-`superpowers:writing-skills` skills already encode a spec/plan discipline, and
-sibling agents (`steward`, `agtag`, `culture`, `daria`) provide agent-to-agent
-plumbing. Clarify with the user where specifix sits relative to those rather than
-duplicating them.
+This is a **state machine over claims, honesty conditions, open vagueness, and
+convergence** driven by LLM-chosen moves — not a linear wizard. The CLI is
+deterministic and fully unit-testable; the resident Claude agent decides the
+next move. See `docs/superpowers/specs/2026-05-23-devague-working-backwards-design.md`
+for the full design.
+
+devague is its own method — not a wrapper around `superpowers:brainstorming`
+or `superpowers:writing-plans`, though the exported spec-md artifact can feed
+directly into those workflows.
 
 ## Ecosystem context
 
-specifix belongs to the **AgentCulture** family (MIT, `Copyright (c) 2026
-AgentCulture`); the GitHub remote is `origin/main` and will live under
-`github.com/agentculture/specifix`. Its closest structural analogs in this
+devague belongs to the **AgentCulture** family (MIT, `Copyright (c) 2026
+AgentCulture`); the GitHub remote is `origin/main` and lives under
+`github.com/agentculture/devague`. Its closest structural analogs in this
 workspace are the small Python CLI agents `agtag`, `appsec`, `seer-cli`, and
 `steward` — when in doubt about how something *should* look here, read theirs.
 
@@ -50,22 +78,24 @@ The committed `.gitignore` is the standard Python template, and every sibling
 agent is **uv**-based Python (`requires-python >=3.12`, hatchling build). Match
 that unless the user asks otherwise. The established sibling shape is:
 
-- A top-level package directory (`specifix/`) with `__init__.py` and `__main__.py`
-  (so `python -m specifix` works).
-- An argparse **CLI chassis** under `specifix/cli/`: `__init__.py` with `main()`
-  (exposed as the `specifix` console script), plus `_errors.py` (a
-  `SpecifixError` + exit-code policy) and `_output.py` (strict stdout/stderr
+- A top-level package directory (`devague/`) with `__init__.py` and `__main__.py`
+  (so `python -m devague` works).
+- An argparse **CLI chassis** under `devague/cli/`: `__init__.py` with `main()`
+  (exposed as the `devague` console script), plus `_errors.py` (a
+  `DevagueError` + exit-code policy) and `_output.py` (strict stdout/stderr
   split, `--json` support).
-- `specifix/cli/_commands/` — one module per verb, each exposing `register()`.
-  New scaffolds typically start with placeholder `learn` / `explain` / `whoami`
-  verbs that are honest stubs, not faked functionality.
+- `devague/cli/_commands/` — one module per verb, each exposing `register()`.
+  Implemented verbs: `new`, `capture`, `interrogate`, `confirm`, `reject`,
+  `park`, `converge`, `export`, `show`, `list`, `learn`, `explain`.
 - `pyproject.toml`, `CHANGELOG.md`, `tests/`, `docs/`, `culture.yaml`,
   `sonar-project.properties`, `uv.lock`.
 
-Likely commands once scaffolded (verify against the real `pyproject.toml` before
-relying on them): `uv sync`; `uv run specifix --version`; `uv run pytest -n auto`
-(single test: `uv run pytest tests/<file>::<node> -v`); `uv run flake8 / black /
-isort`; `bandit` + `pylint` in CI; `markdownlint-cli2 "**/*.md"`.
+Commands (verify against the real `pyproject.toml`): `uv sync`;
+`uv run devague --version`; `uv run pytest -n auto`
+(single test: `uv run pytest tests/<file>::<node> -v`);
+`uv run flake8 --config=.flake8 devague/ tests/`; `uv run black devague/ tests/`;
+`uv run isort --profile black devague/ tests/`;
+`bandit -r devague/`; `pylint devague/`; `markdownlint-cli2 "**/*.md"`.
 
 ## Conventions worth preserving
 
@@ -77,7 +107,7 @@ isort`; `bandit` + `pylint` in CI; `markdownlint-cli2 "**/*.md"`.
   steward-origin `cicd` skill (delegating to the `agex pr` CLI). Use it here once
   vendored rather than hand-rolling `gh pr` flows.
 - **Signing online posts.** PR descriptions and issue/PR comments authored on the
-  user's behalf are signed so it's clear they're AI-authored: `- specifix (Claude)`
+  user's behalf are signed so it's clear they're AI-authored: `- devague (Claude)`
   once a `culture.yaml` (with the repo nick) exists, otherwise `- Claude`. Inside
   the `cicd` flow, the scripts append the signature — don't sign the body manually
   there.
@@ -89,7 +119,7 @@ the branch and opening a Pull Request** — do not present an interactive "what
 would you like to do?" menu and wait for a choice. This overrides the
 Superpowers `finishing-a-development-branch` skill, whose default is to stop and
 ask the user to pick among *merge locally / create PR / keep as-is / discard*.
-That pause breaks the flow. In specifix — and in every AgentCulture sibling —
+That pause breaks the flow. In devague — and in every AgentCulture sibling —
 the standing choice is **always "push and open a Pull Request,"** done via the
 `cicd` skill (`agex pr open`). Merge-locally / keep-as-is / discard happen only
 on explicit user request. (Standing rule carried by the `cicd` skill since

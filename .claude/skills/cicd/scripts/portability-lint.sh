@@ -21,7 +21,7 @@ esac
 [ -z "$files" ] && { echo "(no files to check)"; exit 0; }
 
 # ----- Check 1: hard-coded /home/<user>/... paths -----
-# specifix-divergence: drop GNU-only `xargs -r` (fails on BSD/macOS); `$files`
+# devague-divergence: drop GNU-only `xargs -r` (fails on BSD/macOS); `$files`
 # is already guarded non-empty above. Upstream to steward; remove on re-vendor.
 hits1=$(echo "$files" | xargs grep -nE '/home/[a-z][a-z0-9_-]+/' 2>/dev/null || true)
 
@@ -31,7 +31,7 @@ hits1=$(echo "$files" | xargs grep -nE '/home/[a-z][a-z0-9_-]+/' 2>/dev/null || 
 #   - ~/.culture/                     Culture mesh data this skill is supposed to read
 md_yaml=$(echo "$files" | grep -E '\.(md|ya?ml|toml|json|jsonc)$' || true)
 if [ -n "$md_yaml" ]; then
-    # specifix-divergence: drop GNU-only `xargs -r` (see Check 1); `$md_yaml`
+    # devague-divergence: drop GNU-only `xargs -r` (see Check 1); `$md_yaml`
     # is guarded non-empty by the `if` above. Upstream to steward.
     hits2=$(echo "$md_yaml" | xargs grep -nE '~/\.[A-Za-z]' 2>/dev/null \
         | grep -vE '~/\.claude/skills/[^[:space:]"]+/scripts/' \

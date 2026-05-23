@@ -1,4 +1,4 @@
-# markdownlint-cli2 config for specifix.
+# markdownlint-cli2 config for devague.
 # markdownlint-cli2 stops walking at the git root, so a global
 # markdownlint config in the user's home directory isn't picked up from
 # inside the repo. Keep this file aligned with the global preset.

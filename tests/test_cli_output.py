@@ -5,8 +5,8 @@ from __future__ import annotations
 import io
 import json
 
-from specifix.cli._errors import SpecifixError
-from specifix.cli._output import emit_diagnostic, emit_error, emit_result
+from devague.cli._errors import DevagueError
+from devague.cli._output import emit_diagnostic, emit_error, emit_result
 
 
 def test_emit_result_text_adds_trailing_newline() -> None:
@@ -24,7 +24,7 @@ def test_emit_result_json() -> None:
 def test_emit_error_text_with_remediation() -> None:
     buf = io.StringIO()
     emit_error(
-        SpecifixError(code=1, message="bad", remediation="fix it"),
+        DevagueError(code=1, message="bad", remediation="fix it"),
         json_mode=False,
         stream=buf,
     )
@@ -33,14 +33,14 @@ def test_emit_error_text_with_remediation() -> None:
 
 def test_emit_error_text_without_remediation() -> None:
     buf = io.StringIO()
-    emit_error(SpecifixError(code=1, message="bad"), json_mode=False, stream=buf)
+    emit_error(DevagueError(code=1, message="bad"), json_mode=False, stream=buf)
     assert buf.getvalue() == "error: bad\n"
 
 
 def test_emit_error_json() -> None:
     buf = io.StringIO()
     emit_error(
-        SpecifixError(code=2, message="bad", remediation="fix"),
+        DevagueError(code=2, message="bad", remediation="fix"),
         json_mode=True,
         stream=buf,
     )

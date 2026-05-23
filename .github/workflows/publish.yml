@@ -5,12 +5,12 @@ on:
     branches: [main]
     paths:
       - "pyproject.toml"
-      - "specifix/**"
+      - "devague/**"
   pull_request:
     branches: [main]
     paths:
       - "pyproject.toml"
-      - "specifix/**"
+      - "devague/**"
 
 jobs:
   test:
@@ -62,7 +62,7 @@ jobs:
       - name: Print install commands
         if: always()
         run: |
-          echo "::notice::Test with: uv tool install --index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match specifix==${DEV_VERSION}"
+          echo "::notice::Test with: uv tool install --index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match devague==${DEV_VERSION}"
 
   publish:
     if: github.event_name == 'push'

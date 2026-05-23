@@ -1,8 +1,8 @@
-"""SpecifixError and exit-code policy.
+"""DevagueError and exit-code policy.
 
-Every failure inside specifix raises :class:`SpecifixError`. The top-level
-``main()`` catches it, formats via :mod:`specifix.cli._output`, and exits with
-:attr:`SpecifixError.code`. This centralises the exit-code policy and
+Every failure inside devague raises :class:`DevagueError`. The top-level
+``main()`` catches it, formats via :mod:`devague.cli._output`, and exits with
+:attr:`DevagueError.code`. This centralises the exit-code policy and
 guarantees no Python traceback leaks to stderr.
 """
 
@@ -21,8 +21,8 @@ EXIT_ENV_ERROR = 2
 
 
 @dataclass
-class SpecifixError(Exception):
-    """Structured error raised within specifix; carries a remediation hint."""
+class DevagueError(Exception):
+    """Structured error raised within devague; carries a remediation hint."""
 
     code: int
     message: str

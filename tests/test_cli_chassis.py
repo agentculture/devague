@@ -1,4 +1,4 @@
-"""Tests for the specifix CLI chassis."""
+"""Tests for the devague CLI chassis."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import sys
 
 import pytest
 
-from specifix import __version__
-from specifix.cli import main
+from devague import __version__
+from devague.cli import main
 
 
 def test_version_flag_exits_zero_and_prints_version(
@@ -25,7 +25,7 @@ def test_no_args_prints_help_and_returns_zero(
 ) -> None:
     rc = main([])
     assert rc == 0
-    assert "usage: specifix" in capsys.readouterr().out
+    assert "usage: devague" in capsys.readouterr().out
 
 
 def test_unknown_verb_routes_through_structured_error(
@@ -39,7 +39,7 @@ def test_unknown_verb_routes_through_structured_error(
 
 def test_python_dash_m_invocation() -> None:
     result = subprocess.run(
-        [sys.executable, "-m", "specifix", "--version"],
+        [sys.executable, "-m", "devague", "--version"],
         capture_output=True,
         text=True,
         check=False,
