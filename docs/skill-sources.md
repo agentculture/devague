@@ -25,6 +25,17 @@ rows.
 | `sonarclaude` | `steward` (`../steward/.claude/skills/sonarclaude/`) | 2026-05-22 | None — portable verbatim. Project key resolves from `$SONAR_PROJECT` / `--project` (here: `agentculture_devague`). |
 | `doc-test-alignment` | `steward` (`../steward/.claude/skills/doc-test-alignment/`) | 2026-05-22 | **Stub upstream** — `scripts/check.sh` exits with a not-yet-implemented error today; the contract for what it will do lives in its `SKILL.md`. Vendored verbatim to carry the contract. |
 
+## Origin skills (outbound)
+
+Not every skill here is inbound. The `devague` skill is **authored and
+maintained in this repo** — devague is its origin/upstream, not a downstream
+consumer. The devague agent dogfoods it to operate the devague CLI while
+improving the tool. The flow runs the *opposite* direction of the table above.
+
+| Skill | Origin | Downstream | Notes |
+|-------|--------|------------|-------|
+| `devague` | **devague** (here: `.claude/skills/devague/`) | `steward`, then the AgentCulture mesh | Operator for the deterministic devague CLI: portable resolution + a `status` next-move helper over the convergence gate. When ready, `steward` re-vendors it from `../devague/.claude/skills/devague/` and broadcasts it to the mesh. `cite, don't import` still applies — downstream copies it, no symlink/dependency. Written portable-first so it passes steward's `portability-lint.sh`. |
+
 ## Vendoring policy
 
 - **Cite, don't import.** Skills are copied, not symlinked or installed as

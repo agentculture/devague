@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-05-23
+
+### Added
+
+- First-party `devague` skill (`.claude/skills/devague/`): a portable wrapper (`scripts/devague.sh`) that operates the working-backwards CLI, forwards every move, and adds a `status` next-move helper over the convergence gate; plus `tests/test_devague_skill.py` and an outbound-origin note in `docs/skill-sources.md`. Origin = devague; steward pulls it from here and broadcasts to the AgentCulture mesh.
+
 ## [0.3.2] - 2026-05-23
 
 ### Security

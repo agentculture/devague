@@ -14,4 +14,4 @@ exclude =
     build
 per-file-ignores =
     # Bandit S-rules are noisy in tests (assert, subprocess, etc.) — mute them.
-    tests/*:S101,S404,S603
+    tests/*:S101,S404,S603,S607
