@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-05-23
+
+### Fixed
+
+- `spec_md` now surfaces `requirement` **claim text** — the last remaining item of #21. Requirements render in a `## Requirements` section with their confirmed honesty conditions nested beneath each claim; honesty conditions on non-requirement claims move to a separate `## Honesty conditions` section (previously every honesty condition was dumped into one flat "Requirements / honesty conditions" list and the requirement claim text never rendered). Re-exported the committed specs to match. Closes #21.
+
 ## [0.6.0] - 2026-05-23
 
 ### Added

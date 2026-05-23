@@ -79,7 +79,8 @@ def test_spec_md_omits_empty_before_after_section() -> None:
 def _rich_frame() -> Frame:
     """A frame exercising the kinds added by the #5/#16 contract."""
     f = Frame(slug="r", title="Rich Feature")
-    f.add_claim("announcement", "Shipped", origin="user")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    f.add_honesty(ann, "must be honest", origin="user")  # non-requirement honesty
     f.add_claim("boundary", "scope is X only", origin="user")
     f.add_claim("non_goal", "does not call an LLM", origin="user")
     f.add_claim("non_goal", "no external services", origin="user")
@@ -103,6 +104,18 @@ def test_spec_md_renders_non_goal_and_decision() -> None:
     # boundary keeps its own section, distinct from non-goals
     assert "## Scope / boundaries" in out
     assert "scope is X only" in out
+    assert_markdownlint_clean(out)
+
+
+def test_spec_md_renders_requirement_claim_text_with_nested_honesty() -> None:
+    # #21 remaining item: requirement *claim* text must render, not only its honesty.
+    out = render.render(_rich_frame(), "spec-md")
+    assert "## Requirements" in out
+    assert "- review lists proposed items" in out  # the requirement claim text
+    assert "  - honesty: review never mutates state" in out  # nested under it
+    # honesty on non-requirement claims still appears, in its own section
+    assert "## Honesty conditions" in out
+    assert "must be honest" in out  # the announcement's honesty (non-requirement)
     assert_markdownlint_clean(out)
 
 
@@ -138,6 +151,18 @@ def test_review_md_empty_when_no_proposals() -> None:
     out = render.render(f, "review-md")
     assert "nothing awaiting review" in out.lower()
     assert_markdownlint_clean(out)
+
+
+def test_spec_md_omits_honesty_for_unconfirmed_claims() -> None:
+    # #24 (Qodo): a proposed/rejected claim carrying a confirmed honesty must not
+    # leave an orphan honesty bullet — spec-md renders confirmed claims only.
+    f = Frame(slug="o", title="Orphan")
+    f.add_claim("announcement", "Shipped", origin="user")  # confirmed
+    proposed = f.add_claim("audience", "maybe devs", origin="llm")  # proposed
+    f.add_honesty(proposed, "honesty whose parent is unconfirmed", origin="user")
+    out = render.render(f, "spec-md")
+    assert "honesty whose parent is unconfirmed" not in out
+    assert "maybe devs" not in out  # the proposed claim text is omitted too
 
 
 def test_unknown_format_raises() -> None:

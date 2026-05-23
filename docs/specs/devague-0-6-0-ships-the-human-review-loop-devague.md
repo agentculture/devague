@@ -15,7 +15,22 @@
 
 - The user-only confirmation step is devague's whole anti-fabrication guarantee; it must be ergonomic enough to do honestly at scale and support out-of-band review (read proposals somewhere comfortable like NotebookLM or a shared doc, then apply decisions), or it gets skipped or rubber-stamped.
 
-## Requirements / honesty conditions
+## Requirements
+
+- 'devague review' (and 'devague review --json') emits all proposed claims and proposed honesty conditions, with their ids, without requiring or triggering convergence.
+  - honesty: Running 'devague review' on a frame that has NOT converged still exits 0 and lists every proposed claim and proposed honesty condition with ids; it never invokes the convergence gate nor mutates any claim/condition state.
+- Review output is clearly labelled unconfirmed and non-authoritative, visually distinct from the buildable spec that 'export' produces only after convergence.
+  - honesty: The review artifact carries an explicit 'nothing confirmed yet — non-authoritative' banner and is written to a path under `.devague/reviews/<slug>.md`, distinct from docs/specs/, so it cannot be mistaken for the buildable spec.
+- 'devague confirm' accepts multiple claim/honesty ids in one invocation, and 'devague reject' likewise.
+  - honesty: 'devague confirm a b c' resolves every listed id in a single call (and 'reject a b c' likewise), and the handling of a batch containing an invalid/unknown id follows one defined, tested rule.
+- Open questions / pending user decisions can be written as durable .devague working state (e.g. `.devague/questions/<slug>.md`), treated as uncommitted working state by default unless the user intentionally promotes one into docs.
+  - honesty: A pending question the CLI writes persists across runs under `.devague/questions/<slug>.md`, is treated as uncommitted working state by default, and a documented path exists to apply a confirmed decision back into the frame.
+- No command in the review flow auto-confirms LLM-proposed content; every confirm/reject stays an explicit user action.
+  - honesty: An automated test asserts that no review-flow command (review, multi-id confirm/reject, any --json path) transitions an llm-origin proposed item to confirmed without an explicit user confirm naming that id.
+- `devague confirm --from-review <file>` applies a reviewed decision set parsed from the review artifact; the artifact 'devague review' emits is documented and round-trippable (review -> edit decisions -> apply).
+  - honesty: A review artifact emitted by 'devague review' can be edited with confirm/reject decisions and fed to `devague confirm --from-review <file>` to apply exactly those decisions — proven by a round-trip test — and applying it still auto-confirms nothing the file did not mark confirmed.
+
+## Honesty conditions
 
 - At 0.6.0 release the announcement is literally true of the shipped CLI: 'devague review' exists, and a frame full of proposed items can be reviewed then bulk confirmed/rejected in one pass with no path that auto-confirms.
 - Both audiences are served: the operator gets a single review + bulk-decide path, and the LLM agent's proposals stay visibly 'proposed' until the operator explicitly acts.
@@ -24,12 +39,6 @@
 - The anti-fabrication guarantee is preserved exactly: ergonomics improve but no proposal becomes authoritative without an explicit user action, asserted by test.
 - The success signals are verified by the committed test suite, not asserted by hand.
 - 0.6.0 adds only review/confirm UX; the proposed-vs-confirmed state model and convergence gate from #5/#16 are unchanged — no new claim or condition states are introduced.
-- Running 'devague review' on a frame that has NOT converged still exits 0 and lists every proposed claim and proposed honesty condition with ids; it never invokes the convergence gate nor mutates any claim/condition state.
-- The review artifact carries an explicit 'nothing confirmed yet — non-authoritative' banner and is written to a path under `.devague/reviews/<slug>.md`, distinct from docs/specs/, so it cannot be mistaken for the buildable spec.
-- 'devague confirm a b c' resolves every listed id in a single call (and 'reject a b c' likewise), and the handling of a batch containing an invalid/unknown id follows one defined, tested rule.
-- A pending question the CLI writes persists across runs under `.devague/questions/<slug>.md`, is treated as uncommitted working state by default, and a documented path exists to apply a confirmed decision back into the frame.
-- An automated test asserts that no review-flow command (review, multi-id confirm/reject, any --json path) transitions an llm-origin proposed item to confirmed without an explicit user confirm naming that id.
-- A review artifact emitted by 'devague review' can be edited with confirm/reject decisions and fed to `devague confirm --from-review <file>` to apply exactly those decisions — proven by a round-trip test — and applying it still auto-confirms nothing the file did not mark confirmed.
 
 ## Success signals
 
