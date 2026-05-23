@@ -74,7 +74,7 @@ Claim
                 # | why_it_matters | boundary | success_signal | open_question
   text
   origin        # user | llm
-  status        # proposed | confirmed | rejected | parked
+  status        # proposed | confirmed | rejected
   honesty_conditions: [ { id, text, status: proposed|confirmed } ]
   hard_questions:     [ { id, text, resolved: bool, blocking: bool } ]
   links: [ str ]      # PR/issue refs
@@ -116,8 +116,8 @@ the exported spec). A **major claim** is a confirmed spec-affecting claim.
 - `announcement`, `audience`, `after_state` claims exist and are **confirmed**;
 - `before_state` **or** `why_it_matters` exists;
 - ≥1 `boundary` and ≥1 `success_signal` exist;
-- no spec-affecting claim is still `proposed` (each is confirmed, rejected, or parked);
-- every major claim has ≥1 **confirmed** honesty condition *or* is explicitly parked;
+- no spec-affecting claim is still `proposed` (each is confirmed or rejected);
+- every major claim has ≥1 **confirmed** honesty condition;
 - no `unknown_blocking` vagueness remains;
 - no open **blocking** hard question remains.
 
@@ -200,3 +200,5 @@ Coverage stays above the existing `fail_under = 70`.
 - Contradiction *detection* (the `--contradicts` flag records a link in v1; automated detection is later).
 - Multi-frame ergonomics beyond `--frame` / current-frame.
 - Mesh delegation (other agents asking devague to own a spec) — later.
+- Claim-level parking: the `park` move records open vagueness, not a claim status.
+  `Claim.status` has no `parked` value in v1; claim-parking is deferred.

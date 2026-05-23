@@ -16,6 +16,9 @@ def cmd_converge(args: argparse.Namespace) -> int:
     if result.passed and frame.status == "drafting":
         frame.status = "converged"
         store.save(frame)
+    elif not result.passed and frame.status == "converged":
+        frame.status = "drafting"
+        store.save(frame)
     if getattr(args, "json", False):
         emit_result({"passed": result.passed, "missing": result.missing}, json_mode=True)
     elif result.passed:

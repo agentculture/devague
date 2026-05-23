@@ -38,7 +38,12 @@ def cmd_export(args: argparse.Namespace) -> int:
 
 def register(sub: argparse._SubParsersAction) -> None:
     p = sub.add_parser("export", help="Export the buildable spec (requires convergence).")
-    p.add_argument("--format", default="spec-md", help="Renderer format (default: spec-md).")
+    p.add_argument(
+        "--format",
+        default="spec-md",
+        choices=("spec-md",),
+        help="Renderer format (default: spec-md).",
+    )
     p.add_argument("--frame", help="Frame slug (default: current).")
     p.add_argument("--json", action="store_true", help="Emit structured JSON.")
     p.set_defaults(func=cmd_export)

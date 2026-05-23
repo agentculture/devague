@@ -30,7 +30,7 @@ def evaluate(frame: Frame) -> ConvergenceResult:
 
     for c in frame.claims:
         if c.kind in SPEC_AFFECTING_KINDS and c.status == "proposed":
-            missing.append(f"claim {c.id} still proposed (confirm, reject, or park it)")
+            missing.append(f"claim {c.id} still proposed (confirm or reject it)")
 
     for c in confirmed:
         if c.kind in SPEC_AFFECTING_KINDS and not any(

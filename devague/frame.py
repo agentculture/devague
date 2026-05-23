@@ -26,7 +26,7 @@ VAGUENESS_KINDS = (
     "out_of_scope",
     "follow_up",
 )
-CLAIM_STATUSES = ("proposed", "confirmed", "rejected", "parked")
+CLAIM_STATUSES = ("proposed", "confirmed", "rejected")
 
 
 @dataclass
@@ -50,7 +50,7 @@ class Claim:
     kind: str
     text: str
     origin: str = "user"  # user | llm
-    status: str = "confirmed"  # proposed | confirmed | rejected | parked
+    status: str = "confirmed"  # proposed | confirmed | rejected
     honesty_conditions: list[HonestyCondition] = field(default_factory=list)
     hard_questions: list[HardQuestion] = field(default_factory=list)
     links: list[str] = field(default_factory=list)

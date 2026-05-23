@@ -97,3 +97,44 @@ def test_list_marks_current(tmp_path, monkeypatch, capsys) -> None:
     out = capsys.readouterr().out
     assert "shipped-instant-specs" in out
     assert "*" in out  # current marker
+
+
+def test_interrogate_hard_question_adds_hard_question(tmp_path, monkeypatch, capsys) -> None:
+    """Fix 5: --hard-question adds a hard question entry."""
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain setup output
+    rc = main(["interrogate", "c1", "--hard-question", "what if empty?", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["added"][0]["kind"] == "hard_question"
+
+
+def test_interrogate_risk_adds_non_blocking_hard_question(tmp_path, monkeypatch, capsys) -> None:
+    """Fix 5: --risk records a non-blocking hard question."""
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain setup output
+    rc = main(["interrogate", "c1", "--risk", "may not scale", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["added"][0]["kind"] == "hard_question"
+    assert payload["added"][0]["status"] == "open"
+
+
+def test_interrogate_contradicts_adds_blocking_hard_question(tmp_path, monkeypatch, capsys) -> None:
+    """Fix 5: --contradicts records a blocking hard question."""
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain setup output
+    rc = main(["interrogate", "c1", "--contradicts", "c1", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["added"][0]["kind"] == "hard_question"
+    assert payload["added"][0]["status"] == "blocking"
+
+
+def test_interrogate_no_flags_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Fix 5: interrogate with no flags returns rc 1 with 'nothing to interrogate' on stderr."""
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain setup output
+    rc = main(["interrogate", "c1"])
+    assert rc == 1
+    assert "nothing to interrogate" in capsys.readouterr().err

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-05-23
+
+### Fixed
+
+- `converge` now demotes a `converged` frame back to `drafting` when a new
+  blocking item is added and the gate re-runs (was stuck at `converged`).
+- Removed the unreachable `parked` value from `CLAIM_STATUSES` and
+  `Claim.status`; the `park` move records open vagueness, not a claim status.
+  Updated convergence message wording, spec, and plan to match.
+- `export --format` is now constrained to `choices=("spec-md",)`, preventing
+  `--format frame-md` from silently writing the Announcement Frame as a spec.
+
 ## [0.3.0] - 2026-05-23
 
 ### Added
