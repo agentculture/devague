@@ -52,14 +52,18 @@ def _announcement(frame: Optional[Frame]) -> Optional[str]:
 
 def _task_lines(task: Task) -> list[str]:
     mark = "" if task.status == "confirmed" else f" _({task.status})_"
-    lines = [f"### {task.id} — {task.summary}{mark}"]
+    body: list[str] = []
     if task.deps:
-        lines.append(f"- depends on: {', '.join(task.deps)}")
+        body.append(f"- depends on: {', '.join(task.deps)}")
     if task.covers:
-        lines.append(f"- covers: {', '.join(task.covers)}")
+        body.append(f"- covers: {', '.join(task.covers)}")
     if task.acceptance_criteria:
-        lines.append("- acceptance:")
-        lines.extend(f"  - {a}" for a in task.acceptance_criteria)
+        body.append("- acceptance:")
+        body.extend(f"  - {a}" for a in task.acceptance_criteria)
+    lines = [f"### {task.id} — {task.summary}{mark}"]
+    if body:
+        # Blank line between the heading and its list (MD022/MD032).
+        lines += ["", *body]
     lines.append("")
     return lines
 
@@ -82,7 +86,7 @@ def render_plan(plan: Plan, frame: Optional[Frame]) -> str:
             out.extend(_task_lines(t))
 
     if plan.risks:
-        out += ["## Risks"]
+        out += ["## Risks", ""]
         for r in plan.risks:
             suffix = f" (task {r.task_id})" if r.task_id else ""
             out.append(f"- [{r.kind}] {r.text}{suffix}")

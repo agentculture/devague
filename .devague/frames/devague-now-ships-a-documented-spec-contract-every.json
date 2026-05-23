@@ -3,7 +3,7 @@
   "title": "Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice",
   "status": "exported",
   "created": "2026-05-23T08:08:13Z",
-  "updated": "2026-05-23T08:31:19Z",
+  "updated": "2026-05-23T09:07:14Z",
   "claims": [
     {
       "id": "c1",

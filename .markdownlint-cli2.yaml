@@ -9,6 +9,9 @@ config:
   MD013: false
   # MD060: Table pipe spacing — disabled (stylistic preference).
   MD060: false
+  # MD036: Emphasis-as-heading — disabled. The plan/frame renderers emit an
+  # italic metadata subtitle (`_slug: … · status: …_`) by design.
+  MD036: false
   # MD024: Duplicate headings — allow under different parents so Keep a
   # Changelog entries can each have ### Added / ### Changed / ### Fixed.
   MD024:

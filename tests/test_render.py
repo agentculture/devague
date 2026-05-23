@@ -36,6 +36,26 @@ def test_render_spec_md_has_title_and_audience() -> None:
     assert "developers" in out
 
 
+def assert_blanks_around_headings_and_lists(md: str) -> None:
+    """Markdown must satisfy MD022 (blank below headings) + MD032 (blank before lists).
+
+    Pins the renderer dogfooding fix: ``devague export`` output must pass the repo's
+    own markdownlint config (``default: true``), which gates CI on ``docs/specs`` and
+    ``docs/plans``.
+    """
+    lines = md.split("\n")
+    for i, line in enumerate(lines):
+        if line.startswith("#"):
+            assert i + 1 >= len(lines) or lines[i + 1] == "", f"heading not followed by blank: {line!r}"
+        if line.startswith("- "):
+            prev = lines[i - 1] if i > 0 else ""
+            assert prev == "" or prev.startswith(("- ", "  ")), f"list item not preceded by blank/list: {line!r} (prev {prev!r})"
+
+
+def test_spec_md_blanks_around_headings_and_lists() -> None:
+    assert_blanks_around_headings_and_lists(render.render(_frame(), "spec-md"))
+
+
 def test_unknown_format_raises() -> None:
     with pytest.raises(DevagueError):
         render.render(_frame(), "nope")

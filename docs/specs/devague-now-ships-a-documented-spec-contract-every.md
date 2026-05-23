@@ -3,6 +3,7 @@
 > Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice
 
 ## Audience
+
 - Devague and the assisting LLM that drives it — they coordinate around structured feature-framing state without a rigid wizard
 
 ## Before → After
@@ -11,9 +12,11 @@
 - After: A vague idea becomes a claim-based, pressure-tested, buildable spec held in a durable, reloadable artifact whose entities are validated
 
 ## Why it matters
+
 - An LLM and devague can only coordinate reliably around a contract that is documented, validated, and machine-readable — convergence must mean something, not vibes
 
 ## Requirements / honesty conditions
+
 - A frame round-trips losslessly (save then load yields an identical frame) including schema_version, the new claim types, and the structured convergence payload; existing 0.4.0 frames still load
 - Every move accepts and emits documented JSON, and the contract spells out per-move input / output / state-transition / validation-errors so an LLM can drive devague without guessing internal state
 - Matches shipped 0.4.0 reality — converge --json emits {passed, missing} today and no contract doc is committed (verifiable in the repo before relying on it)
@@ -31,6 +34,7 @@
 - schema_version is written on every save and checked on load; an unknown or newer version fails closed with a clear error rather than corrupting state
 
 ## Success signals
+
 - converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) with blockers instead of prose-only advice
 - A documented spec contract exists in the repo, with worked contract examples for at least one feature frame
 - The CLI can create, load, mutate, and display a frame locally; core entities are validated
@@ -39,11 +43,13 @@
 - Every frame carries a schema_version field; load validates by version so existing frames keep loading as the schema grows
 
 ## Non-goals
+
 - Not a full PRD generator and not a fixed wizard; the move-driven, deterministic model stays
 - The local contract requires no GitHub, agents, or external services
 - Convergence is never claimed on vibes, and LLM-proposed content is never silently promoted to confirmed truth
 - The contract formalizes 0.4.0's shipped vocabulary as canonical — state in {proposed,confirmed,rejected,parked} x origin in {user,llm}; no rename and no migration of existing frames
 
 ## Open / follow-up
+
 - Whether to also publish a formal machine-readable JSON Schema file alongside the prose contract doc + dataclasses, or treat the dataclasses as the schema of record
 - Whether requirement-type claims should eventually carry acceptance criteria like plan tasks do (overlaps the spec-to-plan leg), or stay prose-only in the frame
