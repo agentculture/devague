@@ -40,11 +40,17 @@ def _requirements_block(frame: Frame) -> list[str]:
 
 
 def _other_honesty(frame: Frame) -> list[str]:
-    """Confirmed honesty conditions on non-requirement claims (already shown inline)."""
+    """Confirmed honesty conditions on **confirmed** non-requirement claims.
+
+    The parent claim must be confirmed too: spec-md renders only confirmed claims
+    (see ``_texts``), so emitting honesty for a proposed/rejected claim would
+    leave an orphan bullet with no parent — inconsistent with the confirmed-only
+    export contract.
+    """
     return [
         h.text
         for c in frame.claims
-        if c.kind != "requirement"
+        if c.kind != "requirement" and c.status == "confirmed"
         for h in c.honesty_conditions
         if h.status == "confirmed"
     ]

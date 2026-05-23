@@ -153,6 +153,18 @@ def test_review_md_empty_when_no_proposals() -> None:
     assert_markdownlint_clean(out)
 
 
+def test_spec_md_omits_honesty_for_unconfirmed_claims() -> None:
+    # #24 (Qodo): a proposed/rejected claim carrying a confirmed honesty must not
+    # leave an orphan honesty bullet — spec-md renders confirmed claims only.
+    f = Frame(slug="o", title="Orphan")
+    f.add_claim("announcement", "Shipped", origin="user")  # confirmed
+    proposed = f.add_claim("audience", "maybe devs", origin="llm")  # proposed
+    f.add_honesty(proposed, "honesty whose parent is unconfirmed", origin="user")
+    out = render.render(f, "spec-md")
+    assert "honesty whose parent is unconfirmed" not in out
+    assert "maybe devs" not in out  # the proposed claim text is omitted too
+
+
 def test_unknown_format_raises() -> None:
     with pytest.raises(DevagueError):
         render.render(_frame(), "nope")
