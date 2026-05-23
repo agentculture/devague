@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import re
 
-_LINE = re.compile(r"^- \[(?P<mark>[ x])\]\s+`(?P<id>q\d+)`:\s+(?P<rest>.*)$")
+# Bounded whitespace only (single literal spaces, rest stripped in parse) so the
+# pattern is linear — no \s+…\s+…\.* shape that trips ReDoS heuristics.
+_LINE = re.compile(r"^- \[(?P<mark>[ x])\] `(?P<id>q\d+)`:(?P<rest>.*)$")
 _DECIDED = " — decided: "
 
 _BANNER = (

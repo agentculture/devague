@@ -21,44 +21,51 @@ def _load(slug: str) -> list[dict]:
     return questions_io.parse(path.read_text(encoding="utf-8")) if path.exists() else []
 
 
-def cmd_question(args: argparse.Namespace) -> int:
-    frame = resolve(args.frame)  # validates the frame exists; never mutates it
-    slug = frame.slug
-    items = _load(slug)
+def _resolve_question(args: argparse.Namespace, slug: str, items: list[dict]) -> None:
+    target = next((i for i in items if i["id"] == args.resolve), None)
+    if target is None:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"no such question: {args.resolve}",
+            "run 'devague question --list'",
+        )
+    target["resolved"] = True
+    target["decision"] = args.decision
+    store.write_questions(slug, questions_io.render(slug, items))
+    if args.json:
+        emit_result({"id": args.resolve, "resolved": True}, json_mode=True)
+    else:
+        emit_result(f"{args.resolve} -> resolved", json_mode=False)
 
-    if args.resolve:
-        target = next((i for i in items if i["id"] == args.resolve), None)
-        if target is None:
-            raise DevagueError(
-                EXIT_USER_ERROR,
-                f"no such question: {args.resolve}",
-                "run 'devague question --list'",
-            )
-        target["resolved"] = True
-        target["decision"] = args.decision
-        store.write_questions(slug, questions_io.render(slug, items))
-        if args.json:
-            emit_result({"id": args.resolve, "resolved": True}, json_mode=True)
-        else:
-            emit_result(f"{args.resolve} -> resolved", json_mode=False)
-        return 0
 
-    if args.text:
-        new_id = questions_io.next_id(items)
-        items.append({"id": new_id, "text": args.text, "resolved": False, "decision": None})
-        path = store.write_questions(slug, questions_io.render(slug, items))
-        if args.json:
-            emit_result({"id": new_id, "text": args.text, "path": str(path)}, json_mode=True)
-        else:
-            emit_result(f"recorded {new_id}", json_mode=False)
-            emit_diagnostic(f"wrote pending decision to {path} (uncommitted working state)")
-        return 0
+def _add_question(args: argparse.Namespace, slug: str, items: list[dict]) -> None:
+    new_id = questions_io.next_id(items)
+    items.append({"id": new_id, "text": args.text, "resolved": False, "decision": None})
+    path = store.write_questions(slug, questions_io.render(slug, items))
+    if args.json:
+        emit_result({"id": new_id, "text": args.text, "path": str(path)}, json_mode=True)
+    else:
+        emit_result(f"recorded {new_id}", json_mode=False)
+        emit_diagnostic(f"wrote pending decision to {path} (uncommitted working state)")
 
-    # default / --list: show the pending-decisions state
+
+def _list_questions(args: argparse.Namespace, slug: str, items: list[dict]) -> None:
     if args.json:
         emit_result({"slug": slug, "questions": items}, json_mode=True)
     else:
         emit_result(questions_io.render(slug, items), json_mode=False)
+
+
+def cmd_question(args: argparse.Namespace) -> int:
+    frame = resolve(args.frame)  # validates the frame exists; never mutates it
+    slug = frame.slug
+    items = _load(slug)
+    if args.resolve:
+        _resolve_question(args, slug, items)
+    elif args.text:
+        _add_question(args, slug, items)
+    else:  # default / --list: show the pending-decisions state
+        _list_questions(args, slug, items)
     return 0
 
 
