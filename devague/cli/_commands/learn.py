@@ -1,10 +1,4 @@
-"""``devague learn`` — placeholder verb.
-
-devague is a greenfield AgentCulture sibling: the scaffold (package, CLI
-chassis, CI, vendored skills) is in place but the spec-creation agent itself is
-not implemented yet. This verb prints an honest status line so a probing agent
-or human gets a clear signal rather than a misleading response.
-"""
+"""``devague learn`` — teach the working-backwards method and the moves."""
 
 from __future__ import annotations
 
@@ -13,32 +7,43 @@ import argparse
 from devague import __version__
 from devague.cli._output import emit_result
 
+MOVES = {
+    "new": "Start a frame from the announcement (pretend it shipped).",
+    "capture": "Record and classify a claim (audience, after_state, boundary, ...).",
+    "interrogate": "Pressure-test a claim: honesty conditions, hard questions, contradictions.",
+    "confirm": "Confirm a claim or honesty condition (user-only — no fabricated rigor).",
+    "reject": "Reject a claim or honesty condition.",
+    "park": "Move uncertainty into first-class open vagueness instead of forcing an answer.",
+    "converge": "Check whether the frame is solid enough to export a spec.",
+    "export": "Write the buildable spec — only once the frame converges.",
+    "show": "Render the Announcement Frame.",
+    "list": "List frames.",
+}
+
 _TEXT = (
-    "devague — turns a vague feature idea into a buildable spec by working backwards. "
-    "Not yet implemented; devague is a greenfield AgentCulture sibling. See CLAUDE.md."
+    "devague turns a vague idea into a buildable spec by working backwards.\n"
+    "Start from the announcement, then build an Announcement Frame by capturing\n"
+    "claims, interrogating them, parking what's still vague, and converging.\n"
+    "The arc — rough capture -> pressure-test -> convergence -> spec — emerges\n"
+    "from the moves; it is not a fixed wizard. You (the agent) choose the next\n"
+    "move; devague tracks state. LLM-proposed claims and honesty conditions stay\n"
+    "'proposed' until the user confirms them.\n\nMoves:\n"
+    + "\n".join(f"  {name:<11} {desc}" for name, desc in MOVES.items())
 )
 
 
-def _json_payload() -> dict[str, object]:
-    return {
-        "tool": "devague",
-        "version": __version__,
-        "status": "greenfield",
-        "verb": "learn",
-        "message": _TEXT,
-    }
-
-
 def cmd_learn(args: argparse.Namespace) -> int:
-    json_mode = bool(getattr(args, "json", False))
-    if json_mode:
-        emit_result(_json_payload(), json_mode=True)
+    if getattr(args, "json", False):
+        emit_result(
+            {"tool": "devague", "version": __version__, "moves": list(MOVES), "summary": _TEXT},
+            json_mode=True,
+        )
     else:
         emit_result(_TEXT, json_mode=False)
     return 0
 
 
 def register(sub: argparse._SubParsersAction) -> None:
-    p = sub.add_parser("learn", help="Print devague's self-teaching status line.")
+    p = sub.add_parser("learn", help="Teach devague's working-backwards method.")
     p.add_argument("--json", action="store_true", help="Emit structured JSON.")
     p.set_defaults(func=cmd_learn)
