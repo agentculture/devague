@@ -68,6 +68,9 @@ def test_learn_surfaces_operating_rules(capsys: pytest.CaptureFixture[str]) -> N
     assert "questionnaire" in out and "prd generator" in out
     # Agent-agnostic pointer — not hardcoded to one runtime.
     assert "agents.md" in out and "claude.md" in out
+    # A portable, always-resolvable URL (the wheel doesn't ship docs/) plus the
+    # in-repo path for contributors.
+    assert "https://github.com/agentculture/devague" in out
     assert "docs/llm-guidance.md" in out
 
 
@@ -75,7 +78,11 @@ def test_learn_json_exposes_operating_contract(capsys: pytest.CaptureFixture[str
     rc = main(["learn", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["guidance_doc"] == "docs/llm-guidance.md"
+    # guidance_doc is a portable, always-resolvable URL (docs/ isn't shipped in
+    # the wheel); the in-repo source path is exposed separately for contributors.
+    assert payload["guidance_doc"].startswith("https://")
+    assert payload["guidance_doc"].endswith("docs/llm-guidance.md")
+    assert payload["guidance_doc_repo_path"] == "docs/llm-guidance.md"
     assert len(payload["operating_rules"]) >= 4
     assert len(payload["not_a"]) == 3
     assert any("proposed" in r.lower() for r in payload["operating_rules"])

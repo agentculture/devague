@@ -27,9 +27,15 @@ SUPPORTING_PROMPT = (
 )
 
 # The portable, runtime-agnostic operating contract for any assisting model
-# (devague#19). The full version lives in GUIDANCE_DOC; this is the core surfaced
-# in every `learn`. These rules are what make convergence mean something.
-GUIDANCE_DOC = "docs/llm-guidance.md"
+# (devague#19). The full version lives in the guidance doc; this is the core
+# surfaced in every `learn`. These rules are what make convergence mean something.
+#
+# `docs/` is not shipped in the wheel (only the `devague` package is), and an
+# installed devague is operated from an arbitrary repo — so a bare relative path
+# wouldn't resolve for most consumers. The portable, always-resolvable reference
+# is the canonical URL; the in-repo path is kept for contributors.
+GUIDANCE_DOC_URL = "https://github.com/agentculture/devague/blob/main/docs/llm-guidance.md"
+GUIDANCE_DOC_REPO_PATH = "docs/llm-guidance.md"
 
 # What devague is NOT — the framing that keeps it from degrading into a form.
 NOT_A = (
@@ -89,9 +95,11 @@ _TEXT = (
     + "\n".join(f"  - {n}" for n in NOT_A)
     + "\n\nOperating rules (the anti-fabrication contract — do not violate):\n"
     + "\n".join(f"  - {r}" for r in OPERATING_RULES)
-    + f"\n\nFull portable guidance for any assisting model: {GUIDANCE_DOC}\n"
-    "(agent-agnostic; your repo-specific agreements live in your agent's main\n"
-    "instruction file — AGENTS.md, CLAUDE.md, a system prompt — not there)."
+    + "\n\nFull portable guidance for any assisting model:\n"
+    f"  {GUIDANCE_DOC_URL}\n"
+    f"  (in the devague repo: {GUIDANCE_DOC_REPO_PATH})\n"
+    "Agent-agnostic; your repo-specific agreements live in your agent's main\n"
+    "instruction file — AGENTS.md, CLAUDE.md, a system prompt — not there."
 )
 
 
@@ -110,7 +118,8 @@ def cmd_learn(args: argparse.Namespace) -> int:
                 "moves": list(MOVES),
                 "not_a": list(NOT_A),
                 "operating_rules": list(OPERATING_RULES),
-                "guidance_doc": GUIDANCE_DOC,
+                "guidance_doc": GUIDANCE_DOC_URL,
+                "guidance_doc_repo_path": GUIDANCE_DOC_REPO_PATH,
                 "summary": _TEXT,
             },
             json_mode=True,
