@@ -9,6 +9,10 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Optional
 
+# Bump when the persisted shape changes incompatibly. `store.load` fails closed
+# on a frame whose schema_version is newer/unknown (see #5, honesty condition h15).
+SCHEMA_VERSION = 1
+
 CLAIM_KINDS = (
     "announcement",
     "audience",
@@ -18,8 +22,27 @@ CLAIM_KINDS = (
     "boundary",
     "success_signal",
     "open_question",
+    # Added for the documented spec contract (#5).
+    "non_goal",
+    "requirement",
+    "assumption",
+    "decision",
 )
-SPEC_AFFECTING_KINDS = tuple(k for k in CLAIM_KINDS if k != "open_question")
+# Spec-affecting claims must be confirmed and carry a confirmed honesty condition
+# to converge. `requirement` joins the original set; `non_goal`/`decision`/
+# `open_question` are descriptive, and `assumption` is soft (an unconfirmed one is
+# a convergence *warning*, not a blocker — see convergence.py).
+SPEC_AFFECTING_KINDS = (
+    "announcement",
+    "audience",
+    "after_state",
+    "before_state",
+    "why_it_matters",
+    "boundary",
+    "success_signal",
+    "requirement",
+)
+DESCRIPTIVE_KINDS = ("open_question", "non_goal", "decision")
 VAGUENESS_KINDS = (
     "unknown_nonblocking",
     "unknown_blocking",
@@ -27,6 +50,8 @@ VAGUENESS_KINDS = (
     "follow_up",
 )
 CLAIM_STATUSES = ("proposed", "confirmed", "rejected")
+HONESTY_STATUSES = ("proposed", "confirmed", "rejected")
+ORIGINS = ("user", "llm")
 
 
 @dataclass
@@ -34,6 +59,10 @@ class HonestyCondition:
     id: str
     text: str
     status: str = "proposed"  # proposed | confirmed | rejected
+
+    def __post_init__(self) -> None:
+        if self.status not in HONESTY_STATUSES:
+            raise ValueError(f"unknown honesty status: {self.status!r}")
 
 
 @dataclass
@@ -55,6 +84,14 @@ class Claim:
     hard_questions: list[HardQuestion] = field(default_factory=list)
     links: list[str] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        if self.kind not in CLAIM_KINDS:
+            raise ValueError(f"unknown claim kind: {self.kind!r}")
+        if self.origin not in ORIGINS:
+            raise ValueError(f"unknown claim origin: {self.origin!r}")
+        if self.status not in CLAIM_STATUSES:
+            raise ValueError(f"unknown claim status: {self.status!r}")
+
 
 @dataclass
 class Vagueness:
@@ -63,11 +100,16 @@ class Vagueness:
     kind: str
     claim_id: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        if self.kind not in VAGUENESS_KINDS:
+            raise ValueError(f"unknown vagueness kind: {self.kind!r}")
+
 
 @dataclass
 class Frame:
     slug: str
     title: str
+    schema_version: int = SCHEMA_VERSION
     status: str = "drafting"  # drafting | converged | exported
     created: str = ""
     updated: str = ""
@@ -176,6 +218,8 @@ def from_dict(d: dict) -> Frame:
     return Frame(
         slug=d["slug"],
         title=d["title"],
+        # A 0.4.0 frame predates the field; treat it as the current schema.
+        schema_version=int(d.get("schema_version", SCHEMA_VERSION)),
         status=d.get("status", "drafting"),
         created=d.get("created", ""),
         updated=d.get("updated", ""),
