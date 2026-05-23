@@ -46,10 +46,12 @@ def assert_blanks_around_headings_and_lists(md: str) -> None:
     lines = md.split("\n")
     for i, line in enumerate(lines):
         if line.startswith("#"):
-            assert i + 1 >= len(lines) or lines[i + 1] == "", f"heading not followed by blank: {line!r}"
+            below_blank = i + 1 >= len(lines) or lines[i + 1] == ""
+            assert below_blank, f"heading not followed by blank: {line!r}"
         if line.startswith("- "):
             prev = lines[i - 1] if i > 0 else ""
-            assert prev == "" or prev.startswith(("- ", "  ")), f"list item not preceded by blank/list: {line!r} (prev {prev!r})"
+            ok = prev == "" or prev.startswith(("- ", "  "))
+            assert ok, f"list not preceded by blank/list: {line!r} (prev {prev!r})"
 
 
 def test_spec_md_blanks_around_headings_and_lists() -> None:
