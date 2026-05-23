@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-05-23
+
+### Added
+
+- **Human Review Loop (#17).** Makes the user-only confirmation step ergonomic at scale, preserving the anti-fabrication guarantee.
+  - `devague review` (+ `--json`) lists every proposed (unconfirmed) claim and honesty condition with ids — un-gated by convergence and without mutating state — and persists a non-authoritative artifact to `.devague/reviews/<slug>.md`.
+  - `confirm` / `reject` now accept multiple ids in one transactional call (any unknown id ⇒ nothing changes).
+  - `confirm --from-review <file>` applies a reviewed decision set: each item is emitted with a `pending` marker the human edits to `confirm`/`reject`; `pending` lines are never auto-confirmed (round-trippable artifact).
+  - `devague question` records / lists / resolves pending user decisions as durable working state in `.devague/questions/<slug>.md`.
+  - devague manages `.gitignore` so `.devague/reviews/` and `.devague/questions/` stay uncommitted working state by default.
+
+### Changed
+
+- `confirm --json` now emits `{confirmed, rejected}` (lists) instead of `{id, status}`, reflecting the multi-id, transactional batch.
+
 ## [0.5.1] - 2026-05-23
 
 ### Added
