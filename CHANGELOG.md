@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-05-23
+
+### Added
+
+- Spec + plan for subagent-driven implementation (#13). Drove `devague` /think then /spec-to-plan to produce a converged spec (`docs/specs/2026-05-23-devague-turns-a-converged-plan-into-parallel-simpl.md`) and a buildable, parallelizable plan (`docs/plans/...`) for the **assign-to-workforce** convention: a cited skill that fans out `devague plan waves` to one subagent per task per wave in isolated git worktrees, with main-agent TDD-gated per-task merges (no human per task) and exactly three human gates — the spec, the implementation split plan (tasks map + per-task subagent/model assignment + go/no-go), and the final PR. Planning artifacts only (no code yet); the CLI stays deterministic and non-orchestrating (#20).
+
 ## [0.9.0] - 2026-05-23
 
 ### Added
