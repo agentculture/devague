@@ -80,7 +80,7 @@ class Frame:
         for it in items:
             if it.id.startswith(prefix):
                 try:
-                    n = max(n, int(it.id[len(prefix):]))
+                    n = max(n, int(it.id[len(prefix) :]))
                 except ValueError:
                     pass
         return f"{prefix}{n + 1}"
@@ -130,9 +130,7 @@ class Frame:
         claim.hard_questions.append(q)
         return q
 
-    def add_vagueness(
-        self, text: str, kind: str, claim_id: Optional[str] = None
-    ) -> Vagueness:
+    def add_vagueness(self, text: str, kind: str, claim_id: Optional[str] = None) -> Vagueness:
         if kind not in VAGUENESS_KINDS:
             raise ValueError(f"unknown vagueness kind: {kind}")
         v = Vagueness(

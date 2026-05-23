@@ -4,7 +4,12 @@ from devague.convergence import evaluate
 from devague.frame import Frame
 
 _REQUIRED_KINDS = (
-    "announcement", "audience", "after_state", "before_state", "boundary", "success_signal"
+    "announcement",
+    "audience",
+    "after_state",
+    "before_state",
+    "boundary",
+    "success_signal",
 )
 
 

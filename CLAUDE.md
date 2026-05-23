@@ -4,17 +4,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-**Scaffolded (greenfield product).** The AgentCulture sibling skeleton has
-landed: the `devague` package with the argparse CLI chassis, tests, CI, the
-six vendored skills, and `culture.yaml`. The CLI verbs (`learn` / `explain`)
-are **honest placeholder stubs** — the actual working-backwards spec engine is
-not implemented yet. Run `git ls-files` to see the real surface rather than
-trusting a layout described here.
+**Working-backwards engine landed (v0.3.0).** The full deterministic spec
+engine is implemented: Frame domain model, persistent JSON store, convergence
+gate, pluggable renderer registry, and all CLI moves — `new` / `capture` /
+`interrogate` / `confirm` / `reject` / `park` / `converge` / `export` / `show`
+/ `list` — plus real `learn` / `explain` bodies that teach the method.
+Coverage is 94 %; all linters pass. Run `git ls-files` to see the real surface.
 
-Real commands (verify against `pyproject.toml`): `uv sync`;
-`uv run devague --version`; `python -m devague`; `uv run pytest -n auto`
-(single test: `uv run pytest tests/<file>::<node> -v`);
-`uv run flake8 --config=.flake8 devague/ tests/`; `markdownlint-cli2 "**/*.md"`.
+Real commands: `uv sync`; `uv run devague --version`; `python -m devague`;
+`uv run pytest -n auto` (single test: `uv run pytest tests/<file>::<node> -v`);
+`uv run flake8 --config=.flake8 devague/ tests/`; `uv run black devague/ tests/`;
+`uv run isort --profile black devague/ tests/`; `markdownlint-cli2 "**/*.md"`.
+
+## Working-backwards method
+
+The agent drives the **deterministic** CLI — no LLM calls inside the CLI
+itself. The workflow:
+
+1. `devague new "<announcement>"` — creates a Frame seeded with the
+   announcement claim (auto-confirmed, since it comes from the user).
+2. `devague capture --kind <kind> "<text>"` — add claims; LLM-proposed ones
+   (`--origin llm`) land as `proposed` and require explicit user `confirm`.
+3. `devague interrogate <claim-id>` — attach honesty conditions and hard
+   questions; honesty conditions from the LLM are also `proposed`.
+4. `devague confirm <id>` / `reject` / `park` — **all honesty conditions
+   routed through the user**; the agent must not auto-confirm LLM proposals.
+5. `devague converge` — evaluates the convergence gate; lists remaining gaps.
+6. `devague export` — only succeeds after `converge` passes; writes a
+   buildable spec-md to `docs/specs/`.
+
+Full design: `docs/superpowers/specs/2026-05-23-devague-working-backwards-design.md`.
 
 ## Project intent
 
@@ -62,15 +81,17 @@ that unless the user asks otherwise. The established sibling shape is:
   `DevagueError` + exit-code policy) and `_output.py` (strict stdout/stderr
   split, `--json` support).
 - `devague/cli/_commands/` — one module per verb, each exposing `register()`.
-  Verbs for Phase 2+: `new`, `capture`, `interrogate`, `confirm`, `reject`,
+  Implemented verbs: `new`, `capture`, `interrogate`, `confirm`, `reject`,
   `park`, `converge`, `export`, `show`, `list`, `learn`, `explain`.
 - `pyproject.toml`, `CHANGELOG.md`, `tests/`, `docs/`, `culture.yaml`,
   `sonar-project.properties`, `uv.lock`.
 
-Likely commands once scaffolded (verify against the real `pyproject.toml` before
-relying on them): `uv sync`; `uv run devague --version`; `uv run pytest -n auto`
-(single test: `uv run pytest tests/<file>::<node> -v`); `uv run flake8 / black /
-isort`; `bandit` + `pylint` in CI; `markdownlint-cli2 "**/*.md"`.
+Commands (verify against the real `pyproject.toml`): `uv sync`;
+`uv run devague --version`; `uv run pytest -n auto`
+(single test: `uv run pytest tests/<file>::<node> -v`);
+`uv run flake8 --config=.flake8 devague/ tests/`; `uv run black devague/ tests/`;
+`uv run isort --profile black devague/ tests/`;
+`bandit -r devague/`; `pylint devague/`; `markdownlint-cli2 "**/*.md"`.
 
 ## Conventions worth preserving
 

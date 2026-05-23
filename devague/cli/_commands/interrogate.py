@@ -14,9 +14,7 @@ def cmd_interrogate(args: argparse.Namespace) -> int:
     frame = resolve(args.frame)
     claim = frame.find_claim(args.claim_id)
     if claim is None:
-        raise DevagueError(
-            EXIT_USER_ERROR, f"no such claim: {args.claim_id}", "run 'devague show'"
-        )
+        raise DevagueError(EXIT_USER_ERROR, f"no such claim: {args.claim_id}", "run 'devague show'")
     added: list[dict] = []
     if args.honesty:
         h = frame.add_honesty(claim, args.honesty, origin=args.origin)
@@ -55,9 +53,7 @@ def register(sub: argparse._SubParsersAction) -> None:
     p.add_argument("--honesty", help="An honesty condition (what must be true).")
     p.add_argument("--hard-question", dest="hard_question", help="A hard question.")
     p.add_argument("--risk", help="A risk (recorded as a non-blocking hard question).")
-    p.add_argument(
-        "--contradicts", help="Claim id this contradicts (records a blocking question)."
-    )
+    p.add_argument("--contradicts", help="Claim id this contradicts (records a blocking question).")
     p.add_argument("--blocking", action="store_true", help="Mark the hard question blocking.")
     p.add_argument(
         "--origin",

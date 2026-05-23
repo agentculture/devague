@@ -13,7 +13,7 @@ def resolve(slug: str | None) -> Frame:
         raise DevagueError(
             EXIT_USER_ERROR,
             "no frame selected",
-            'run \'devague new "<announcement>"\' or pass --frame <slug>',
+            "run 'devague new \"<announcement>\"' or pass --frame <slug>",
         )
     try:
         return store.load(slug)

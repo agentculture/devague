@@ -15,9 +15,7 @@ def cmd_capture(args: argparse.Namespace) -> int:
     claim = frame.add_claim(args.kind, args.text, origin=args.origin)
     store.save(frame)
     if getattr(args, "json", False):
-        emit_result(
-            {"id": claim.id, "kind": claim.kind, "status": claim.status}, json_mode=True
-        )
+        emit_result({"id": claim.id, "kind": claim.kind, "status": claim.status}, json_mode=True)
     else:
         emit_result(f"captured {claim.id} ({claim.kind}, {claim.status})", json_mode=False)
     return 0

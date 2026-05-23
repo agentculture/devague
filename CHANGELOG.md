@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-05-23
+
+### Added
+
+- The working-backwards engine: a deterministic Frame state machine
+  (`devague/frame.py`, `store.py`, `convergence.py`) and the moves
+  `new` / `capture` / `interrogate` / `confirm` / `reject` / `park` /
+  `converge` / `export` / `show` / `list`, plus a pluggable renderer
+  registry (`frame-md`, `spec-md`). `export` is gated on convergence;
+  LLM-proposed claims and honesty conditions require user confirmation.
+- Real `learn` / `explain` bodies teaching the method and the moves.
+
 ## [0.2.0] - 2026-05-23
 
 ### Changed
