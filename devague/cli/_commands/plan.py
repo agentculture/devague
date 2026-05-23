@@ -69,7 +69,7 @@ def _live(plan: Plan):
     """Re-load the source frame and re-derive targets; guard against frame drift."""
     frame = _load_source_frame(plan.frame_slug)
     fres = evaluate_frame(frame)
-    if not fres.passed:
+    if not fres.ready:
         raise DevagueError(
             EXIT_USER_ERROR,
             f"source frame '{frame.slug}' has regressed below convergence",
@@ -98,11 +98,11 @@ def _require_target(plan: Plan, target_id: str) -> None:
 def cmd_plan_new(args: argparse.Namespace) -> int:
     frame = resolve_frame(args.frame)
     result = evaluate_frame(frame)
-    if not result.passed:
+    if not result.ready:
         raise DevagueError(
             EXIT_USER_ERROR,
             f"frame '{frame.slug}' has not converged; cannot start a plan",
-            "resolve: " + "; ".join(result.missing),
+            "resolve: " + "; ".join(result.blockers),
         )
     if plan_store.path_for(frame.slug).exists():
         raise DevagueError(
@@ -234,19 +234,27 @@ def cmd_plan_converge(args: argparse.Namespace) -> int:
     _frame, targets = _live(plan)
     plan.targets = targets  # refresh the snapshot from the live frame
     result = evaluate_plan(plan, targets=targets)
-    if result.passed and plan.status == "drafting":
+    if result.ready and plan.status == "drafting":
         plan.status = "converged"
-    elif not result.passed and plan.status == "converged":
+    elif not result.ready and plan.status == "converged":
         plan.status = "drafting"
     plan_store.save(plan)
     if getattr(args, "json", False):
-        emit_result({"passed": result.passed, "missing": result.missing}, json_mode=True)
-    elif result.passed:
+        emit_result(
+            {
+                "ready_for_plan": result.ready,
+                "blockers": result.blockers,
+                "warnings": result.warnings,
+                "parked_items": result.parked_items,
+                "required_next_moves": result.required_next_moves,
+            },
+            json_mode=True,
+        )
+    elif result.ready:
         emit_result("converged ✓", json_mode=False)
     else:
-        emit_result(
-            "not converged:\n" + "\n".join(f"  - {m}" for m in result.missing), json_mode=False
-        )
+        lines = "\n".join(f"  - {b}" for b in result.blockers)
+        emit_result("not converged:\n" + lines, json_mode=False)
     return 0
 
 
@@ -255,11 +263,11 @@ def cmd_plan_export(args: argparse.Namespace) -> int:
     frame, targets = _live(plan)
     plan.targets = targets
     result = evaluate_plan(plan, targets=targets)
-    if not result.passed:
+    if not result.ready:
         raise DevagueError(
             EXIT_USER_ERROR,
             "plan has not converged; cannot export",
-            "resolve: " + "; ".join(result.missing),
+            "resolve: " + "; ".join(result.blockers),
         )
     plan.status = "exported"
     text = plan_md.render_plan(plan, frame)

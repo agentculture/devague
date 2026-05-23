@@ -13,20 +13,31 @@ from devague.convergence import evaluate
 def cmd_converge(args: argparse.Namespace) -> int:
     frame = resolve(args.frame)
     result = evaluate(frame)
-    if result.passed and frame.status == "drafting":
+    if result.ready and frame.status == "drafting":
         frame.status = "converged"
         store.save(frame)
-    elif not result.passed and frame.status == "converged":
+    elif not result.ready and frame.status == "converged":
         frame.status = "drafting"
         store.save(frame)
     if getattr(args, "json", False):
-        emit_result({"passed": result.passed, "missing": result.missing}, json_mode=True)
-    elif result.passed:
-        emit_result("converged ✓", json_mode=False)
-    else:
         emit_result(
-            "not converged:\n" + "\n".join(f"  - {m}" for m in result.missing), json_mode=False
+            {
+                "ready_for_spec": result.ready,
+                "blockers": result.blockers,
+                "warnings": result.warnings,
+                "parked_items": result.parked_items,
+                "required_next_moves": result.required_next_moves,
+            },
+            json_mode=True,
         )
+    elif result.ready:
+        msg = "converged ✓"
+        if result.warnings:
+            msg += "\nwarnings:\n" + "\n".join(f"  - {w}" for w in result.warnings)
+        emit_result(msg, json_mode=False)
+    else:
+        lines = "\n".join(f"  - {b}" for b in result.blockers)
+        emit_result("not converged:\n" + lines, json_mode=False)
     return 0
 
 

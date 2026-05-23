@@ -44,6 +44,33 @@ def test_frame_flag_unknown_slug_errors(tmp_path, monkeypatch, capsys) -> None:
     assert "no such frame" in capsys.readouterr().err.lower()
 
 
+def test_load_malformed_frame_errors_cleanly(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    main(["new", "Shipped instant specs"])
+    capsys.readouterr()
+    # Corrupt the persisted frame with an unknown claim kind.
+    p = store.path_for("shipped-instant-specs")
+    p.write_text(p.read_text().replace('"announcement"', '"bogus_kind"', 1), encoding="utf-8")
+    rc = main(["show"])
+    assert rc == 1
+    err = capsys.readouterr().err.lower()
+    assert "malformed" in err and "traceback" not in err
+
+
+def test_load_newer_schema_errors_cleanly(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    main(["new", "Shipped instant specs"])
+    capsys.readouterr()
+    p = store.path_for("shipped-instant-specs")
+    p.write_text(
+        p.read_text().replace('"schema_version": 1', '"schema_version": 99'), encoding="utf-8"
+    )
+    rc = main(["show"])
+    assert rc == 1
+    err = capsys.readouterr().err.lower()
+    assert "schema_version" in err and "upgrade" in err
+
+
 def test_capture_adds_classified_claim(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     main(["new", "Shipped instant specs"])

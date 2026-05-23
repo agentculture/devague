@@ -17,11 +17,11 @@ SPECS_DIR = Path("docs/specs")
 def cmd_export(args: argparse.Namespace) -> int:
     frame = resolve(args.frame)
     result = evaluate(frame)
-    if not result.passed:
+    if not result.ready:
         raise DevagueError(
             EXIT_USER_ERROR,
             "frame has not converged; cannot export",
-            "resolve: " + "; ".join(result.missing),
+            "resolve: " + "; ".join(result.blockers),
         )
     text = render.render(frame, args.format)
     SPECS_DIR.mkdir(parents=True, exist_ok=True)

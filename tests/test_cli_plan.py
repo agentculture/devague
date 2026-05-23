@@ -172,7 +172,7 @@ def test_converge_reports_then_passes(tmp_path, monkeypatch, capsys) -> None:
     capsys.readouterr()
     rc = main(["plan", "converge", "--json"])
     assert rc == 0
-    assert json.loads(capsys.readouterr().out)["passed"] is False  # no tasks yet
+    assert json.loads(capsys.readouterr().out)["ready_for_plan"] is False  # no tasks yet
 
     args = ["plan", "task", "all", "--accept", "ok"] + sum(
         (["--covers", t] for t in _ALL_TARGETS), []
@@ -181,7 +181,7 @@ def test_converge_reports_then_passes(tmp_path, monkeypatch, capsys) -> None:
     capsys.readouterr()
     rc = main(["plan", "converge", "--json"])
     assert rc == 0
-    assert json.loads(capsys.readouterr().out)["passed"] is True
+    assert json.loads(capsys.readouterr().out)["ready_for_plan"] is True
     assert plan_store.load(slug).status == "converged"
 
 

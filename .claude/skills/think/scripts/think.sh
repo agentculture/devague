@@ -114,7 +114,6 @@ cmd_status() {
         python3 - <<'PY'
 import json
 import os
-import re
 import sys
 
 
@@ -161,58 +160,25 @@ if conv is None:
     print("next move: devague show     # inspect the frame")
     sys.exit(0)
 
-if conv.get("passed"):
+if conv.get("ready_for_spec"):
     print("convergence: PASSED ✓")
+    for w in conv.get("warnings") or []:
+        print(f"  ⚠ {w}")
     print("next move: devague export   # write the buildable spec")
     sys.exit(0)
 
-missing = conv.get("missing") or []
-print(f"convergence: NOT passed — {len(missing)} gap(s):")
-for gap in missing:
-    print(f"  - {gap}")
+blockers = conv.get("blockers") or []
+print(f"convergence: NOT passed — {len(blockers)} gap(s):")
+for b in blockers:
+    print(f"  - {b}")
+for w in conv.get("warnings") or []:
+    print(f"  ⚠ {w}")
 
-
-def suggest(gap):
-    # Confirmation is a USER-only transition; a plain (user-origin) capture
-    # is already confirmed, so never imply the agent should confirm its own
-    # work. Spell out who confirms wherever a confirm is in play.
-    m = re.search(r"missing confirmed '([a-z_]+)' claim", gap)
-    if m:
-        kind = m.group(1)
-        return (f'devague capture --kind {kind} "<text>"'
-                f'   (a user capture auto-confirms; an --origin llm capture'
-                f' then needs the USER to confirm it)')
-    if "before_state" in gap and "why_it_matters" in gap:
-        return 'devague capture --kind why_it_matters "<text>"'
-    if "boundary" in gap:
-        return 'devague capture --kind boundary "<text>"'
-    if "success_signal" in gap:
-        return 'devague capture --kind success_signal "<text>"'
-    m = re.search(r"claim (c\d+) still proposed", gap)
-    if m:
-        cid = m.group(1)
-        return (f'this is an LLM proposal — the USER decides:'
-                f' devague confirm {cid}   (or: devague reject {cid})')
-    m = re.search(r"claim (c\d+) has no confirmed honesty condition", gap)
-    if m:
-        cid = m.group(1)
-        return (f'devague interrogate {cid} --honesty "<what must be true>"'
-                f'   then the USER runs: devague confirm <hN>')
-    m = re.search(r"blocking vagueness (v\d+)", gap)
-    if m:
-        return (f"resolve {m.group(1)}: capture+confirm the answer, "
-                f"or re-park it as non-blocking")
-    m = re.search(r"blocking hard question (q\d+) on (c\d+)", gap)
-    if m:
-        return (f"resolve {m.group(1)} on {m.group(2)}: answer it, then "
-                f"capture/confirm the resulting claim")
-    return "devague show     # inspect and decide"
-
-
-if missing:
+moves = conv.get("required_next_moves") or []
+if moves:
     print()
     print("recommended next move (first gap):")
-    print(f"  {suggest(missing[0])}")
+    print(f"  {moves[0]}")
 PY
 }
 

@@ -16,14 +16,29 @@ def resolve(slug: str | None) -> Frame:
             "run 'devague new \"<announcement>\"' or pass --frame <slug>",
         )
     try:
-        return store.load(slug)
+        store.validate_slug(slug)
     except ValueError as exc:
         raise DevagueError(
             EXIT_USER_ERROR,
             f"invalid frame slug: {slug!r}",
             "slugs are lowercase letters, digits, and hyphens — no path separators",
         ) from exc
+    try:
+        return store.load(slug)
+    except store.IncompatibleSchemaError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            str(exc),
+            "this frame was written by a newer devague — upgrade: 'uv tool install -U devague'",
+        ) from exc
     except FileNotFoundError:
         raise DevagueError(
             EXIT_USER_ERROR, f"no such frame: {slug}", "run 'devague list' to see frames"
         ) from None
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"frame {slug!r} is malformed: {exc}",
+            "the frame file was hand-edited or corrupted — "
+            "fix .devague/frames/<slug>.json or recreate the frame",
+        ) from exc

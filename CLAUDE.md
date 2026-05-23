@@ -4,6 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**Spec contract landed (#5).** The entity model is documented in
+`docs/spec-contract.md` (the source of truth for kinds, the `(state × origin)`
+vocabulary, the structured convergence result, and the per-move I/O contract).
+Claim kinds now include `non_goal` / `requirement` / `assumption` / `decision`;
+every frame carries a fail-closed `schema_version`; and `converge --json` emits
+the structured `{ready_for_spec, blockers, warnings, parked_items,
+required_next_moves}` (plans: `ready_for_plan`) — a hard break from the old
+`{passed, missing}`.
+
 **Spec→plan engine landed (v0.4.0).** Both deterministic engines now ship.
 The **frame engine** (idea→spec) — Frame domain model, JSON store, convergence
 gate, renderer registry, and the flat moves `new` / `capture` / `interrogate` /
