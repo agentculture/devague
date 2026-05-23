@@ -104,6 +104,77 @@ These are the point of the method — convergence must mean something.
   frame every time. If the frame was deleted or has regressed below convergence,
   they refuse — re-converge the spec (in `/think`) first.
 
+## Coaching toward small, file-disjoint, TDD-gated tasks
+
+When authoring a plan that will be built via parallel execution (fanned out to
+multiple agents via the downstream `/assign-to-workforce` skill), prefer the
+following discipline to maximize parallelism and minimize merge friction:
+
+### Small and crisply scoped
+
+Each task should be **small enough for a simpler or cheaper model to build
+test-first** without re-deriving the full design. If a task spans multiple files
+or architectural layers, split it — narrow scope forces you to write sharp
+acceptance criteria and keeps waves wide.
+
+### File disjoint
+
+**Prefer tasks that touch non-overlapping files.** When two same-wave tasks
+modify the same file, merge collision becomes inevitable. The dependency graph
+alone *does not* guarantee file disjointness — it only sequences task *content*
+dependencies; same-wave tasks with overlapping file-writes must be split across
+waves or given explicit dependencies.
+
+Check `devague plan waves` output: if a wave is wide but all tasks touch
+`src/core.py`, the wave is *formally* parallel but *operationally* serialized at
+merge. Reorder task boundaries so wide waves operate on disjoint file sets.
+
+### TDD acceptance criteria on every task
+
+Every confirmed task must carry **at least one acceptance criterion**, phrased as
+a testable condition (not a vague outcome). For example:
+
+- Bad: "Implement the parser"
+- Better: "Parser accepts a valid spec file and rejects malformed YAML without
+  data loss"
+
+Acceptance criteria are **the contract** between the main agent (who merges) and
+the subagent (who builds). A test suite derived from these criteria validates
+each task's output *before* merge, independent of model capability. This is not
+optional: `devague plan converge` warns (non-blocking) when a confirmed task
+lacks criteria.
+
+### The key invariant: parallel = serial
+
+**A plan built in parallel must yield identical results to building it serially.**
+This is guaranteed only if:
+
+1. Same-wave tasks have no inter-task dependencies (checked by `waves`).
+2. Same-wave tasks touch disjoint files (you must verify; the CLI does not).
+3. Each task's acceptance criteria are sharp enough that a subagent's output
+   passes them independent of whether it was built in isolation or alongside
+   other tasks.
+
+The TDD gate — tests pass before *and* after the merge — is the main agent's
+proof that parallelism didn't break correctness.
+
+### How to route tasks to the workforce
+
+Once your plan converges, `devague plan waves` emits the dependency-graph as
+**scheduling metadata** (ordered batches of task IDs). This feeds directly into
+the `/assign-to-workforce` skill, which:
+
+1. Displays the plan, waves, and suggested per-task subagent/model pairing.
+2. Waits for the human to approve the implementation split plan (or edit
+   assignments).
+3. Fans out approved waves to isolated subagent worktrees (one per task per
+   wave).
+4. Returns control to the main agent, which TDD-gates each merge before moving
+   to the next wave.
+
+Plan for workforce execution early: narrow task scope, write crisp acceptance
+criteria, and strive for wide waves with disjoint files.
+
 ## Output contract
 
 Results go to **stdout**, diagnostics and errors to **stderr** — a strict split
