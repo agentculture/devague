@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+import pytest
+
+from devague import plan_store, store
+from devague.frame import Frame
+from devague.plan import Plan
+
+
+def _plan() -> Plan:
+    p = Plan(slug="demo", title="Demo", frame_slug="demo")
+    p.add_task("first task")
+    return p
+
+
+def test_save_load_roundtrip_and_current(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    plan_store.save(_plan())
+    assert plan_store.current_slug() == "demo"
+    assert plan_store.list_slugs() == ["demo"]
+    loaded = plan_store.load("demo")
+    assert loaded.title == "Demo" and loaded.frame_slug == "demo"
+    assert loaded.created and loaded.updated
+
+
+def test_load_missing_raises(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(FileNotFoundError):
+        plan_store.load("nope")
+
+
+def test_list_slugs_empty_without_dir(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert plan_store.list_slugs() == []
+    assert plan_store.current_slug() is None
+
+
+def test_path_for_rejects_unsafe_slug() -> None:
+    with pytest.raises(ValueError):
+        plan_store.path_for("../../escape")
+
+
+def test_load_rejects_tampered_internal_slug(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    plan_store.save(_plan())
+    p = plan_store.path_for("demo")
+    p.write_text(p.read_text().replace('"slug": "demo"', '"slug": "../../escape"', 1), "utf-8")
+    with pytest.raises(ValueError):
+        plan_store.load("demo")
+
+
+def test_load_rejects_tampered_frame_slug(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    plan_store.save(_plan())
+    p = plan_store.path_for("demo")
+    p.write_text(p.read_text().replace('"frame_slug": "demo"', '"frame_slug": "../x"', 1), "utf-8")
+    with pytest.raises(ValueError):
+        plan_store.load("demo")
+
+
+def test_plan_coexists_with_same_slug_frame(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    store.save(Frame(slug="demo", title="Demo"))
+    plan_store.save(_plan())
+    # Both persist independently in their own directories.
+    assert store.list_slugs() == ["demo"]
+    assert plan_store.list_slugs() == ["demo"]

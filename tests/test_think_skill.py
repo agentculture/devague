@@ -1,10 +1,11 @@
-"""Smoke tests for the first-party ``devague`` skill wrapper.
+"""Smoke tests for the first-party ``think`` skill wrapper.
 
-These drive ``.claude/skills/devague/scripts/devague.sh`` via subprocess in a
+These drive ``.claude/skills/think/scripts/think.sh`` via subprocess in a
 sandboxed ``tmp_path`` cwd (so ``.devague/`` never touches the repo). They pin
 the contract steward relies on when it pulls this skill into the mesh: the
 wrapper forwards moves verbatim, ``status`` reads the convergence gate and names
-the next move, and ``export`` stays blocked until the frame converges.
+the next move, and ``export`` stays blocked until the frame converges. The skill
+is named ``think``; the CLI it drives is still ``devague``.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = REPO_ROOT / ".claude" / "skills" / "devague" / "scripts" / "devague.sh"
+SCRIPT = REPO_ROOT / ".claude" / "skills" / "think" / "scripts" / "think.sh"
 
 
 def run(*args: str, cwd: Path, env: dict | None = None) -> subprocess.CompletedProcess:
@@ -46,7 +47,7 @@ def test_script_is_executable_and_valid_bash() -> None:
 
 def test_help_lists_moves(tmp_path: Path) -> None:
     proc = _drive(tmp_path, "help")
-    assert "operate the devague" in proc.stdout
+    assert "drive devague" in proc.stdout
     for move in ("new", "capture", "interrogate", "converge", "export", "status"):
         assert move in proc.stdout
 

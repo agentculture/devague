@@ -4,12 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
-**Working-backwards engine landed (v0.3.0).** The full deterministic spec
-engine is implemented: Frame domain model, persistent JSON store, convergence
-gate, pluggable renderer registry, and all CLI moves — `new` / `capture` /
-`interrogate` / `confirm` / `reject` / `park` / `converge` / `export` / `show`
-/ `list` — plus real `learn` / `explain` bodies that teach the method.
-Coverage is 94 %; all linters pass. Run `git ls-files` to see the real surface.
+**Spec→plan engine landed (v0.4.0).** Both deterministic engines now ship.
+The **frame engine** (idea→spec) — Frame domain model, JSON store, convergence
+gate, renderer registry, and the flat moves `new` / `capture` / `interrogate` /
+`confirm` / `reject` / `park` / `converge` / `export` / `show` / `list` /
+`learn` / `explain`. The **plan engine** (spec→plan) is its structural peer:
+`devague/plan.py`, `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`,
+and the nested group `devague plan <move>` (`new` / `task` / `accept` / `depend`
+/ `cover` / `confirm` / `reject` / `risk` / `converge` / `export` / `show` /
+`list` / `learn` / `explain`). The two operator skills are `/think` (idea→spec,
+renamed from `/devague`) and `/spec-to-plan` (spec→plan). Coverage ≥ 95 %; all
+linters pass. Run `git ls-files` to see the real surface.
 
 Real commands: `uv sync`; `uv run devague --version`; `python -m devague`;
 `uv run pytest -n auto` (single test: `uv run pytest tests/<file>::<node> -v`);
@@ -39,15 +44,44 @@ itself. The workflow:
 
 Full design: `docs/superpowers/specs/2026-05-23-devague-working-backwards-design.md`.
 
+## Spec→plan method (the forward leg)
+
+The **plan engine** is the structural peer of the frame engine — same chassis,
+same anti-fabrication rules, no LLM inside the CLI. It is namespaced under the
+`devague plan` subcommand group (the *skill* is `/spec-to-plan`; the CLI verb is
+`plan` — they intentionally differ, mirroring how `/think` drives the flat
+verbs). The workflow:
+
+1. `devague plan new --frame <slug>` — seed a plan from a **converged** frame.
+   Derives **coverage targets** (the frame's confirmed claims + honesty
+   conditions). Refuses an unconverged frame; refuses to clobber an existing plan.
+2. `devague plan task "<summary>" [--accept … --dep … --covers … --origin]` —
+   add tasks; `--origin llm` lands `proposed` (user must `confirm`). Refine with
+   `accept` / `depend` / `cover`.
+3. `devague plan risk "<text>" --kind <kind>` — park a genuine unknown as a
+   first-class plan risk instead of guessing.
+4. `devague plan converge` — re-evaluates the gate **against the live frame**
+   (catches frame drift); lists gaps. A plan converges when every target is
+   covered by a confirmed task, every confirmed task has acceptance criteria, the
+   dependency graph is acyclic, and no blocking risk remains.
+5. `devague plan export` — only after `converge` passes; writes a buildable
+   plan-md (topologically ordered) to `docs/plans/`.
+
+Full design: `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
+
 ## Project intent
 
 **devague** — an AgentCulture agent that turns a vague feature idea into a
-**buildable spec** by working backwards. The method: start from the
-announcement ("pretend it shipped — what would you announce?"), build an
-**Announcement Frame** by capturing and classifying claims, pressure-testing
-them with honesty conditions and hard questions, parking unresolved uncertainty
-as first-class "open vagueness," and only exporting a buildable spec once the
-frame *converges*.
+**buildable spec**, then that spec into a **buildable plan**, by working
+backwards then forwards. The spec method: start from the announcement ("pretend
+it shipped — what would you announce?"), build an **Announcement Frame** by
+capturing and classifying claims, pressure-testing them with honesty conditions
+and hard questions, parking unresolved uncertainty as first-class "open
+vagueness," and only exporting a buildable spec once the frame *converges*. The
+plan method: seed a plan from that converged frame and converge it on coverage,
+acceptance criteria, and an acyclic dependency order before exporting a plan.
+Two operator skills cover the two legs: **`/think`** (idea→spec) and
+**`/spec-to-plan`** (spec→plan); the product/CLI for both is **`devague`**.
 
 This is a **state machine over claims, honesty conditions, open vagueness, and
 convergence** driven by LLM-chosen moves — not a linear wizard. The CLI is
@@ -85,8 +119,12 @@ that unless the user asks otherwise. The established sibling shape is:
   `DevagueError` + exit-code policy) and `_output.py` (strict stdout/stderr
   split, `--json` support).
 - `devague/cli/_commands/` — one module per verb, each exposing `register()`.
-  Implemented verbs: `new`, `capture`, `interrogate`, `confirm`, `reject`,
-  `park`, `converge`, `export`, `show`, `list`, `learn`, `explain`.
+  Frame verbs: `new`, `capture`, `interrogate`, `confirm`, `reject`, `park`,
+  `converge`, `export`, `show`, `list`, `learn`, `explain`. The plan engine adds
+  one module, `_commands/plan.py`, registering the nested `plan` subcommand group.
+- Frame engine: `devague/frame.py`, `convergence.py`, `store.py`,
+  `render/{spec_md,frame_md}.py`. Plan engine (its peer): `devague/plan.py`,
+  `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`, `cli/_plans.py`.
 - `pyproject.toml`, `CHANGELOG.md`, `tests/`, `docs/`, `culture.yaml`,
   `sonar-project.properties`, `uv.lock`.
 

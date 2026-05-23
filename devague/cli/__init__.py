@@ -64,6 +64,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import list_frames as _list_cmd
     from devague.cli._commands import new as _new_cmd
     from devague.cli._commands import park as _park_cmd
+    from devague.cli._commands import plan as _plan_cmd
     from devague.cli._commands import reject as _reject_cmd
     from devague.cli._commands import show as _show_cmd
 
@@ -77,6 +78,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _park_cmd.register(sub)
     _converge_cmd.register(sub)
     _export_cmd.register(sub)
+    _plan_cmd.register(sub)
     _show_cmd.register(sub)
     _list_cmd.register(sub)
 

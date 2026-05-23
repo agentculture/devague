@@ -1,21 +1,26 @@
 ---
-name: devague
+name: think
 description: >
-  Operate the devague working-backwards spec tool: turn a vague feature idea
-  into a buildable, pressure-tested spec by starting from the announcement
-  ("pretend it shipped"), capturing and classifying claims, interrogating them
-  with honesty conditions and hard questions, parking open vagueness as a
-  first-class object, and exporting a spec only once the frame *converges*. Use
-  when the user says "spec this", "work backwards", "turn this idea into a
-  spec", "announcement frame", or "devague", or when a feature request is too
-  vague to build yet. Authored and maintained in agentculture/devague (origin =
-  devague); steward pulls this skill from here and broadcasts it to the
+  Think a vague feature idea into a buildable spec by working backwards (the
+  idea→spec leg; drives the `devague` CLI). Start from the announcement
+  ("pretend it shipped"), capture and classify claims, interrogate them with
+  honesty conditions and hard questions, park open vagueness as a first-class
+  object, and export a spec only once the frame *converges*. Use when the user
+  says "think this through", "spec this", "work backwards", "turn this idea into
+  a spec", "announcement frame", or "devague", or when a feature request is too
+  vague to build yet. Once a spec exports, hand off to the sibling /spec-to-plan
+  skill to turn it into a plan. Authored and maintained in agentculture/devague
+  (origin = devague); steward pulls this skill from here and broadcasts it to the
   AgentCulture mesh — it is NOT vendored from steward like the other skills here.
 ---
 
-# devague — work an idea backwards into a buildable spec
+# think — work an idea backwards into a buildable spec
 
-`devague` turns a vague feature idea into a buildable spec by **working
+The skill is named **`think`**; the product/CLI it drives is **`devague`**. (The
+forward leg — turning a converged spec into a plan — is the sibling
+**`/spec-to-plan`** skill, which drives `devague plan`.)
+
+`think` turns a vague feature idea into a buildable spec by **working
 backwards**: you start from the announcement you'd make if it had already
 shipped, then build an **Announcement Frame** by capturing claims, pressure
 -testing them, parking what's still genuinely unknown, and only exporting once
@@ -31,12 +36,12 @@ reads the convergence gate and tells you the recommended next move.
 
 ## How to run
 
-The entry point is `scripts/devague.sh`. Invoke it from the repository you are
+The entry point is `scripts/think.sh`. Invoke it from the repository you are
 speccing (frames persist under `.devague/` in the current directory):
 
 ```bash
-bash .claude/skills/devague/scripts/devague.sh <move> [args...]
-bash .claude/skills/devague/scripts/devague.sh status
+bash .claude/skills/think/scripts/think.sh <move> [args...]
+bash .claude/skills/think/scripts/think.sh status
 ```
 
 It resolves the CLI portably — an installed `devague` on `PATH` (the normal
@@ -129,7 +134,7 @@ A short end-to-end session (the kind you'd run to spec a feature like
 [devague#5](https://github.com/agentculture/devague/issues/5)):
 
 ```bash
-d() { bash .claude/skills/devague/scripts/devague.sh "$@"; }
+d() { bash .claude/skills/think/scripts/think.sh "$@"; }
 
 d new "Devague ships a documented spec contract"
 d capture --kind audience "devague + the assisting LLM"
@@ -150,8 +155,10 @@ d converge      # gate; resolve any listed gaps
 d export        # writes docs/specs/<slug>.md once converged
 ```
 
-The exported spec-md is a buildable artifact; it can feed directly into
-`superpowers:writing-plans` or a normal implementation PR.
+The exported spec-md is a buildable artifact. The next leg is the sibling
+**`/spec-to-plan`** skill: `devague plan new --frame <slug>` seeds a plan from the
+converged frame and works it forward into a buildable plan (it can equally feed
+`superpowers:writing-plans` or a normal implementation PR).
 
 ## Provenance
 
