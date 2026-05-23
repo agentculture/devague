@@ -10,8 +10,12 @@ _SECTIONS = [
     ("after_state", "After-state experience"),
     ("why_it_matters", "Why it matters"),
     ("before_state", "Before-state pain"),
-    ("boundary", "Boundaries / non-goals"),
+    ("requirement", "Requirements"),
+    ("assumption", "Assumptions"),
     ("success_signal", "Success signals"),
+    ("boundary", "Boundaries"),
+    ("non_goal", "Non-goals"),
+    ("decision", "Decisions"),
     ("open_question", "Open questions"),
 ]
 

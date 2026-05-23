@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-05-23
+
+### Added
+
+- Spec + plan for the 0.6.0 Human Review Loop milestone (#17, folding in #11 and #14), produced by dogfooding `/think` then `/spec-to-plan` on devague itself. `docs/specs/devague-0-6-0-ships-the-human-review-loop-devague.md` (converged frame: 13 confirmed claims, 13 confirmed honesty conditions) and `docs/plans/devague-0-6-0-ships-the-human-review-loop-devague.md` (7 topologically ordered tasks covering all 26 targets, one parked non-blocking risk).
+- Recorded design decisions in the frame: batch confirm/reject is transactional (abort-all on any invalid id); `confirm --from-review` is in scope for 0.6.0; devague manages `.gitignore` for `.devague/reviews/` and `.devague/questions/`; a CLI move (not a hand-written skill artifact) owns the pending-questions file.
+
+### Fixed
+
+- Renderers were lossy since the #5/#16 contract: `spec_md` rendered "Non-goals" from `boundary` claims only and never emitted `non_goal` / `decision`; `frame_md`'s sections omitted `non_goal` / `requirement` / `assumption` / `decision`. Both now render every claim kind — `spec_md` gains Scope / boundaries, Non-goals, Assumptions, Decisions, and Open questions sections; `frame_md` covers all twelve kinds. Re-exported this spec so the committed md matches the authoritative frame. Closes #21 (also flagged by Qodo on PR #22).
+
 ## [0.5.0] - 2026-05-23
 
 ### Added

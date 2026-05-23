@@ -1,0 +1,288 @@
+{
+  "slug": "devague-0-6-0-ships-the-human-review-loop-devague",
+  "title": "devague 0.6.0 ships the Human Review Loop: 'devague review' surfaces every unconfirmed LLM proposal in one pass, and confirm/reject now take many ids at once \u2014 so honest human review scales to frames full of proposals without ever auto-confirming anything.",
+  "frame_slug": "devague-0-6-0-ships-the-human-review-loop-devague",
+  "status": "exported",
+  "created": "2026-05-23T11:29:36Z",
+  "updated": "2026-05-23T11:32:13Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague 0.6.0 ships the Human Review Loop: 'devague review' surfaces every unconfirmed LLM proposal in one pass, and confirm/reject now take many ids at once \u2014 so honest human review scales to frames full of proposals without ever auto-confirming anything."
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "At 0.6.0 release the announcement is literally true of the shipped CLI: 'devague review' exists, and a frame full of proposed items can be reviewed then bulk confirmed/rejected in one pass with no path that auto-confirms."
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "The human operator driving devague who must review and confirm/reject LLM-proposed claims and honesty conditions, plus the assisting LLM agent that produces those proposals."
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "Both audiences are served: the operator gets a single review + bulk-decide path, and the LLM agent's proposals stay visibly 'proposed' until the operator explicitly acts."
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "In one pass the operator sees every unconfirmed proposal (proposed claims + proposed honesty conditions) without the frame needing to converge, then confirms or rejects many in a single command; pending design questions persist as durable .devague working state to decide later."
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "On a non-converged frame, one 'review' shows every proposed item and one 'confirm'/'reject' call resolves a chosen set \u2014 demonstrable end-to-end in a test."
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "Review was ad-hoc (hand-rolled from show / show --json) and confirmation was one id per command, so a frame with ~15 proposed conditions meant 15 sequential commands \u2014 pushing toward rubber-stamping instead of genuine review (surfaced dogfooding /think on #5)."
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "The before-state pain is real and removed: the pre-0.6.0 flow needed N commands for N conditions with no review artifact; 0.6.0 replaces that with one review plus one bulk decision."
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "The user-only confirmation step is devague's whole anti-fabrication guarantee; it must be ergonomic enough to do honestly at scale and support out-of-band review (read proposals somewhere comfortable like NotebookLM or a shared doc, then apply decisions), or it gets skipped or rubber-stamped."
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "The anti-fabrication guarantee is preserved exactly: ergonomics improve but no proposal becomes authoritative without an explicit user action, asserted by test."
+    },
+    {
+      "id": "c6",
+      "kind": "success_signal",
+      "text": "A frame with many proposed items is reviewed and resolved in a single 'devague review' plus one batched confirm/reject, and the test suite proves: review export works before convergence, multi-id confirm/reject works, and no review-flow command auto-confirms a proposal."
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "The success signals are verified by the committed test suite, not asserted by hand."
+    },
+    {
+      "id": "c7",
+      "kind": "boundary",
+      "text": "Scope is the review/confirm UX layered over the existing proposed-vs-confirmed contract (#5/#16); it does not change the state model itself \u2014 proposals still only become authoritative by explicit user action."
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "0.6.0 adds only review/confirm UX; the proposed-vs-confirmed state model and convergence gate from #5/#16 are unchanged \u2014 no new claim or condition states are introduced."
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "'devague review' (and 'devague review --json') emits all proposed claims and proposed honesty conditions, with their ids, without requiring or triggering convergence."
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "Running 'devague review' on a frame that has NOT converged still exits 0 and lists every proposed claim and proposed honesty condition with ids; it never invokes the convergence gate nor mutates any claim/condition state."
+    },
+    {
+      "id": "c13",
+      "kind": "requirement",
+      "text": "Review output is clearly labelled unconfirmed and non-authoritative, visually distinct from the buildable spec that 'export' produces only after convergence."
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "The review artifact carries an explicit 'nothing confirmed yet \u2014 non-authoritative' banner and is written to a path under .devague/reviews/<slug>.md, distinct from docs/specs/, so it cannot be mistaken for the buildable spec."
+    },
+    {
+      "id": "c14",
+      "kind": "requirement",
+      "text": "'devague confirm' accepts multiple claim/honesty ids in one invocation, and 'devague reject' likewise."
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "'devague confirm a b c' resolves every listed id in a single call (and 'reject a b c' likewise), and the handling of a batch containing an invalid/unknown id follows one defined, tested rule."
+    },
+    {
+      "id": "c15",
+      "kind": "requirement",
+      "text": "Open questions / pending user decisions can be written as durable .devague working state (e.g. .devague/questions/<slug>.md), treated as uncommitted working state by default unless the user intentionally promotes one into docs."
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "A pending question the CLI writes persists across runs under .devague/questions/<slug>.md, is treated as uncommitted working state by default, and a documented path exists to apply a confirmed decision back into the frame."
+    },
+    {
+      "id": "c16",
+      "kind": "requirement",
+      "text": "No command in the review flow auto-confirms LLM-proposed content; every confirm/reject stays an explicit user action."
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "An automated test asserts that no review-flow command (review, multi-id confirm/reject, any --json path) transitions an llm-origin proposed item to confirmed without an explicit user confirm naming that id."
+    },
+    {
+      "id": "c21",
+      "kind": "requirement",
+      "text": "'devague confirm --from-review <file>' applies a reviewed decision set parsed from the review artifact; the artifact 'devague review' emits is documented and round-trippable (review -> edit decisions -> apply)."
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "A review artifact emitted by 'devague review' can be edited with confirm/reject decisions and fed to 'devague confirm --from-review <file>' to apply exactly those decisions \u2014 proven by a round-trip test \u2014 and applying it still auto-confirms nothing the file did not mark confirmed."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Multi-id, transactional confirm/reject",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "confirm and reject accept multiple ids (nargs+) in a single invocation",
+        "batch is transactional: if any id is unknown/invalid, resolve none and exit non-zero with a hint (decision c17)",
+        "an all-valid batch resolves every listed id; existing single-id behaviour is unchanged"
+      ],
+      "deps": [],
+      "covers": [
+        "c14",
+        "h3"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "'devague review' lists proposed items, un-gated, with no mutation (+ --json)",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "review lists every proposed claim and proposed honesty condition with their ids",
+        "review runs on a NON-converged frame, exits 0, and never invokes the convergence gate",
+        "review never mutates any claim/condition state; review --json emits the same set structured"
+      ],
+      "deps": [],
+      "covers": [
+        "c12",
+        "h1"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Non-authoritative review artifact at .devague/reviews/<slug>.md",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "review writes .devague/reviews/<slug>.md carrying an explicit 'nothing confirmed yet \u2014 non-authoritative' banner",
+        "the path is distinct from docs/specs/ so it cannot be mistaken for the buildable spec",
+        "devague ensures .devague/reviews/ is git-ignored so it is uncommitted working state by default (decision c19)"
+      ],
+      "deps": [
+        "t2"
+      ],
+      "covers": [
+        "c13",
+        "h2"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "'confirm --from-review <file>' apply path + documented round-trippable format",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the review artifact format is documented and round-trippable: review -> edit decisions -> apply",
+        "confirm --from-review parses confirm/reject decisions per id and applies them via the transactional path (t1)",
+        "applying a from-review file auto-confirms nothing the file did not mark confirmed; proven by a round-trip test"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t3"
+      ],
+      "covers": [
+        "c21",
+        "h13"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "Pending questions as durable .devague/questions/<slug>.md working state",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a CLI move writes .devague/questions/<slug>.md that persists across runs and owns the format (decision c20)",
+        "devague ensures .devague/questions/ is git-ignored \u2014 uncommitted working state by default (decision c19)",
+        "a documented path exists to apply a confirmed decision from the questions file back into the frame"
+      ],
+      "deps": [],
+      "covers": [
+        "c15",
+        "h4"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Verification test suite for the review loop",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a test asserts NO review-flow command (review, multi-id confirm/reject, --from-review, any --json path) confirms an llm-origin proposed item without an explicit user confirm naming that id (c16/h5)",
+        "tests prove review export works before convergence, multi-id confirm/reject works, and the from-review round-trip applies exactly the file's decisions (c6/h11)",
+        "an end-to-end test demonstrates one 'review' + one batched confirm/reject resolving a chosen set on a non-converged frame (c3/h8), and that the anti-fabrication guarantee is preserved (c5/h10)"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t3",
+        "t4",
+        "t5"
+      ],
+      "covers": [
+        "c16",
+        "h5",
+        "c6",
+        "h11",
+        "c5",
+        "h10",
+        "c3",
+        "h8"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "Docs, .gitignore/working-state guidance, version bump to 0.6.0 + CHANGELOG",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "docs explain which .devague/ files are local working state vs artifacts intentionally promoted to docs, and document the review-file format + apply-back path",
+        "an integration check confirms the shipped 0.6.0 CLI makes the announcement literally true: 'devague review' exists and a proposal-heavy frame is reviewed then bulk-resolved with no auto-confirm path (c1/h6, c2/h7, c4/h9)",
+        "verify ONLY review/confirm UX was added \u2014 no new claim/condition states and the #5/#16 convergence gate is unchanged (c7/h12); bump version to 0.6.0 and prepend a CHANGELOG entry"
+      ],
+      "deps": [
+        "t6"
+      ],
+      "covers": [
+        "c1",
+        "h6",
+        "c2",
+        "h7",
+        "c4",
+        "h9",
+        "c7",
+        "h12"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "Exact review-file markers for the --from-review round-trip (e.g. checkbox vs CONFIRM/REJECT tokens, how ids are anchored) are unsettled \u2014 to be pinned during implementation of t4.",
+      "kind": "unknown_nonblocking",
+      "task_id": "t4"
+    }
+  ]
+}
