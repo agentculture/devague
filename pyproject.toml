@@ -1,6 +1,6 @@
 [project]
 name = "devague"
-version = "0.5.1"
+version = "0.6.0"
 description = "devague — turns a vague feature idea into a buildable spec, then a buildable plan."
 readme = "README.md"
 license = "MIT"

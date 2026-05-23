@@ -58,7 +58,9 @@ portable resolution and the `status` helper.
 | `new "<announcement>"` | Start a frame from the announcement (the first move). Seeds an auto-confirmed `announcement` claim. |
 | `capture --kind <kind> "<text>"` | Record + classify a claim. `--origin llm` lands it as `proposed`. |
 | `interrogate <id> --honesty "…"` | Attach an honesty condition (what must be true). Also `--hard-question`, `--risk`, `--contradicts`, `--blocking`. |
-| `confirm <id>` / `reject <id>` | Resolve a claim (`c*`) or honesty condition (`h*`). **User-only decision.** |
+| `confirm <id> [<id>…]` / `reject <id> [<id>…]` | Resolve one or more claims (`c*`) / honesty conditions (`h*`) in one **transactional** call. **User-only decision.** Also `confirm --from-review <file>` to apply an edited review artifact. |
+| `review` | List every **proposed** (unconfirmed) claim + honesty condition with ids (`--json` too); writes a non-authoritative artifact to `.devague/reviews/<slug>.md`. Un-gated; never mutates. |
+| `question "<text>"` | Record / list / `--resolve` a pending user decision as durable working state in `.devague/questions/<slug>.md`. |
 | `park "<text>" --kind <kind>` | Move uncertainty into first-class open vagueness instead of forcing an answer. |
 | `converge` | Evaluate the gate; list remaining gaps. |
 | `export` | Write the buildable spec to `docs/specs/` — only after `converge` passes. |

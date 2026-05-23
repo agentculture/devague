@@ -120,6 +120,38 @@ def test_confirm_unknown_id_errors(tmp_path, monkeypatch, capsys) -> None:
     assert "no such" in capsys.readouterr().err
 
 
+def test_confirm_multiple_ids_in_one_call(tmp_path, monkeypatch) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "audience", "devs", "--origin", "llm"])  # c2 proposed
+    main(["capture", "--kind", "after_state", "fast", "--origin", "llm"])  # c3 proposed
+    assert main(["confirm", "c2", "c3"]) == 0
+    f = store.load(store.current_slug())
+    assert f.find_claim("c2").status == "confirmed"
+    assert f.find_claim("c3").status == "confirmed"
+
+
+def test_reject_multiple_ids_in_one_call(tmp_path, monkeypatch) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "audience", "devs", "--origin", "llm"])  # c2
+    main(["capture", "--kind", "after_state", "fast", "--origin", "llm"])  # c3
+    assert main(["reject", "c2", "c3"]) == 0
+    f = store.load(store.current_slug())
+    assert f.find_claim("c2").status == "rejected"
+    assert f.find_claim("c3").status == "rejected"
+
+
+def test_batch_confirm_is_transactional(tmp_path, monkeypatch, capsys) -> None:
+    # One unknown id in the batch => resolve NONE (no half-applied state).
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "audience", "devs", "--origin", "llm"])  # c2 proposed
+    rc = main(["confirm", "c2", "nope"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "no such" in err and "nope" in err
+    # c2 must be untouched — the batch aborted before applying anything.
+    assert store.load(store.current_slug()).find_claim("c2").status == "proposed"
+
+
 def test_park_adds_vagueness(tmp_path, monkeypatch, capsys) -> None:
     _seed(monkeypatch, tmp_path)
     capsys.readouterr()  # drain the "new" output

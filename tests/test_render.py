@@ -120,6 +120,26 @@ def test_frame_md_renders_non_goal_and_decision() -> None:
     assert_markdownlint_clean(out)
 
 
+def test_review_md_banner_and_proposed_only() -> None:
+    f = Frame(slug="rv", title="Review me")
+    f.add_claim("announcement", "Shipped", origin="user")  # confirmed — excluded
+    f.add_claim("audience", "devs", origin="llm")  # c2 proposed — included
+    out = render.render(f, "review-md")
+    assert "review-md" in render.formats()
+    assert "nothing confirmed yet" in out.lower()
+    assert "`c2`" in out and "devs" in out
+    assert "Shipped" not in out  # confirmed items are not part of the review artifact
+    assert_markdownlint_clean(out)
+
+
+def test_review_md_empty_when_no_proposals() -> None:
+    f = Frame(slug="rv2", title="All confirmed")
+    f.add_claim("announcement", "Shipped", origin="user")  # confirmed
+    out = render.render(f, "review-md")
+    assert "nothing awaiting review" in out.lower()
+    assert_markdownlint_clean(out)
+
+
 def test_unknown_format_raises() -> None:
     with pytest.raises(DevagueError):
         render.render(_frame(), "nope")

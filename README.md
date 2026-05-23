@@ -32,6 +32,50 @@ devague --version
 Run `devague learn` (or `devague plan learn`) to learn the method, and `devague
 explain <move>` for any single move.
 
+## Human Review Loop
+
+LLM-proposed claims and honesty conditions stay `proposed` until **you**
+confirm them — that anti-fabrication rule is the point of the method. The review
+loop makes that human step ergonomic at scale:
+
+```bash
+devague review                 # list every proposed (unconfirmed) item, with ids
+devague review --json          # same, structured
+devague confirm c2 h1 h3       # confirm many ids in one transactional call
+devague reject c4 c5           # reject many ids in one call
+devague confirm --from-review .devague/reviews/<slug>.md   # apply an edited review file
+```
+
+`review` is **not** gated on convergence and never mutates state. It writes a
+durable, explicitly non-authoritative artifact you can review out of band, then
+apply: each item is emitted with a `pending` marker — change it to `confirm` or
+`reject` and feed the file back with `confirm --from-review`. `pending` lines are
+never auto-confirmed; a batch is transactional (one bad id ⇒ nothing changes).
+
+Open questions / pending decisions live as durable working state too:
+
+```bash
+devague question "should batch confirm be transactional?"   # record a pending decision
+devague question --list                                     # review them
+devague question --resolve q1 --decision "yes, transactional"
+```
+
+Applying a resolved decision into the frame stays an explicit move (e.g.
+`devague capture --kind decision "…"` then `devague confirm`).
+
+### `.devague/` — what's committed vs working state
+
+| Path | Committed? |
+|------|-----------|
+| `.devague/frames/`, `.devague/plans/` | yes — the converged frame/plan state |
+| `.devague/reviews/<slug>.md` | no — local review working state |
+| `.devague/questions/<slug>.md` | no — local pending-decision working state |
+| `.devague/current`, `.devague/current_plan` | no — local pointers |
+
+devague keeps `reviews/` and `questions/` out of git for you (it manages
+`.gitignore`). Promote one into `docs/` only if you intentionally want it
+committed.
+
 ## Driving it from an agent
 
 Inside AgentCulture, an assistant drives this CLI through two operator skills —

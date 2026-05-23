@@ -4,6 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**Human Review Loop landed (0.6.0, #17).** `devague review` (+ `--json`) lists
+every proposed claim + honesty condition with ids — un-gated by convergence,
+never mutating state — and writes a non-authoritative artifact to
+`.devague/reviews/<slug>.md`. `confirm` / `reject` now take multiple ids in one
+**transactional** call; `confirm --from-review <file>` applies an edited review
+artifact (`pending` lines are never auto-confirmed). `devague question` records
+pending decisions in `.devague/questions/<slug>.md`. devague manages
+`.gitignore` so `reviews/` and `questions/` stay uncommitted working state.
+
 **Spec contract landed (#5).** The entity model is documented in
 `docs/spec-contract.md` (the source of truth for kinds, the `(state × origin)`
 vocabulary, the structured convergence result, and the per-move I/O contract).
@@ -16,8 +25,9 @@ required_next_moves}` (plans: `ready_for_plan`) — a hard break from the old
 **Spec→plan engine landed (v0.4.0).** Both deterministic engines now ship.
 The **frame engine** (idea→spec) — Frame domain model, JSON store, convergence
 gate, renderer registry, and the flat moves `new` / `capture` / `interrogate` /
-`confirm` / `reject` / `park` / `converge` / `export` / `show` / `list` /
-`learn` / `explain`. The **plan engine** (spec→plan) is its structural peer:
+`confirm` / `reject` / `review` / `question` / `park` / `converge` / `export` /
+`show` / `list` / `learn` / `explain`. The **plan engine** (spec→plan) is its
+structural peer:
 `devague/plan.py`, `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`,
 and the nested group `devague plan <move>` (`new` / `task` / `accept` / `depend`
 / `cover` / `confirm` / `reject` / `risk` / `converge` / `export` / `show` /

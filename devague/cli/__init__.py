@@ -65,7 +65,9 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import new as _new_cmd
     from devague.cli._commands import park as _park_cmd
     from devague.cli._commands import plan as _plan_cmd
+    from devague.cli._commands import question as _question_cmd
     from devague.cli._commands import reject as _reject_cmd
+    from devague.cli._commands import review as _review_cmd
     from devague.cli._commands import show as _show_cmd
 
     _learn_cmd.register(sub)
@@ -75,6 +77,8 @@ def _build_parser() -> argparse.ArgumentParser:
     _interrogate_cmd.register(sub)
     _confirm_cmd.register(sub)
     _reject_cmd.register(sub)
+    _review_cmd.register(sub)
+    _question_cmd.register(sub)
     _park_cmd.register(sub)
     _converge_cmd.register(sub)
     _export_cmd.register(sub)
