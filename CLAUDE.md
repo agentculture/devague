@@ -50,7 +50,9 @@ itself. The workflow:
    shipped successfully — what would you announce to users, teammates, or
    yourself?"). Creates a Frame seeded with the announcement claim
    (auto-confirmed, since it comes from the user). `devague learn` documents the
-   full ten-stage guided sequence.
+   full ten-stage guided sequence plus the always-on **operating rules** (the
+   anti-fabrication contract); the portable, agent-agnostic version of that
+   contract lives in `docs/llm-guidance.md` (#19).
 2. `devague capture --kind <kind> "<text>"` — add claims; LLM-proposed ones
    (`--origin llm`) land as `proposed` and require explicit user `confirm`.
 3. `devague interrogate <claim-id>` — attach honesty conditions and hard

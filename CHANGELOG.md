@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-05-23
+
+### Added
+
+- **Portable LLM guidance contract (#19).** New `docs/llm-guidance.md` — a runtime-agnostic operating contract for any assisting model driving Devague (not just Claude Code): the move-driven mental model, the (state × origin) vocabulary, the anti-fabrication hard rules, adaptive-not-scripted ordering, good/bad operator examples, and the forward (plan) leg. Distilled from the `/think` and `/spec-to-plan` skill contracts; it complements, and does not replace, an agent runtime's own main instruction file (`AGENTS.md`, `CLAUDE.md`, a system prompt).
+- `devague learn` (text and `--json`) now always surfaces the operating rules: a `devague is NOT` framing (not a wizard / questionnaire / PRD generator), the anti-fabrication rules, and a pointer to `docs/llm-guidance.md`. JSON gains `not_a`, `operating_rules`, `guidance_doc` (a portable canonical URL — `docs/` is not shipped in the wheel), and `guidance_doc_repo_path` keys.
+
 ## [0.7.0] - 2026-05-23
 
 ### Added

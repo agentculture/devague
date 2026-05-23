@@ -11,6 +11,10 @@ CLI tracks state. Every move accepts and emits JSON (`--json`), with a strict
 without guessing internal state. All operations run fully offline against local
 `.devague/` state.
 
+For the portable, runtime-agnostic contract on *how* an assisting model should
+operate Devague — the move-driven mental model and the anti-fabrication rules —
+see [`llm-guidance.md`](llm-guidance.md) (also surfaced in `devague learn`).
+
 ## Versioning
 
 Every frame carries an integer `schema_version` (currently `1`). It is written
