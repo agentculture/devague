@@ -55,14 +55,22 @@ def _build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", parser_class=_DevagueArgumentParser)
 
     from devague.cli._commands import capture as _capture_cmd
+    from devague.cli._commands import confirm as _confirm_cmd
     from devague.cli._commands import explain as _explain_cmd
+    from devague.cli._commands import interrogate as _interrogate_cmd
     from devague.cli._commands import learn as _learn_cmd
     from devague.cli._commands import new as _new_cmd
+    from devague.cli._commands import park as _park_cmd
+    from devague.cli._commands import reject as _reject_cmd
 
     _learn_cmd.register(sub)
     _explain_cmd.register(sub)
     _new_cmd.register(sub)
     _capture_cmd.register(sub)
+    _interrogate_cmd.register(sub)
+    _confirm_cmd.register(sub)
+    _reject_cmd.register(sub)
+    _park_cmd.register(sub)
 
     return parser
 
