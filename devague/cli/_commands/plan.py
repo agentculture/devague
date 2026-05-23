@@ -21,6 +21,7 @@ from devague.cli._frames import resolve as resolve_frame
 from devague.cli._output import emit_result
 from devague.cli._paths import dated_name
 from devague.cli._plans import resolve_plan
+from devague.cli._status import StatusLabels, emit_empty, emit_status
 from devague.convergence import evaluate as evaluate_frame
 from devague.frame import Frame
 from devague.plan import RISK_KINDS, Plan, dependency_waves, targets_from_frame, to_dict
@@ -46,9 +47,21 @@ PLAN_MOVES = {
     "converge": "Check whether the plan can export, against the live frame.",
     "export": "Write the buildable plan — only once the plan converges.",
     "waves": "Emit deterministic dependency waves (scheduling metadata, not orchestration).",
+    "status": "Report where the plan stands + the recommended next move (read-only).",
     "show": "Render the plan.",
     "list": "List plans.",
 }
+
+_STATUS_LABELS = StatusLabels(
+    noun="plan",
+    ready_key="ready_for_plan",
+    export_move="devague plan export   # write the buildable plan",
+    empty_text=(
+        "no plans yet — seed one from a converged frame:\n"
+        '  devague plan new --frame "<slug>"\n'
+        "  (the frame must have converged in the /think skill first)"
+    ),
+)
 
 
 # ── shared helpers ──────────────────────────────────────────────────────────
@@ -319,6 +332,31 @@ def cmd_plan_waves(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plan_status(args: argparse.Namespace) -> int:
+    """Where the plan stands + the recommended next move — read-only.
+
+    Re-evaluates against the **live** source frame (like ``converge``/``export``),
+    so frame drift surfaces as a real error on stderr before any stdout. Internalised
+    from the ``spec-to-plan`` skill wrapper (issue #30); unlike ``converge`` it never
+    persists the ``drafting``↔``converged`` transition.
+    """
+    json_mode = getattr(args, "json", False)
+    slugs = plan_store.list_slugs()
+    if not slugs:
+        emit_empty(_STATUS_LABELS, json_mode=json_mode)
+        return 0
+    # resolve_plan + _live raise here (before any stdout) on a bad --plan or a
+    # source frame that regressed below convergence — routed to stderr.
+    plan = resolve_plan(args.plan)
+    _frame, targets = _live(plan)
+    plan.targets = targets  # in-memory refresh only; status does not save
+    result = evaluate_plan(plan, targets=targets)
+    emit_status(
+        _STATUS_LABELS, selected=plan.slug, total=len(slugs), result=result, json_mode=json_mode
+    )
+    return 0
+
+
 def cmd_plan_show(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     if getattr(args, "json", False):
@@ -464,6 +502,10 @@ def register(sub: argparse._SubParsersAction) -> None:
     pwv = psub.add_parser("waves", help="Emit deterministic dependency waves (metadata only).")
     _plan_opt(pwv)
     pwv.set_defaults(func=cmd_plan_waves)
+
+    pst = psub.add_parser("status", help="Where the plan stands + the recommended next move.")
+    _plan_opt(pst)
+    pst.set_defaults(func=cmd_plan_status)
 
     psh = psub.add_parser("show", help="Render the plan.")
     _plan_opt(psh)

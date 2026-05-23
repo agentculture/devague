@@ -16,6 +16,7 @@ MOVES = {
     "park": "Move uncertainty into first-class open vagueness instead of forcing an answer.",
     "converge": "Check whether the frame is solid enough to export a spec.",
     "export": "Write the buildable spec — only once the frame converges.",
+    "status": "Report where the frame stands + the recommended next move (read-only).",
     "show": "Render the Announcement Frame.",
     "list": "List frames.",
 }

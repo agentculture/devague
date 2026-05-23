@@ -92,6 +92,9 @@ cmd_split_plan() {
 
     local waves_json tmp_err waves_rc
     tmp_err="$(mktemp)"
+    # Clean up on ANY exit path — including a signal between here and the
+    # explicit removal below — so the temp file never leaks (#30).
+    trap 'rm -f "$tmp_err"' EXIT
     set +e
     waves_json="$("${DEVAGUE[@]}" plan waves --json "${extra_args[@]}" 2>"$tmp_err")"
     waves_rc=$?

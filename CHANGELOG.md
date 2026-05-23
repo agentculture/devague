@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-05-24
+
+### Added
+
+- `devague status` and `devague plan status` — first-class, read-only CLI verbs that compose `list` + `converge` and report the convergence verdict, remaining gaps, and the recommended next move (`--json` too). Internalised from the `think` / `spec-to-plan` skill wrappers (#30); they never mutate state and the plan verb re-checks the live source frame for drift. Shared renderer in `devague/cli/_status.py`.
+
+### Changed
+
+- The `think` / `spec-to-plan` skill wrappers are now thin: `status` is forwarded verbatim like every other move instead of being a wrapper-only verb implemented in embedded Python. This removed their `mktemp` temp-file and stdout-ordering hazards entirely (#30, Qodo via steward).
+
+### Fixed
+
+- `assign-to-workforce.sh` no longer leaks its `mktemp` temp file if interrupted by a signal — cleanup is now registered with an `EXIT` trap (#30). Its split-plan orchestration presentation deliberately stays out of the deterministic CLI (#20).
+
 ## [0.10.0] - 2026-05-24
 
 ### Added

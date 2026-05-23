@@ -4,6 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**`status` internalised into the CLI (0.11.0, #30).** The next-move helper that
+used to live as embedded Python inside the `think` / `spec-to-plan` skill
+wrappers is now a first-class, read-only CLI verb — `devague status` and
+`devague plan status` (sharing `devague/cli/_status.py`). Both compose
+`list` + `converge` and report the verdict, gaps, and recommended next move
+(`--json` too); neither mutates state. This removed the wrappers' `mktemp` +
+embedded-stdout hazards (Qodo via steward); the trio's remaining `mktemp` (in
+`assign-to-workforce.sh`, whose orchestration presentation deliberately stays
+out of the deterministic CLI) gained a cleanup trap.
+
 **Human Review Loop landed (0.6.0, #17).** `devague review` (+ `--json`) lists
 every proposed claim + honesty condition with ids — un-gated by convergence,
 never mutating state — and writes a non-authoritative artifact to
@@ -26,12 +36,12 @@ required_next_moves}` (plans: `ready_for_plan`) — a hard break from the old
 The **frame engine** (idea→spec) — Frame domain model, JSON store, convergence
 gate, renderer registry, and the flat moves `new` / `capture` / `interrogate` /
 `confirm` / `reject` / `review` / `question` / `park` / `converge` / `export` /
-`show` / `list` / `learn` / `explain`. The **plan engine** (spec→plan) is its
-structural peer:
+`status` / `show` / `list` / `learn` / `explain`. The **plan engine** (spec→plan)
+is its structural peer:
 `devague/plan.py`, `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`,
 and the nested group `devague plan <move>` (`new` / `task` / `accept` / `depend`
 / `cover` / `confirm` / `reject` / `risk` / `converge` / `export` / `waves` /
-`show` / `list` / `learn` / `explain`). The two operator skills are `/think` (idea→spec,
+`status` / `show` / `list` / `learn` / `explain`). The two operator skills are `/think` (idea→spec,
 renamed from `/devague`) and `/spec-to-plan` (spec→plan). Coverage ≥ 95 %; all
 linters pass. Run `git ls-files` to see the real surface.
 
@@ -202,8 +212,9 @@ that unless the user asks otherwise. The established sibling shape is:
   split, `--json` support).
 - `devague/cli/_commands/` — one module per verb, each exposing `register()`.
   Frame verbs: `new`, `capture`, `interrogate`, `confirm`, `reject`, `park`,
-  `converge`, `export`, `show`, `list`, `learn`, `explain`. The plan engine adds
-  one module, `_commands/plan.py`, registering the nested `plan` subcommand group.
+  `converge`, `export`, `status`, `show`, `list`, `learn`, `explain` (`status`
+  shares `cli/_status.py` with the plan engine). The plan engine adds one module,
+  `_commands/plan.py`, registering the nested `plan` subcommand group.
 - Frame engine: `devague/frame.py`, `convergence.py`, `store.py`,
   `render/{spec_md,frame_md}.py`. Plan engine (its peer): `devague/plan.py`,
   `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`, `cli/_plans.py`.

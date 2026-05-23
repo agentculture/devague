@@ -65,6 +65,7 @@ Moves (forwarded to the devague CLI; run `devague learn` for the full method):
   park         record open vagueness instead of forcing an answer
   converge     check whether the frame can export a spec
   export       write the buildable spec (only after converge passes)
+  status       where the frame stands + the recommended next move
   show / list  render a frame / list frames
   learn        teach the method   |   explain <move>  explain one move
 
@@ -72,114 +73,13 @@ Frames persist under .devague/ in the current directory — run from the repo
 you are speccing. Results go to stdout, diagnostics to stderr; pass --json to
 any move for structured output.
 
-Note: `status` is a wrapper-only verb (the CLI has no `status`); everything
-else is forwarded verbatim, so new devague moves work without editing this
-script.
+Note: every move — including `status` — is forwarded verbatim to the devague
+CLI, so new devague moves work without editing this script. (`status` was
+internalised into the CLI in devague 0.11.0; it is no longer wrapper-only.)
 
 Next leg: once a frame exports a spec, hand off to the /spec-to-plan skill
 (`devague plan ...`) to turn that spec into a buildable plan.
 EOF
-}
-
-# ── status: read the convergence gate and recommend the next move ──────────
-cmd_status() {
-    local list_json conv_out conv_err conv_rc req_frame="" prev="" tmp_err
-
-    # Pull the requested --frame (if any) so the header names the same frame
-    # that convergence is evaluated for; converge still receives it via "$@".
-    for arg in "$@"; do
-        case "$prev" in --frame) req_frame="$arg" ;; esac
-        case "$arg" in --frame=*) req_frame="${arg#--frame=}" ;; esac
-        prev="$arg"
-    done
-
-    list_json="$("${DEVAGUE[@]}" list --json 2>/dev/null || true)"
-
-    # Capture converge's stdout, stderr, and exit code separately. converge
-    # exits 0 even when "not passed", so a non-zero code is a *real* error
-    # (bad/missing --frame, corrupt frame) we must surface, not swallow.
-    tmp_err="$(mktemp)"
-    set +e
-    conv_out="$("${DEVAGUE[@]}" converge --json "$@" 2>"$tmp_err")"
-    conv_rc=$?
-    set -e
-    conv_err="$(cat "$tmp_err")"
-    rm -f "$tmp_err"
-
-    DEVAGUE_LIST_JSON="$list_json" \
-        DEVAGUE_CONV_JSON="$conv_out" \
-        DEVAGUE_CONV_ERR="$conv_err" \
-        DEVAGUE_CONV_RC="$conv_rc" \
-        DEVAGUE_REQ_FRAME="$req_frame" \
-        python3 - <<'PY'
-import json
-import os
-import sys
-
-
-def load(name):
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return None
-
-
-lst = load("DEVAGUE_LIST_JSON") or {}
-conv = load("DEVAGUE_CONV_JSON")
-conv_err = os.environ.get("DEVAGUE_CONV_ERR", "").strip()
-req_frame = os.environ.get("DEVAGUE_REQ_FRAME", "").strip()
-try:
-    conv_rc = int(os.environ.get("DEVAGUE_CONV_RC", "0") or "0")
-except ValueError:
-    conv_rc = 0
-
-frames = lst.get("frames") or []
-current = lst.get("current")
-
-if not frames:
-    print("no frames yet — start one:")
-    print('  devague new "<announcement>"')
-    print('  first question: "What\'s the announcement? Pretend this shipped'
-          ' successfully — what would you announce?"')
-    sys.exit(0)
-
-shown = req_frame or current or "(none selected)"
-total = len(frames)
-print(f"frame: {shown}    ({total} frame{'s' if total != 1 else ''} total)")
-
-if conv is None:
-    # A non-zero converge exit on an existing frame is a genuine error —
-    # relay devague's own error:/hint: lines to stderr instead of masking it.
-    if conv_rc != 0 and conv_err:
-        sys.stderr.write(conv_err + "\n")
-        sys.exit(conv_rc)
-    print("convergence: unknown (could not evaluate the frame)")
-    print("next move: devague show     # inspect the frame")
-    sys.exit(0)
-
-if conv.get("ready_for_spec"):
-    print("convergence: PASSED ✓")
-    for w in conv.get("warnings") or []:
-        print(f"  ⚠ {w}")
-    print("next move: devague export   # write the buildable spec")
-    sys.exit(0)
-
-blockers = conv.get("blockers") or []
-print(f"convergence: NOT passed — {len(blockers)} gap(s):")
-for b in blockers:
-    print(f"  - {b}")
-for w in conv.get("warnings") or []:
-    print(f"  ⚠ {w}")
-
-moves = conv.get("required_next_moves") or []
-if moves:
-    print()
-    print("recommended next move (first gap):")
-    print(f"  {moves[0]}")
-PY
 }
 
 main() {
@@ -188,14 +88,10 @@ main() {
             usage
             return 0
             ;;
-        status)
-            shift
-            resolve_devague
-            cmd_status "$@"
-            ;;
         *)
-            # Forward everything else to the CLI verbatim (including --version,
-            # and any future devague move), so its own parser owns the surface.
+            # Forward every move to the CLI verbatim (including --version, the
+            # internalised `status` verb, and any future devague move), so its
+            # own parser owns the surface.
             resolve_devague
             exec "${DEVAGUE[@]}" "$@"
             ;;
