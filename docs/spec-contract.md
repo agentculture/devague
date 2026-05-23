@@ -153,8 +153,9 @@ the exit code is non-zero and `stderr` carries a `hint:` line.
 **Validation errors** (all raise a clean `DevagueError`, exit code 1): unknown
 claim kind / origin / status or vagueness kind (rejected at construction);
 unknown claim or honesty id on `confirm`/`reject`; an invalid `--frame` slug; a
-missing frame; a malformed or hand-edited frame file; a frame whose
-`schema_version` is too new.
+missing frame; a malformed or hand-edited frame file (including one whose
+embedded slug doesn't match the requested slug, or whose `schema_version` is not
+an integer); a frame whose `schema_version` is too new.
 
 ## Anti-fabrication guarantee
 
@@ -178,3 +179,20 @@ targets derived from a converged frame, Tasks (`origin`/`status` like claims,
 plus `deps`, `covers`, `acceptance_criteria`), and PlanRisks. It reuses the same
 structured convergence result, serialized under `ready_for_plan`. See
 `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
+
+Plans carry the same persistence contract as frames. Every plan has an integer
+`schema_version` (currently `1`, `PLAN_SCHEMA_VERSION`), written on save and
+checked on load: `plan_store.load` **fails closed** with a clean `DevagueError`
+(exit code 1, upgrade hint) when a plan declares a `schema_version` newer than
+this devague supports. A pre-0.7.0 plan with no `schema_version` key loads
+silently as the current schema. Loaded `Task.origin` / `Task.status` and
+`PlanRisk.kind` are validated at construction; an invalid value surfaces as a
+"malformed plan" `DevagueError` rather than a traceback. (Task/dep/cover **id**
+cross-references are deliberately *not* validated at load — coverage and acyclic
+dependency checks already run against the live frame in `plan converge`.)
+
+Both `load`s also reject a file whose embedded slug disagrees with the requested
+slug (so a tampered file can't silently redirect a later `save`), and parse
+`schema_version` strictly via the shared `frame.parse_schema_version` — a
+non-integer value is rejected rather than coerced. These guards are symmetric
+across the frame and plan persistence twins.

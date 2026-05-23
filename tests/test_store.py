@@ -106,3 +106,16 @@ def test_load_legacy_frame_without_schema_version(tmp_path, monkeypatch) -> None
     legacy = {"slug": "demo", "title": "Demo", "claims": [], "open_vagueness": []}
     store.path_for("demo").write_text(json.dumps(legacy), encoding="utf-8")
     assert store.load("demo").schema_version == SCHEMA_VERSION
+
+
+def test_load_rejects_slug_mismatch(tmp_path, monkeypatch) -> None:
+    # A file under demo.json whose internal slug is a *different* valid slug must
+    # be rejected, so a later save() can't be redirected onto another frame.
+    monkeypatch.chdir(tmp_path)
+    store.save(Frame(slug="demo", title="Demo"))
+    p = store.path_for("demo")
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["slug"] = "other"
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="slug mismatch"):
+        store.load("demo")

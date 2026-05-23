@@ -12,11 +12,15 @@ import json
 import time
 from pathlib import Path
 
-from devague.plan import Plan, from_dict, to_dict
+from devague.plan import PLAN_SCHEMA_VERSION, Plan, from_dict, to_dict
 from devague.store import validate_slug
 
 PLANS_DIR = Path(".devague/plans")
 CURRENT_PLAN = Path(".devague/current_plan")
+
+
+class IncompatiblePlanSchemaError(ValueError):
+    """A persisted plan declares a schema_version this devague cannot read."""
 
 
 def _now() -> str:
@@ -45,6 +49,16 @@ def load(slug: str) -> Plan:
     plan = from_dict(json.loads(p.read_text(encoding="utf-8")))
     validate_slug(plan.slug)  # reject a tampered file whose internal slug escapes
     validate_slug(plan.frame_slug)  # the linked frame slug must be safe to load too
+    if plan.slug != slug:
+        # The embedded slug drives save() and the current-plan pointer; a file
+        # whose internal slug disagrees with its filename could silently redirect
+        # a later save onto a different plan, so reject it.
+        raise ValueError(f"plan slug mismatch: file {slug!r} declares slug {plan.slug!r}")
+    if plan.schema_version > PLAN_SCHEMA_VERSION:
+        raise IncompatiblePlanSchemaError(
+            f"plan {slug!r} uses schema_version {plan.schema_version}, but this "
+            f"devague supports up to {PLAN_SCHEMA_VERSION}; upgrade devague to read it"
+        )
     return plan
 
 

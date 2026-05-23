@@ -98,6 +98,13 @@ def test_legacy_frame_without_schema_version_loads() -> None:
     assert f.schema_version == SCHEMA_VERSION
 
 
+@pytest.mark.parametrize("bad", [1.9, True, "1", None])
+def test_from_dict_rejects_non_integer_schema_version(bad) -> None:
+    # int() would silently coerce 1.9->1 / True->1; a malformed type must raise.
+    with pytest.raises(ValueError, match="schema_version"):
+        from_dict({"slug": "s", "title": "t", "schema_version": bad})
+
+
 def test_dataclasses_validate_enums() -> None:
     with pytest.raises(ValueError):
         Claim(id="c1", kind="bogus", text="x")
