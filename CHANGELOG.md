@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-05-23
+
+### Added
+
+- **Plan dependency waves (#20).** New `devague plan waves [--json]` move emits the plan's task dependency graph as deterministic, machine-readable scheduling metadata (`{plan, waves}` — ordered batches of task ids where wave 0 has no unsatisfied dependency and each later wave depends only on earlier ones). Read-only and convergence-agnostic, so it works on an in-progress plan. Rejected tasks are excluded; a cycle or a dependency on a missing/rejected task is refused by reusing the plan-convergence dependency blockers (`dependency_blockers`). This is the small deterministic primitive behind #13: Devague *describes* the parallelizable graph; it does not spawn subagents, manage worktrees, mark tasks done, or pick a backend.
+- **Dated export filenames (#12).** `devague export` and `devague plan export` now prefix the written file with the frame/plan creation date — `docs/specs/<YYYY-MM-DD>-<slug>.md` and `docs/plans/<YYYY-MM-DD>-<slug>.md`. The date comes from the object's `created` timestamp (not today), so re-exporting an unchanged artifact overwrites the same file rather than spawning a dated duplicate. Existing exported docs were renamed to match.
+
 ## [0.8.0] - 2026-05-23
 
 ### Added

@@ -121,6 +121,17 @@ def _missing_dep_integrity(plan: Plan) -> list[str]:
     return missing
 
 
+def dependency_blockers(plan: Plan) -> list[str]:
+    """Public view of just the dependency-graph integrity blockers.
+
+    The dangling-dep / rejected-dep / cycle subset of the full gate — without the
+    coverage, acceptance, or resolution checks. ``devague plan waves`` uses this to
+    refuse an unsound graph (a cycle or a dep on a missing/rejected task) while still
+    emitting waves for an otherwise in-progress, not-yet-converged plan.
+    """
+    return _missing_dep_integrity(plan)
+
+
 def _missing_risks(plan: Plan) -> list[str]:
     return [f"blocking risk {r.id} unresolved" for r in plan.risks if r.kind == "unknown_blocking"]
 

@@ -57,6 +57,7 @@ install hint. Every move except `status` is forwarded verbatim as `devague plan
 | `risk "<text>" --kind <kind>` | Record a first-class plan risk (`--task <tN>` to attach). |
 | `converge` | Evaluate the gate against the **live** source frame; list remaining gaps. |
 | `export` | Write the buildable plan to `docs/plans/` — only after `converge` passes. |
+| `waves` | Emit deterministic dependency waves (`{plan, waves}`) — scheduling metadata only, *not* orchestration. Read-only, works on an in-progress plan; refuses a cyclic/dangling graph. Devague describes the graph; an operator decides how to run it (#20). |
 | `show` / `list` | Render a plan / list plans (`--json` for raw state). |
 | `learn` / `explain <move>` | Teach the method / explain one move. |
 

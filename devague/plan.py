@@ -169,6 +169,44 @@ def targets_from_frame(frame: Frame) -> list[CoverageTarget]:
     return targets
 
 
+def dependency_waves(tasks: list[Task]) -> list[list[str]]:
+    """Layer active (non-rejected) tasks into deterministic dependency waves.
+
+    Wave 0 is every active task with no unsatisfied dependency; each later wave is the
+    tasks whose deps are all satisfied by earlier waves — the parallel batches an
+    external operator *could* fan out (Devague describes the graph; it does not run it).
+    Within a wave ids keep stored order, so the layering is deterministic for a given
+    plan.
+
+    Rejected tasks are excluded entirely. A dependency on a task outside the active set
+    (unknown, or rejected) is treated as already satisfied here so the function stays
+    **total**: those dangling edges are integrity failures surfaced separately by the
+    plan-convergence gate (:func:`devague.plan_convergence.dependency_blockers`), not
+    scheduling facts. The graph is assumed acyclic; any tasks left unplaceable by a
+    cycle are appended as a final wave so this never loops forever.
+
+    This is the wave-grouped peer of ``render.plan_md._topo_order`` (which flattens a
+    *greedy* topological order for the exported plan); the two intentionally differ in
+    grouping, so they are kept as separate functions.
+    """
+    active = [t for t in tasks if t.status != "rejected"]
+    by_id = {t.id: t for t in active}
+    placed: set[str] = set()
+    remaining = list(active)
+    waves: list[list[str]] = []
+    progress = True
+    while remaining and progress:
+        ready = [t for t in remaining if all(d in placed or d not in by_id for d in t.deps)]
+        progress = bool(ready)
+        if ready:
+            waves.append([t.id for t in ready])
+            placed.update(t.id for t in ready)
+            remaining = [t for t in remaining if t.id not in placed]
+    if remaining:  # cycle leftover — the caller should have blocked this
+        waves.append([t.id for t in remaining])
+    return waves
+
+
 def to_dict(plan: Plan) -> dict:
     return dataclasses.asdict(plan)
 

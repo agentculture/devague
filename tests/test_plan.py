@@ -8,6 +8,7 @@ from devague.plan import (
     Plan,
     PlanRisk,
     Task,
+    dependency_waves,
     from_dict,
     targets_from_frame,
     to_dict,
@@ -150,3 +151,78 @@ def test_targets_from_frame_includes_only_confirmed_spec_elements() -> None:
     assert "c3" not in by_id
     assert "c4" not in by_id
     assert "h2" not in by_id
+
+
+# ── dependency waves (#20) ────────────────────────────────────────────────────
+def _waves_plan(specs: list[tuple[str, list[str], str]]) -> Plan:
+    """Build a plan from ``(summary, deps, status)`` rows; ids are t1.. in order."""
+    p = Plan(slug="w", title="W", frame_slug="w")
+    for summary, deps, status in specs:
+        t = p.add_task(summary)
+        t.deps = list(deps)
+        t.status = status
+    return p
+
+
+def test_waves_linear_chain() -> None:
+    p = _waves_plan(
+        [("a", [], "confirmed"), ("b", ["t1"], "confirmed"), ("c", ["t2"], "confirmed")]
+    )
+    assert dependency_waves(p.tasks) == [["t1"], ["t2"], ["t3"]]
+
+
+def test_waves_parallel_fan_out() -> None:
+    p = _waves_plan(
+        [
+            ("root", [], "confirmed"),
+            ("a", ["t1"], "confirmed"),
+            ("b", ["t1"], "confirmed"),
+            ("c", ["t1"], "confirmed"),
+        ]
+    )
+    assert dependency_waves(p.tasks) == [["t1"], ["t2", "t3", "t4"]]
+
+
+def test_waves_join() -> None:
+    p = _waves_plan(
+        [("a", [], "confirmed"), ("b", [], "confirmed"), ("join", ["t1", "t2"], "confirmed")]
+    )
+    assert dependency_waves(p.tasks) == [["t1", "t2"], ["t3"]]
+
+
+def test_waves_independent_tasks_share_one_wave_in_stored_order() -> None:
+    p = _waves_plan([("a", [], "confirmed"), ("b", [], "confirmed"), ("c", [], "confirmed")])
+    assert dependency_waves(p.tasks) == [["t1", "t2", "t3"]]
+
+
+def test_waves_exclude_rejected_tasks() -> None:
+    p = _waves_plan([("a", [], "confirmed"), ("dead", [], "rejected"), ("b", ["t1"], "confirmed")])
+    waves = dependency_waves(p.tasks)
+    assert waves == [["t1"], ["t3"]]
+    assert "t2" not in [tid for w in waves for tid in w]
+
+
+def test_waves_deterministic_across_calls() -> None:
+    p = _waves_plan(
+        [("root", [], "confirmed"), ("a", ["t1"], "confirmed"), ("b", ["t1"], "confirmed")]
+    )
+    assert dependency_waves(p.tasks) == dependency_waves(p.tasks)
+
+
+def test_waves_empty_plan_is_empty() -> None:
+    assert dependency_waves(Plan(slug="w", title="W", frame_slug="w").tasks) == []
+
+
+def test_waves_dep_on_rejected_is_ignored_by_pure_layering() -> None:
+    # The pure function treats a dep outside the active set as satisfied (it is total);
+    # the *integrity error* for that dangling edge is the CLI/gate's job, not here.
+    p = _waves_plan([("dead", [], "rejected"), ("b", ["t1"], "confirmed")])
+    assert dependency_waves(p.tasks) == [["t2"]]
+
+
+def test_waves_cycle_leftover_appended_without_hanging() -> None:
+    # Callers gate cycles via convergence blockers; the pure fn must stay total and
+    # surface the unplaceable tasks as a trailing wave rather than loop forever.
+    p = _waves_plan([("a", ["t2"], "confirmed"), ("b", ["t1"], "confirmed")])
+    waves = dependency_waves(p.tasks)
+    assert [tid for w in waves for tid in w] == ["t1", "t2"]

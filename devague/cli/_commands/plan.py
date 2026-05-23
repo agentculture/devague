@@ -19,10 +19,12 @@ from devague import plan_store, store
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._frames import resolve as resolve_frame
 from devague.cli._output import emit_result
+from devague.cli._paths import dated_name
 from devague.cli._plans import resolve_plan
 from devague.convergence import evaluate as evaluate_frame
 from devague.frame import Frame
-from devague.plan import RISK_KINDS, Plan, targets_from_frame, to_dict
+from devague.plan import RISK_KINDS, Plan, dependency_waves, targets_from_frame, to_dict
+from devague.plan_convergence import dependency_blockers
 from devague.plan_convergence import evaluate as evaluate_plan
 from devague.render import plan_md
 
@@ -42,6 +44,7 @@ PLAN_MOVES = {
     "risk": "Record a first-class plan risk instead of papering over it.",
     "converge": "Check whether the plan can export, against the live frame.",
     "export": "Write the buildable plan — only once the plan converges.",
+    "waves": "Emit deterministic dependency waves (scheduling metadata, not orchestration).",
     "show": "Render the plan.",
     "list": "List plans.",
 }
@@ -272,13 +275,41 @@ def cmd_plan_export(args: argparse.Namespace) -> int:
     plan.status = "exported"
     text = plan_md.render_plan(plan, frame)
     PLANS_OUT_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = PLANS_OUT_DIR / f"{plan.slug}.md"
+    out_path = PLANS_OUT_DIR / dated_name(plan.created, plan.slug)
     out_path.write_text(text, encoding="utf-8")
     plan_store.save(plan)
     if getattr(args, "json", False):
         emit_result({"path": str(out_path), "format": args.format}, json_mode=True)
     else:
         emit_result(f"exported plan to {out_path}", json_mode=False)
+    return 0
+
+
+def cmd_plan_waves(args: argparse.Namespace) -> int:
+    """Emit the plan's dependency waves — deterministic scheduling metadata only.
+
+    Read-only and convergence-agnostic: waves derive purely from the task dependency
+    graph, so they work on an in-progress plan. Devague describes the graph; an
+    external operator (Culture, codexd, …) decides how to execute it — see #20. A cycle
+    or a dep on a missing/rejected task is refused by reusing the plan-convergence
+    integrity blockers.
+    """
+    plan = resolve_plan(args.plan)
+    blockers = dependency_blockers(plan)
+    if blockers:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "cannot derive waves: the dependency graph is not sound",
+            "resolve: " + "; ".join(blockers),
+        )
+    waves = dependency_waves(plan.tasks)
+    if getattr(args, "json", False):
+        emit_result({"plan": plan.slug, "waves": waves}, json_mode=True)
+    elif not waves:
+        emit_result("no tasks to schedule", json_mode=False)
+    else:
+        lines = [f"wave {i}: {', '.join(w)}" for i, w in enumerate(waves)]
+        emit_result("\n".join(lines), json_mode=False)
     return 0
 
 
@@ -423,6 +454,10 @@ def register(sub: argparse._SubParsersAction) -> None:
     pex.add_argument("--format", default="plan-md", choices=("plan-md",), help="Renderer format.")
     _plan_opt(pex)
     pex.set_defaults(func=cmd_plan_export)
+
+    pwv = psub.add_parser("waves", help="Emit deterministic dependency waves (metadata only).")
+    _plan_opt(pwv)
+    pwv.set_defaults(func=cmd_plan_waves)
 
     psh = psub.add_parser("show", help="Render the plan.")
     _plan_opt(psh)

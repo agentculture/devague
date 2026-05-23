@@ -9,6 +9,7 @@ from devague import render, store
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._frames import resolve
 from devague.cli._output import emit_result
+from devague.cli._paths import dated_name
 from devague.convergence import evaluate
 
 SPECS_DIR = Path("docs/specs")
@@ -25,7 +26,7 @@ def cmd_export(args: argparse.Namespace) -> int:
         )
     text = render.render(frame, args.format)
     SPECS_DIR.mkdir(parents=True, exist_ok=True)
-    out_path = SPECS_DIR / f"{frame.slug}.md"
+    out_path = SPECS_DIR / dated_name(frame.created, frame.slug)
     out_path.write_text(text, encoding="utf-8")
     frame.status = "exported"
     store.save(frame)

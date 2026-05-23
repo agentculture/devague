@@ -30,8 +30,8 @@ gate, renderer registry, and the flat moves `new` / `capture` / `interrogate` /
 structural peer:
 `devague/plan.py`, `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`,
 and the nested group `devague plan <move>` (`new` / `task` / `accept` / `depend`
-/ `cover` / `confirm` / `reject` / `risk` / `converge` / `export` / `show` /
-`list` / `learn` / `explain`). The two operator skills are `/think` (idea→spec,
+/ `cover` / `confirm` / `reject` / `risk` / `converge` / `export` / `waves` /
+`show` / `list` / `learn` / `explain`). The two operator skills are `/think` (idea→spec,
 renamed from `/devague`) and `/spec-to-plan` (spec→plan). Coverage ≥ 95 %; all
 linters pass. Run `git ls-files` to see the real surface.
 
@@ -86,7 +86,18 @@ verbs). The workflow:
    covered by a confirmed task, every confirmed task has acceptance criteria, the
    dependency graph is acyclic, and no blocking risk remains.
 5. `devague plan export` — only after `converge` passes; writes a buildable
-   plan-md (topologically ordered) to `docs/plans/`.
+   plan-md (topologically ordered) to `docs/plans/<created-date>-<slug>.md`.
+6. `devague plan waves [--json]` — emit the plan's dependency graph as
+   deterministic **scheduling metadata** (`{plan, waves}`): ordered batches of
+   task ids that an external operator *could* fan out. Read-only,
+   convergence-agnostic (works on an in-progress plan), and explicitly **not
+   orchestration** — Devague describes the graph; it does not spawn subagents,
+   manage worktrees, mark tasks done, or pick a backend (#20). A cyclic or
+   dangling graph is refused via the plan-convergence dependency blockers.
+
+Both `devague export` and `devague plan export` prefix the written file with the
+frame/plan creation date (`<YYYY-MM-DD>-<slug>.md`, #12), so re-exporting an
+unchanged artifact overwrites the same file rather than spawning a duplicate.
 
 Full design: `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
 
