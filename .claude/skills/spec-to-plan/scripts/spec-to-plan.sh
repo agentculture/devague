@@ -66,6 +66,7 @@ Moves (forwarded to `devague plan`; run `devague plan learn` for the method):
   risk         record a first-class plan risk
   converge     check whether the plan can export
   export       write the buildable plan (only after converge passes)
+  waves        emit deterministic dependency waves (scheduling metadata, not orchestration)
   show / list  render a plan / list plans
   learn        teach the method   |   explain <move>  explain one move
 

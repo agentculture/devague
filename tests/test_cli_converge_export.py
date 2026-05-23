@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -51,10 +52,13 @@ def test_export_writes_spec_when_converged(tmp_path, monkeypatch) -> None:
     _converged(monkeypatch, tmp_path)
     rc = main(["export"])
     assert rc == 0
-    out = Path("docs/specs") / f"{store.current_slug()}.md"
+    frame = store.load(store.current_slug())
+    # #12: exported docs carry a YYYY-MM-DD prefix from the frame's creation date.
+    out = Path("docs/specs") / f"{frame.created[:10]}-{frame.slug}.md"
     assert out.exists()
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}-.+\.md", out.name)
     assert out.read_text(encoding="utf-8").startswith("# Specs in minutes")
-    assert store.load(store.current_slug()).status == "exported"
+    assert frame.status == "exported"
 
 
 def test_converge_demotes_converged_frame_when_gate_fails(tmp_path, monkeypatch, capsys) -> None:

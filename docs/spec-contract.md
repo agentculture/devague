@@ -184,6 +184,17 @@ plus `deps`, `covers`, `acceptance_criteria`), and PlanRisks. It reuses the same
 structured convergence result, serialized under `ready_for_plan`. See
 `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
 
+`plan waves` emits the plan's dependency graph as deterministic, machine-readable
+scheduling metadata — `{plan, waves}`, where `waves` is an ordered list of task-id
+batches (wave 0 has no unsatisfied dependency; each later wave depends only on
+earlier ones). It is **read-only**, never mutates state, and is **not** gated on
+convergence, so it works on an in-progress plan. Rejected tasks are excluded; a
+cycle or a dependency on a missing/rejected task is refused by reusing the
+plan-convergence dependency blockers. The boundary is deliberate (issue #20):
+Devague *describes* the parallelizable graph; an external operator (Culture,
+codexd, …) decides how — or whether — to execute it. Devague does not spawn
+subagents, manage worktrees, mark tasks done, or choose a backend.
+
 Plans carry the same persistence contract as frames. Every plan has an integer
 `schema_version` (currently `1`, `PLAN_SCHEMA_VERSION`), written on save and
 checked on load: `plan_store.load` **fails closed** with a clean `DevagueError`

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -198,8 +199,11 @@ def test_export_writes_plan_md(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_plan(monkeypatch, tmp_path, capsys)
     rc = main(["plan", "export"])
     assert rc == 0
-    out = Path("docs/plans") / f"{slug}.md"
+    plan = plan_store.load(slug)
+    # #12: exported docs carry a YYYY-MM-DD prefix from the plan's creation date.
+    out = Path("docs/plans") / f"{plan.created[:10]}-{slug}.md"
     assert out.exists()
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}-.+\.md", out.name)
     text = out.read_text(encoding="utf-8")
     assert text.startswith("# Build Plan — Ship the plan engine")
     assert "status: `exported`" in text
@@ -301,13 +305,93 @@ def test_resolve_plan_rejects_malformed_value(tmp_path, monkeypatch, capsys) -> 
     assert "malformed" in capsys.readouterr().err
 
 
+# ── waves (#20) ───────────────────────────────────────────────────────────────
+def _plan_with_deps(monkeypatch, tmp_path, capsys, deps: list[list[str]]) -> str:
+    """Seed an in-progress plan whose task i depends on the ids in ``deps[i-1]``."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    for i, d in enumerate(deps, start=1):
+        argv = ["plan", "task", f"task {i}"]
+        for dep in d:
+            argv += ["--dep", dep]
+        main(argv)
+    capsys.readouterr()
+    return slug
+
+
+def test_waves_json_linear(tmp_path, monkeypatch, capsys) -> None:
+    slug = _plan_with_deps(monkeypatch, tmp_path, capsys, [[], ["t1"], ["t2"]])
+    assert main(["plan", "waves", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["plan"] == slug
+    assert payload["waves"] == [["t1"], ["t2"], ["t3"]]
+
+
+def test_waves_text_mode_lists_each_wave(tmp_path, monkeypatch, capsys) -> None:
+    _plan_with_deps(monkeypatch, tmp_path, capsys, [[], ["t1"]])
+    assert main(["plan", "waves"]) == 0
+    out = capsys.readouterr().out
+    assert "t1" in out and "t2" in out
+
+
+def test_waves_emit_on_unconverged_plan(tmp_path, monkeypatch, capsys) -> None:
+    # No coverage / acceptance => the plan has not converged, but waves still emit:
+    # waves are scheduling metadata derived from the graph, not gated on convergence.
+    _plan_with_deps(monkeypatch, tmp_path, capsys, [[], ["t1"]])
+    assert main(["plan", "converge", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["ready_for_plan"] is False
+    assert main(["plan", "waves", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["waves"] == [["t1"], ["t2"]]
+
+
+def test_waves_excludes_rejected_tasks(tmp_path, monkeypatch, capsys) -> None:
+    _plan_with_deps(monkeypatch, tmp_path, capsys, [[], [], ["t1"]])
+    main(["plan", "reject", "t2"])
+    capsys.readouterr()
+    assert main(["plan", "waves", "--json"]) == 0
+    flat = [tid for w in json.loads(capsys.readouterr().out)["waves"] for tid in w]
+    assert "t2" not in flat and {"t1", "t3"} <= set(flat)
+
+
+def test_waves_does_not_mutate_plan_state(tmp_path, monkeypatch, capsys) -> None:
+    slug = _plan_with_deps(monkeypatch, tmp_path, capsys, [[], ["t1"]])
+    before = plan_store.path_for(slug).read_text(encoding="utf-8")
+    assert main(["plan", "waves", "--json"]) == 0
+    assert plan_store.path_for(slug).read_text(encoding="utf-8") == before
+
+
+def test_waves_dangling_dep_errors(tmp_path, monkeypatch, capsys) -> None:
+    _plan_with_deps(monkeypatch, tmp_path, capsys, [["t99"]])
+    assert main(["plan", "waves", "--json"]) == 1
+    assert "unknown task" in capsys.readouterr().err
+
+
+def test_waves_cycle_errors(tmp_path, monkeypatch, capsys) -> None:
+    _plan_with_deps(monkeypatch, tmp_path, capsys, [[], ["t1"]])
+    main(["plan", "depend", "t1", "--on", "t2"])  # t1 -> t2 -> t1
+    capsys.readouterr()
+    assert main(["plan", "waves"]) == 1
+    assert "cycle" in capsys.readouterr().err
+
+
+def test_waves_dep_on_rejected_errors(tmp_path, monkeypatch, capsys) -> None:
+    _plan_with_deps(monkeypatch, tmp_path, capsys, [[], ["t1"]])
+    main(["plan", "reject", "t1"])  # t2 still depends on the now-rejected t1
+    capsys.readouterr()
+    assert main(["plan", "waves"]) == 1
+    assert "rejected task" in capsys.readouterr().err
+
+
 # ── learn / explain ───────────────────────────────────────────────────────────
 def test_learn_and_explain(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["plan", "learn"]) == 0
     assert "spec into a buildable plan" in capsys.readouterr().out
     assert main(["plan", "learn", "--json"]) == 0
-    assert "converge" in json.loads(capsys.readouterr().out)["moves"]
+    moves = json.loads(capsys.readouterr().out)["moves"]
+    assert "converge" in moves and "waves" in moves
+    assert main(["plan", "explain", "waves", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["move"] == "waves"
     assert main(["plan", "explain", "task", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["move"] == "task"
     assert main(["plan", "explain", "bogus"]) == 1
