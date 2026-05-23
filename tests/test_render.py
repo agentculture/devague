@@ -79,7 +79,8 @@ def test_spec_md_omits_empty_before_after_section() -> None:
 def _rich_frame() -> Frame:
     """A frame exercising the kinds added by the #5/#16 contract."""
     f = Frame(slug="r", title="Rich Feature")
-    f.add_claim("announcement", "Shipped", origin="user")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    f.add_honesty(ann, "must be honest", origin="user")  # non-requirement honesty
     f.add_claim("boundary", "scope is X only", origin="user")
     f.add_claim("non_goal", "does not call an LLM", origin="user")
     f.add_claim("non_goal", "no external services", origin="user")
@@ -103,6 +104,18 @@ def test_spec_md_renders_non_goal_and_decision() -> None:
     # boundary keeps its own section, distinct from non-goals
     assert "## Scope / boundaries" in out
     assert "scope is X only" in out
+    assert_markdownlint_clean(out)
+
+
+def test_spec_md_renders_requirement_claim_text_with_nested_honesty() -> None:
+    # #21 remaining item: requirement *claim* text must render, not only its honesty.
+    out = render.render(_rich_frame(), "spec-md")
+    assert "## Requirements" in out
+    assert "- review lists proposed items" in out  # the requirement claim text
+    assert "  - honesty: review never mutates state" in out  # nested under it
+    # honesty on non-requirement claims still appears, in its own section
+    assert "## Honesty conditions" in out
+    assert "must be honest" in out  # the announcement's honesty (non-requirement)
     assert_markdownlint_clean(out)
 
 

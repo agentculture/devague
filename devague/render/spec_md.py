@@ -27,8 +27,27 @@ def _before_after(frame: Frame) -> list[str]:
     return lines + [""]
 
 
-def _confirmed_honesty(frame: Frame) -> list[str]:
-    return [h.text for c in frame.claims for h in c.honesty_conditions if h.status == "confirmed"]
+def _requirements_block(frame: Frame) -> list[str]:
+    """Requirement claims (confirmed) with their confirmed honesty conditions nested."""
+    reqs = [c for c in frame.claims if c.kind == "requirement" and c.status == "confirmed"]
+    if not reqs:
+        return []
+    out = ["## Requirements", ""]
+    for c in reqs:
+        out.append(f"- {c.text}")
+        out += [f"  - honesty: {h.text}" for h in c.honesty_conditions if h.status == "confirmed"]
+    return out + [""]
+
+
+def _other_honesty(frame: Frame) -> list[str]:
+    """Confirmed honesty conditions on non-requirement claims (already shown inline)."""
+    return [
+        h.text
+        for c in frame.claims
+        if c.kind != "requirement"
+        for h in c.honesty_conditions
+        if h.status == "confirmed"
+    ]
 
 
 def _hard_questions(frame: Frame) -> list[str]:
@@ -49,7 +68,8 @@ def render_spec(frame: Frame) -> str:
     out += _section("Audience", _texts(frame, "audience"))
     out += _before_after(frame)
     out += _section("Why it matters", _texts(frame, "why_it_matters"))
-    out += _section("Requirements / honesty conditions", _confirmed_honesty(frame))
+    out += _requirements_block(frame)
+    out += _section("Honesty conditions", _other_honesty(frame))
     out += _section("Success signals", _texts(frame, "success_signal"))
     out += _section("Scope / boundaries", _texts(frame, "boundary"))
     out += _section("Non-goals", _texts(frame, "non_goal"))

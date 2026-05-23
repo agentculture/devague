@@ -15,7 +15,7 @@
 
 - An LLM and devague can only coordinate reliably around a contract that is documented, validated, and machine-readable — convergence must mean something, not vibes
 
-## Requirements / honesty conditions
+## Honesty conditions
 
 - A frame round-trips losslessly (save then load yields an identical frame) including schema_version, the new claim types, and the structured convergence payload; existing 0.4.0 frames still load
 - Every move accepts and emits documented JSON, and the contract spells out per-move input / output / state-transition / validation-errors so an LLM can drive devague without guessing internal state
@@ -42,7 +42,7 @@
 - The claim-type vocabulary adds non_goal, requirement, assumption, and decision to the shipped set, each with a documented convergence-gate impact
 - Every frame carries a schema_version field; load validates by version so existing frames keep loading as the schema grows
 
-## Non-goals
+## Scope / boundaries
 
 - Not a full PRD generator and not a fixed wizard; the move-driven, deterministic model stays
 - The local contract requires no GitHub, agents, or external services
