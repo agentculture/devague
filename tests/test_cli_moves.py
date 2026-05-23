@@ -72,3 +72,28 @@ def test_park_adds_vagueness(tmp_path, monkeypatch, capsys) -> None:
     payload = json.loads(capsys.readouterr().out)
     assert payload["kind"] == "unknown_blocking"
     assert payload["id"] == "v1"
+
+
+def test_show_renders_frame_markdown(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    rc = main(["show"])
+    assert rc == 0
+    assert "# Announcement Frame" in capsys.readouterr().out
+
+
+def test_show_json_emits_frame_dict(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain the "new" output
+    rc = main(["show", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["claims"][0]["kind"] == "announcement"
+
+
+def test_list_marks_current(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    rc = main(["list"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "shipped-instant-specs" in out
+    assert "*" in out  # current marker
