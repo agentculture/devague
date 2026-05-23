@@ -13,12 +13,11 @@ def cmd_list(args: argparse.Namespace) -> int:
     current = store.current_slug()
     if getattr(args, "json", False):
         emit_result({"frames": slugs, "current": current}, json_mode=True)
-        return 0
-    if not slugs:
+    elif not slugs:
         emit_result("no frames yet", json_mode=False)
-        return 0
-    lines = [("* " if s == current else "  ") + s for s in slugs]
-    emit_result("\n".join(lines), json_mode=False)
+    else:
+        lines = [("* " if s == current else "  ") + s for s in slugs]
+        emit_result("\n".join(lines), json_mode=False)
     return 0
 
 

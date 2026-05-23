@@ -14,8 +14,8 @@ def cmd_show(args: argparse.Namespace) -> int:
     frame = resolve(args.frame)
     if getattr(args, "json", False):
         emit_result(to_dict(frame), json_mode=True)
-        return 0
-    emit_result(render.render(frame, args.format), json_mode=False)
+    else:
+        emit_result(render.render(frame, args.format), json_mode=False)
     return 0
 
 

@@ -16,6 +16,38 @@ _SECTIONS = [
 ]
 
 
+def _claim_lines(claim) -> list[str]:
+    mark = "" if claim.status == "confirmed" else f" _({claim.status})_"
+    lines = [f"- {claim.text}{mark}"]
+    for h in claim.honesty_conditions:
+        hm = "" if h.status == "confirmed" else f" _({h.status})_"
+        lines.append(f"  - honesty: {h.text}{hm}")
+    for q in claim.hard_questions:
+        qm = "blocking" if q.blocking else "open"
+        lines.append(f"  - Q ({qm}): {q.text}")
+    return lines
+
+
+def _section_lines(frame: Frame, kind: str, heading: str) -> list[str]:
+    claims = [c for c in frame.claims if c.kind == kind and c.status != "rejected"]
+    if not claims:
+        return []
+    lines = [f"## {heading}"]
+    for c in claims:
+        lines.extend(_claim_lines(c))
+    lines.append("")
+    return lines
+
+
+def _vagueness_lines(frame: Frame) -> list[str]:
+    if not frame.open_vagueness:
+        return []
+    lines = ["## Open vagueness"]
+    lines.extend(f"- [{v.kind}] {v.text}" for v in frame.open_vagueness)
+    lines.append("")
+    return lines
+
+
 def render_frame(frame: Frame) -> str:
     out = [
         f"# Announcement Frame — {frame.title}",
@@ -24,23 +56,6 @@ def render_frame(frame: Frame) -> str:
         "",
     ]
     for kind, heading in _SECTIONS:
-        claims = [c for c in frame.claims if c.kind == kind and c.status != "rejected"]
-        if not claims:
-            continue
-        out.append(f"## {heading}")
-        for c in claims:
-            mark = "" if c.status == "confirmed" else f" _({c.status})_"
-            out.append(f"- {c.text}{mark}")
-            for h in c.honesty_conditions:
-                hm = "" if h.status == "confirmed" else f" _({h.status})_"
-                out.append(f"  - honesty: {h.text}{hm}")
-            for q in c.hard_questions:
-                qm = "blocking" if q.blocking else "open"
-                out.append(f"  - Q ({qm}): {q.text}")
-        out.append("")
-    if frame.open_vagueness:
-        out.append("## Open vagueness")
-        for v in frame.open_vagueness:
-            out.append(f"- [{v.kind}] {v.text}")
-        out.append("")
+        out.extend(_section_lines(frame, kind, heading))
+    out.extend(_vagueness_lines(frame))
     return "\n".join(out).rstrip() + "\n"

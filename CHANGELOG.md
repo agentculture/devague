@@ -29,6 +29,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   the design doc and `devague learn` (also exposed via `learn --json`), while
   keeping the engine move-driven rather than a rigid wizard.
 - Raised the coverage gate from 70 % to 95 %.
+- Cleared four SonarCloud maintainability findings on the new code: collapsed
+  the redundant `return 0` paths in `show` / `list` (S3516) and reduced the
+  cognitive complexity of `render_frame` and `convergence.evaluate` below the
+  threshold by extracting focused helpers (S3776). Behavior unchanged.
 
 ## [0.3.1] - 2026-05-23
 
