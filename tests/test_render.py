@@ -36,6 +36,46 @@ def test_render_spec_md_has_title_and_audience() -> None:
     assert "developers" in out
 
 
+def assert_markdownlint_clean(md: str) -> None:
+    """Rendered markdown must pass the repo's markdownlint config (``default: true``).
+
+    Pins the renderer dogfooding fixes — ``devague export`` / ``show`` output must
+    satisfy MD022 (blank below headings), MD032 (blank before lists), and MD036 (no
+    wholly-emphasized line used as a pseudo-heading) without any rule exemption.
+    """
+    lines = md.split("\n")
+    for i, line in enumerate(lines):
+        if line.startswith("#"):
+            below_blank = i + 1 >= len(lines) or lines[i + 1] == ""
+            assert below_blank, f"heading not followed by blank: {line!r}"
+        if line.startswith("- "):
+            prev = lines[i - 1] if i > 0 else ""
+            ok = prev == "" or prev.startswith(("- ", "  "))
+            assert ok, f"list not preceded by blank/list: {line!r} (prev {prev!r})"
+        stripped = line.strip()
+        emph = bool(stripped) and stripped[0] in "_*" and stripped[-1] in "_*"
+        if emph and not stripped.startswith(("#", "- ")):
+            raise AssertionError(f"wholly-emphasized line (MD036): {line!r}")
+
+
+# Back-compat alias for callers importing the older name.
+assert_blanks_around_headings_and_lists = assert_markdownlint_clean
+
+
+def test_spec_md_is_markdownlint_clean() -> None:
+    assert_markdownlint_clean(render.render(_frame(), "spec-md"))
+
+
+def test_frame_md_is_markdownlint_clean() -> None:
+    assert_markdownlint_clean(render.render(_frame(), "frame-md"))
+
+
+def test_spec_md_omits_empty_before_after_section() -> None:
+    # _frame() has no before_state/after_state claims — the section must not appear.
+    out = render.render(_frame(), "spec-md")
+    assert "## Before → After" not in out
+
+
 def test_unknown_format_raises() -> None:
     with pytest.raises(DevagueError):
         render.render(_frame(), "nope")

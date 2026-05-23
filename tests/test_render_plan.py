@@ -3,6 +3,7 @@ from __future__ import annotations
 from devague.frame import Frame
 from devague.plan import Plan
 from devague.render.plan_md import render_plan
+from tests.test_render import assert_blanks_around_headings_and_lists
 
 
 def _frame() -> Frame:
@@ -52,6 +53,12 @@ def test_risks_section() -> None:
     out = render_plan(p, _frame())
     assert "## Risks" in out
     assert "- [unknown_blocking] scaling unknown (task t1)" in out
+
+
+def test_plan_md_blanks_around_headings_and_lists() -> None:
+    p = _plan()
+    p.add_risk("scaling unknown", "unknown_blocking", task_id="t1")
+    assert_blanks_around_headings_and_lists(render_plan(p, _frame()))
 
 
 def test_rejected_task_omitted() -> None:

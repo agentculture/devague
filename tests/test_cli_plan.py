@@ -202,7 +202,7 @@ def test_export_writes_plan_md(tmp_path, monkeypatch, capsys) -> None:
     assert out.exists()
     text = out.read_text(encoding="utf-8")
     assert text.startswith("# Build Plan — Ship the plan engine")
-    assert "status: exported" in text
+    assert "status: `exported`" in text
     assert plan_store.load(slug).status == "exported"
 
 

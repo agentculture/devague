@@ -155,10 +155,28 @@ d converge      # gate; resolve any listed gaps
 d export        # writes docs/specs/<slug>.md once converged
 ```
 
-The exported spec-md is a buildable artifact. The next leg is the sibling
-**`/spec-to-plan`** skill: `devague plan new --frame <slug>` seeds a plan from the
-converged frame and works it forward into a buildable plan (it can equally feed
-`superpowers:writing-plans` or a normal implementation PR).
+The exported spec-md is a buildable artifact.
+
+## After export — commit, then hand off
+
+Once `export` writes the spec **and the user has reviewed it**, close the
+idea→spec leg cleanly before moving on:
+
+1. **Commit the spec.** Commit the exported `docs/specs/<slug>.md` (along with
+   the `.devague/<slug>.json` frame state and any review artifact under
+   `docs/reviews/`) so the converged frame is durable in history, not just on
+   disk. Use a focused message, e.g. `git commit -m "spec: <slug> (devague
+   /think)"`. The frame and the spec are the evidence trail for every confirmed
+   claim — keep them together. (Per the repo's standing convention this normally
+   becomes a branch + PR via the `cicd` skill; commit-only is fine when the user
+   asks for it.)
+2. **Hand off to `/spec-to-plan`.** The forward leg is the sibling skill:
+   `devague plan new --frame <slug>` seeds a plan from the converged frame and
+   works it forward into a buildable plan (it can equally feed
+   `superpowers:writing-plans` or a normal implementation PR).
+
+Don't pause for a "what next?" menu after a reviewed export — the standing flow
+is **commit, then `/spec-to-plan`**.
 
 ## Provenance
 

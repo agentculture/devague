@@ -1,0 +1,263 @@
+{
+  "slug": "devague-now-ships-a-documented-spec-contract-every",
+  "title": "Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice",
+  "status": "exported",
+  "created": "2026-05-23T08:08:13Z",
+  "updated": "2026-05-23T09:17:12Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "A frame round-trips losslessly (save then load yields an identical frame) including schema_version, the new claim types, and the structured convergence payload; existing 0.4.0 frames still load",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "Devague and the assisting LLM that drives it \u2014 they coordinate around structured feature-framing state without a rigid wizard",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "Every move accepts and emits documented JSON, and the contract spells out per-move input / output / state-transition / validation-errors so an LLM can drive devague without guessing internal state",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "A vague idea becomes a claim-based, pressure-tested, buildable spec held in a durable, reloadable artifact whose entities are validated",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "Matches shipped 0.4.0 reality \u2014 converge --json emits {passed, missing} today and no contract doc is committed (verifiable in the repo before relying on it)",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "Framing state is partly implicit and undocumented; converge returns prose-only advice ({passed, missing}); there is no documented contract an LLM can rely on",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "The contract is enforced by validation on load: a schema-violating frame is rejected with a clear, actionable error rather than silently accepted",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "An LLM and devague can only coordinate reliably around a contract that is documented, validated, and machine-readable \u2014 convergence must mean something, not vibes",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "Convergence stays evidence-based and export stays gated on converge passing; the gate is computed only from confirmed claims and confirmed honesty conditions, never a hunch",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c6",
+      "kind": "boundary",
+      "text": "Not a full PRD generator and not a fixed wizard; the move-driven, deterministic model stays",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "The deterministic move-driven model is preserved: no fixed prompt sequence is added; the CLI stays a state tracker and the LLM still chooses the next move",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c7",
+      "kind": "boundary",
+      "text": "The local contract requires no GitHub, agents, or external services",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "Every contract operation (create / load / mutate / show / converge / export) runs fully offline against local .devague/ state with zero network calls",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c8",
+      "kind": "boundary",
+      "text": "Convergence is never claimed on vibes, and LLM-proposed content is never silently promoted to confirmed truth",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "LLM-proposed claims and honesty conditions persist as proposed (origin=llm) and require an explicit user confirm before they affect convergence \u2014 nothing auto-confirms",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c9",
+      "kind": "success_signal",
+      "text": "converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) with blockers instead of prose-only advice",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "converge --json emits ONLY the new structured shape {ready_for_spec, blockers, warnings, parked_items, required_next_moves} (hard break); the skill's status helper is updated in the same change; blockers block convergence and warnings do not",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c10",
+      "kind": "success_signal",
+      "text": "A documented spec contract exists in the repo, with worked contract examples for at least one feature frame",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "The committed contract doc is the source of truth for kinds / states / fields / transitions and includes at least one worked frame example the CLI can actually round-trip",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c11",
+      "kind": "success_signal",
+      "text": "The CLI can create, load, mutate, and display a frame locally; core entities are validated",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "create / load / mutate / show round-trip through the JSON store under validation, and the demonstrated operations are covered by passing tests",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c12",
+      "kind": "success_signal",
+      "text": "Tests cover claim provenance, honesty-condition confirmation, parking vagueness, and convergence failure",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "Each of the four areas (provenance, honesty-condition confirmation, parking vagueness, convergence failure) has at least one test asserting the contract behavior, all green in CI",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c13",
+      "kind": "boundary",
+      "text": "The contract formalizes 0.4.0's shipped vocabulary as canonical \u2014 state in {proposed,confirmed,rejected,parked} x origin in {user,llm}; no rename and no migration of existing frames",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "The doc maps the issue's proposed names (llm_proposed, user_confirmed, intentionally_out_of_scope, ...) onto the shipped (state x origin) model so no information is lost and no rename is required",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c14",
+      "kind": "success_signal",
+      "text": "The claim-type vocabulary adds non_goal, requirement, assumption, and decision to the shipped set, each with a documented convergence-gate impact",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h14",
+          "text": "Each new type's gate impact is documented and tested: requirement is spec-affecting (needs a confirmed honesty condition like other claims); non_goal and decision are descriptive (non-blocking); an unconfirmed assumption surfaces as a warning, not a blocker",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c15",
+      "kind": "success_signal",
+      "text": "Every frame carries a schema_version field; load validates by version so existing frames keep loading as the schema grows",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h15",
+          "text": "schema_version is written on every save and checked on load; an unknown or newer version fails closed with a clear error rather than corrupting state",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "Whether to also publish a formal machine-readable JSON Schema file alongside the prose contract doc + dataclasses, or treat the dataclasses as the schema of record",
+      "kind": "follow_up",
+      "claim_id": null
+    },
+    {
+      "id": "v2",
+      "text": "Whether requirement-type claims should eventually carry acceptance criteria like plan tasks do (overlaps the spec-to-plan leg), or stay prose-only in the frame",
+      "kind": "follow_up",
+      "claim_id": null
+    }
+  ]
+}

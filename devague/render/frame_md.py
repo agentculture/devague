@@ -32,7 +32,7 @@ def _section_lines(frame: Frame, kind: str, heading: str) -> list[str]:
     claims = [c for c in frame.claims if c.kind == kind and c.status != "rejected"]
     if not claims:
         return []
-    lines = [f"## {heading}"]
+    lines = [f"## {heading}", ""]
     for c in claims:
         lines.extend(_claim_lines(c))
     lines.append("")
@@ -42,7 +42,7 @@ def _section_lines(frame: Frame, kind: str, heading: str) -> list[str]:
 def _vagueness_lines(frame: Frame) -> list[str]:
     if not frame.open_vagueness:
         return []
-    lines = ["## Open vagueness"]
+    lines = ["## Open vagueness", ""]
     lines.extend(f"- [{v.kind}] {v.text}" for v in frame.open_vagueness)
     lines.append("")
     return lines
@@ -52,7 +52,7 @@ def render_frame(frame: Frame) -> str:
     out = [
         f"# Announcement Frame — {frame.title}",
         "",
-        f"_slug: {frame.slug} · status: {frame.status}_",
+        f"slug: `{frame.slug}` · status: `{frame.status}`",
         "",
     ]
     for kind, heading in _SECTIONS:
