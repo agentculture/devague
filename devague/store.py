@@ -89,6 +89,19 @@ def write_review(slug: str, content: str) -> Path:
     return p
 
 
+def questions_path(slug: str) -> Path:
+    return QUESTIONS_DIR / f"{validate_slug(slug)}.md"
+
+
+def write_questions(slug: str, content: str) -> Path:
+    """Persist a pending-decisions file to .devague/questions/<slug>.md (uncommitted)."""
+    QUESTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    ensure_ignored(".devague/questions/")
+    p = questions_path(slug)
+    p.write_text(content, encoding="utf-8")
+    return p
+
+
 def unique_slug(base: str) -> str:
     """Return ``base`` if free, else the first ``base-N`` (N>=2) that is unused."""
     base = base or "frame"
