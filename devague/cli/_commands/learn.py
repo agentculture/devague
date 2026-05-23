@@ -26,6 +26,34 @@ SUPPORTING_PROMPT = (
     "teammates, or yourself?"
 )
 
+# The portable, runtime-agnostic operating contract for any assisting model
+# (devague#19). The full version lives in GUIDANCE_DOC; this is the core surfaced
+# in every `learn`. These rules are what make convergence mean something.
+GUIDANCE_DOC = "docs/llm-guidance.md"
+
+# What devague is NOT — the framing that keeps it from degrading into a form.
+NOT_A = (
+    "a wizard (no fixed prompt sequence)",
+    "a scripted questionnaire (you don't read questions off a form)",
+    "a PRD generator (it never invents content to fill a template)",
+)
+
+# The anti-fabrication rules. Agent-agnostic: repo-specific agreements live in
+# your agent's main instruction file (AGENTS.md, CLAUDE.md, a system prompt, …),
+# not here.
+OPERATING_RULES = (
+    "LLM proposals stay proposed — capture your own ideas with --origin llm; "
+    "never confirm your own proposal. Confirmation is a user-only decision.",
+    "Honesty conditions route through the user — propose freely with "
+    "'interrogate --honesty'; the user owns whether each one holds.",
+    "Park real unknowns instead of papering over them — 'park' a genuine "
+    "unknown rather than writing confident prose that hides the gap.",
+    "Converge, don't vibe — 'export' is gated on 'converge'; resolve every "
+    "listed gap instead of declaring readiness on a hunch.",
+    "Order is adaptive — the ten stages are an artifact shape, not a mandatory "
+    "conversation order; capture what the user gives you and circle back.",
+)
+
 # The canonical guided sequence (devague#4). The engine is move-driven, not a
 # rigid wizard — this is the recommended arc, with the move that advances each.
 STAGES = [
@@ -57,6 +85,13 @@ _TEXT = (
     )
     + "\n\nMoves:\n"
     + "\n".join(f"  {name:<11} {desc}" for name, desc in MOVES.items())
+    + "\n\ndevague is NOT:\n"
+    + "\n".join(f"  - {n}" for n in NOT_A)
+    + "\n\nOperating rules (the anti-fabrication contract — do not violate):\n"
+    + "\n".join(f"  - {r}" for r in OPERATING_RULES)
+    + f"\n\nFull portable guidance for any assisting model: {GUIDANCE_DOC}\n"
+    "(agent-agnostic; your repo-specific agreements live in your agent's main\n"
+    "instruction file — AGENTS.md, CLAUDE.md, a system prompt — not there)."
 )
 
 
@@ -73,6 +108,9 @@ def cmd_learn(args: argparse.Namespace) -> int:
                     for i, (name, prompt, move) in enumerate(STAGES, 1)
                 ],
                 "moves": list(MOVES),
+                "not_a": list(NOT_A),
+                "operating_rules": list(OPERATING_RULES),
+                "guidance_doc": GUIDANCE_DOC,
                 "summary": _TEXT,
             },
             json_mode=True,
