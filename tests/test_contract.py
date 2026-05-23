@@ -10,11 +10,16 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 
 from devague import store
 from devague.cli import _build_parser, main
 from devague.convergence import evaluate
-from devague.frame import Frame
+from devague.frame import Frame, from_dict, to_dict
+
+CONTRACT_EXAMPLE = (
+    Path(__file__).resolve().parent.parent / "docs" / "examples" / "contract-example.json"
+)
 
 
 def _leaf_parsers(parser: argparse.ArgumentParser, prefix: str = "") -> dict:
@@ -106,3 +111,19 @@ def test_area_convergence_failure_is_structured(tmp_path, monkeypatch) -> None:
     assert res.ready is False
     assert res.blockers  # structured blockers, not prose-only advice
     assert res.required_next_moves  # with a derived next move per blocker
+
+
+# --- t10: the documented contract's worked example round-trips + converges ---
+
+
+def test_contract_example_round_trips_and_converges() -> None:
+    raw = json.loads(CONTRACT_EXAMPLE.read_text(encoding="utf-8"))
+    frame = from_dict(raw)
+    # Lossless round-trip through the dataclasses.
+    assert to_dict(from_dict(to_dict(frame))) == to_dict(frame)
+    # The worked example is a *converged* frame (an unconfirmed assumption is
+    # only a warning, so it does not block).
+    result = evaluate(frame)
+    assert result.ready is True
+    assert any(c.kind == "requirement" for c in frame.claims)  # exercises a new kind
+    assert result.warnings  # the stated-assumption warning is surfaced
