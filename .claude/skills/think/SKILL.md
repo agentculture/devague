@@ -66,27 +66,31 @@ portable resolution and the `status` helper.
 | `learn` / `explain <move>` | Teach the method / explain one move. |
 
 Claim kinds: `announcement`, `audience`, `after_state`, `before_state`,
-`why_it_matters`, `boundary`, `success_signal`, `open_question`. Vagueness kinds:
-`unknown_nonblocking`, `unknown_blocking`, `out_of_scope`, `follow_up`.
+`why_it_matters`, `boundary`, `success_signal`, `open_question`, `non_goal`,
+`requirement`, `assumption`, `decision`. Vagueness kinds: `unknown_nonblocking`,
+`unknown_blocking`, `out_of_scope`, `follow_up`.
 
 These are exactly the kinds the **shipped CLI enforces** (`CLAIM_KINDS` /
 `VAGUENESS_KINDS` in `devague/frame.py`) — the skill documents the surface as
-built, so every command here passes the CLI's `choices=` validation. A fuller
-proposed type/state set, plus the formal per-move input/output/transition
-contract, is tracked on the CLI side in
-[#5](https://github.com/agentculture/devague/issues/5); for the authoritative
+built, so every command here passes the CLI's `choices=` validation. `requirement`
+is spec-affecting (needs a confirmed honesty condition); `non_goal` / `decision`
+are descriptive; an unconfirmed `assumption` is a convergence *warning*, not a
+blocker. The formal entity model, the `(state × origin)` vocabulary, and the
+per-move input/output/transition/error contract are documented in
+[`docs/spec-contract.md`](../../../docs/spec-contract.md) (issue
+[#5](https://github.com/agentculture/devague/issues/5)); for the authoritative
 live shape of any move, run it with `--json` (or `devague learn --json` /
-`devague explain <move>`). When the CLI's contract grows, re-sync this list.
+`devague explain <move>`).
 
 ### `status` — the next-move helper
 
 `status` is a wrapper-only verb (the CLI has no `status`). It reads
 `converge --json` + `list --json` and prints where the current frame stands, the
-remaining gaps, and the recommended next move derived from the first gap.
-`converge --json` currently emits `{passed, missing}`, which is what the helper
-consumes; if [#5](https://github.com/agentculture/devague/issues/5) enriches that
-payload (e.g. structured `blockers` / `warnings` / `required_next_moves`),
-`status` will surface the richer fields then.
+remaining gaps, and the recommended next move. `converge --json` emits the
+structured result `{ready_for_spec, blockers, warnings, parked_items,
+required_next_moves}` (issue [#5](https://github.com/agentculture/devague/issues/5));
+the helper reads `ready_for_spec`, lists the `blockers` and `warnings`, and shows
+`required_next_moves[0]` as the recommended move — no longer deriving it itself.
 
 ```text
 frame: my-feature    (1 frame total)
