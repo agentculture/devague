@@ -46,40 +46,51 @@ def _missing_resolution(plan: Plan) -> list[str]:
     ]
 
 
+_WHITE, _GRAY, _BLACK = 0, 1, 2
+
+
+def _walk_from(root: str, deps: dict[str, list[str]], color: dict[str, int]) -> Optional[list[str]]:
+    """DFS from ``root``; return the first back-edge cycle path, else None.
+
+    Iterative, with the stack holding ``[node, next-dep-index]`` and ``path`` the
+    current gray chain. Deps are visited in stored order, so the reported path is
+    deterministic.
+    """
+    stack: list[list] = [[root, 0]]
+    color[root] = _GRAY
+    path = [root]
+    while stack:
+        node, i = stack[-1]
+        if i >= len(deps[node]):
+            color[node] = _BLACK
+            stack.pop()
+            path.pop()
+            continue
+        stack[-1][1] += 1
+        nxt = deps[node][i]
+        if color[nxt] == _GRAY:
+            return path[path.index(nxt) :] + [nxt]
+        if color[nxt] == _WHITE:
+            color[nxt] = _GRAY
+            stack.append([nxt, 0])
+            path.append(nxt)
+    return None
+
+
 def _find_cycle(plan: Plan) -> Optional[list[str]]:
     """Return the first dependency cycle (as an id path) in stored order, else None.
 
-    Iterative DFS with white/gray/black colouring; tasks and their deps are visited in
-    stored order so the reported path is deterministic. Only deps that reference a real
-    task are followed (dangling deps are reported separately).
+    White/gray/black DFS over the dep graph. Only deps that reference a real task are
+    followed (dangling deps are reported separately).
     """
     ids = {t.id for t in plan.tasks}
     deps = {t.id: [d for d in t.deps if d in ids] for t in plan.tasks}
-    WHITE, GRAY, BLACK = 0, 1, 2
-    color = {t.id: WHITE for t in plan.tasks}
-
+    color = {t.id: _WHITE for t in plan.tasks}
     for root in (t.id for t in plan.tasks):
-        if color[root] != WHITE:
-            continue
-        # stack holds (node, index-into-its-deps); `path` is the current gray chain.
-        stack: list[list] = [[root, 0]]
-        color[root] = GRAY
-        path = [root]
-        while stack:
-            node, i = stack[-1]
-            if i < len(deps[node]):
-                stack[-1][1] += 1
-                nxt = deps[node][i]
-                if color[nxt] == GRAY:
-                    return path[path.index(nxt) :] + [nxt]
-                if color[nxt] == WHITE:
-                    color[nxt] = GRAY
-                    stack.append([nxt, 0])
-                    path.append(nxt)
-            else:
-                color[node] = BLACK
-                stack.pop()
-                path.pop()
+        if color[root] == _WHITE:
+            cycle = _walk_from(root, deps, color)
+            if cycle:
+                return cycle
     return None
 
 

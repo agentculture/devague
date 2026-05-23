@@ -28,6 +28,9 @@ from devague.render import plan_md
 
 PLANS_OUT_DIR = Path("docs/plans")
 
+_JSON_HELP = "Emit structured JSON."
+_TASK_ID_HELP = "Task id."
+
 PLAN_MOVES = {
     "new": "Start a plan from a converged frame (derives coverage targets).",
     "task": "Add a task; optionally --accept / --dep / --covers inline.",
@@ -275,13 +278,13 @@ def cmd_plan_show(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     if getattr(args, "json", False):
         emit_result(to_dict(plan), json_mode=True)
-        return 0
-    # Render needs the source frame for context, but degrade gracefully if it is gone.
-    try:
-        frame = store.load(plan.frame_slug)
-    except (FileNotFoundError, ValueError):
-        frame = None
-    emit_result(plan_md.render_plan(plan, frame), json_mode=False)
+    else:
+        # Render needs the source frame for context; degrade gracefully if it's gone.
+        try:
+            frame = store.load(plan.frame_slug)
+        except (FileNotFoundError, ValueError):
+            frame = None
+        emit_result(plan_md.render_plan(plan, frame), json_mode=False)
     return 0
 
 
@@ -342,7 +345,7 @@ def _cmd_plan_help(args: argparse.Namespace) -> int:
 # ── registration ─────────────────────────────────────────────────────────────
 def _plan_opt(p: argparse.ArgumentParser) -> None:
     p.add_argument("--plan", help="Plan slug (default: current).")
-    p.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    p.add_argument("--json", action="store_true", help=_JSON_HELP)
 
 
 def register(sub: argparse._SubParsersAction) -> None:
@@ -357,7 +360,7 @@ def register(sub: argparse._SubParsersAction) -> None:
     pn = psub.add_parser("new", help="Start a plan from a converged frame.")
     pn.add_argument("--frame", help="Source frame slug (default: current).")
     pn.add_argument("--title", help="Plan title (defaults to the frame title).")
-    pn.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    pn.add_argument("--json", action="store_true", help=_JSON_HELP)
     pn.set_defaults(func=cmd_plan_new)
 
     pt = psub.add_parser("task", help="Add a task.")
@@ -382,18 +385,18 @@ def register(sub: argparse._SubParsersAction) -> None:
     pd.set_defaults(func=cmd_plan_depend)
 
     pc = psub.add_parser("cover", help="Mark a task as covering a coverage target.")
-    pc.add_argument("id", help="Task id.")
+    pc.add_argument("id", help=_TASK_ID_HELP)
     pc.add_argument("--target", required=True, help="Coverage target id (c*/h*).")
     _plan_opt(pc)
     pc.set_defaults(func=cmd_plan_cover)
 
     pcf = psub.add_parser("confirm", help="Confirm a task (user-only).")
-    pcf.add_argument("id", help="Task id.")
+    pcf.add_argument("id", help=_TASK_ID_HELP)
     _plan_opt(pcf)
     pcf.set_defaults(func=cmd_plan_confirm)
 
     prj = psub.add_parser("reject", help="Reject a task.")
-    prj.add_argument("id", help="Task id.")
+    prj.add_argument("id", help=_TASK_ID_HELP)
     _plan_opt(prj)
     prj.set_defaults(func=cmd_plan_reject)
 
@@ -418,16 +421,16 @@ def register(sub: argparse._SubParsersAction) -> None:
     psh.set_defaults(func=cmd_plan_show)
 
     pls = psub.add_parser("list", help="List plans.")
-    pls.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    pls.add_argument("--json", action="store_true", help=_JSON_HELP)
     pls.set_defaults(func=cmd_plan_list)
 
     pln = psub.add_parser("learn", help="Teach the spec-to-plan method.")
-    pln.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    pln.add_argument("--json", action="store_true", help=_JSON_HELP)
     pln.set_defaults(func=cmd_plan_learn)
 
     pxp = psub.add_parser("explain", help="Explain one plan move.")
     pxp.add_argument("move", help="A plan move name.")
-    pxp.add_argument("--json", action="store_true", help="Emit structured JSON.")
+    pxp.add_argument("--json", action="store_true", help=_JSON_HELP)
     pxp.set_defaults(func=cmd_plan_explain)
 
     p.set_defaults(func=_cmd_plan_help, _plan_parser=p)
