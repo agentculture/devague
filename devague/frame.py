@@ -200,6 +200,24 @@ def to_dict(frame: Frame) -> dict:
     return dataclasses.asdict(frame)
 
 
+def parse_schema_version(d: dict, default: int) -> int:
+    """Read a persisted ``schema_version`` strictly.
+
+    A missing key means a pre-field artifact → treat as ``default`` (back-compat).
+    A present value must be a real ``int`` — ``bool`` and non-int types (float,
+    str, ``None``) are rejected rather than silently coerced (e.g. plain
+    ``int(1.9)`` would truncate to ``1`` and ``int(True)`` would yield ``1``), so
+    a malformed version surfaces as a clean error instead of loading as current.
+    Shared by the frame and plan engines (the persistence twins).
+    """
+    if "schema_version" not in d:
+        return default
+    v = d["schema_version"]
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise ValueError(f"schema_version must be an integer, got {v!r}")
+    return v
+
+
 def from_dict(d: dict) -> Frame:
     claims = [
         Claim(
@@ -219,7 +237,7 @@ def from_dict(d: dict) -> Frame:
         slug=d["slug"],
         title=d["title"],
         # A 0.4.0 frame predates the field; treat it as the current schema.
-        schema_version=int(d.get("schema_version", SCHEMA_VERSION)),
+        schema_version=parse_schema_version(d, SCHEMA_VERSION),
         status=d.get("status", "drafting"),
         created=d.get("created", ""),
         updated=d.get("updated", ""),

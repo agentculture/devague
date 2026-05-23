@@ -94,3 +94,16 @@ def test_load_legacy_plan_without_schema_version(tmp_path, monkeypatch) -> None:
     legacy = {"slug": "demo", "title": "Demo", "frame_slug": "demo", "tasks": []}
     plan_store.path_for("demo").write_text(json.dumps(legacy), encoding="utf-8")
     assert plan_store.load("demo").schema_version == PLAN_SCHEMA_VERSION
+
+
+def test_load_rejects_slug_mismatch(tmp_path, monkeypatch) -> None:
+    # A file under demo.json whose internal slug is a *different* valid slug must
+    # be rejected, so a later save() can't be redirected onto another plan.
+    monkeypatch.chdir(tmp_path)
+    plan_store.save(_plan())
+    p = plan_store.path_for("demo")
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["slug"] = "other"
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(ValueError, match="slug mismatch"):
+        plan_store.load("demo")

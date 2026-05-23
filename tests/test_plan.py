@@ -103,6 +103,13 @@ def test_from_dict_rejects_malformed_enum_values() -> None:
         )
 
 
+@pytest.mark.parametrize("bad", [1.9, True, "1", None])
+def test_from_dict_rejects_non_integer_schema_version(bad) -> None:
+    # int() would silently coerce 1.9->1 / True->1; a malformed type must raise.
+    with pytest.raises(ValueError, match="schema_version"):
+        from_dict({"slug": "s", "title": "t", "frame_slug": "s", "schema_version": bad})
+
+
 def test_roundtrip_preserves_nested_fields() -> None:
     p = _plan()
     t = p.add_task("core", origin="llm")

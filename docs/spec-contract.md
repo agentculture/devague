@@ -153,8 +153,9 @@ the exit code is non-zero and `stderr` carries a `hint:` line.
 **Validation errors** (all raise a clean `DevagueError`, exit code 1): unknown
 claim kind / origin / status or vagueness kind (rejected at construction);
 unknown claim or honesty id on `confirm`/`reject`; an invalid `--frame` slug; a
-missing frame; a malformed or hand-edited frame file; a frame whose
-`schema_version` is too new.
+missing frame; a malformed or hand-edited frame file (including one whose
+embedded slug doesn't match the requested slug, or whose `schema_version` is not
+an integer); a frame whose `schema_version` is too new.
 
 ## Anti-fabrication guarantee
 
@@ -189,3 +190,9 @@ silently as the current schema. Loaded `Task.origin` / `Task.status` and
 "malformed plan" `DevagueError` rather than a traceback. (Task/dep/cover **id**
 cross-references are deliberately *not* validated at load — coverage and acyclic
 dependency checks already run against the live frame in `plan converge`.)
+
+Both `load`s also reject a file whose embedded slug disagrees with the requested
+slug (so a tampered file can't silently redirect a later `save`), and parse
+`schema_version` strictly via the shared `frame.parse_schema_version` — a
+non-integer value is rejected rather than coerced. These guards are symmetric
+across the frame and plan persistence twins.

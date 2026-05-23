@@ -130,6 +130,11 @@ def load(slug: str) -> Frame:
         raise FileNotFoundError(slug)
     frame = from_dict(json.loads(p.read_text(encoding="utf-8")))
     validate_slug(frame.slug)  # reject a tampered file whose internal slug escapes
+    if frame.slug != slug:
+        # The embedded slug drives save() and the current-frame pointer; a file
+        # whose internal slug disagrees with its filename could silently redirect
+        # a later save onto a different frame, so reject it.
+        raise ValueError(f"frame slug mismatch: file {slug!r} declares slug {frame.slug!r}")
     if frame.schema_version > SCHEMA_VERSION:
         raise IncompatibleSchemaError(
             f"frame {slug!r} uses schema_version {frame.schema_version}, but this "

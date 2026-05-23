@@ -16,7 +16,13 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Optional
 
-from devague.frame import ORIGINS, SPEC_AFFECTING_KINDS, VAGUENESS_KINDS, Frame
+from devague.frame import (
+    ORIGINS,
+    SPEC_AFFECTING_KINDS,
+    VAGUENESS_KINDS,
+    Frame,
+    parse_schema_version,
+)
 
 # Bump when the persisted plan shape changes incompatibly. `plan_store.load`
 # fails closed on a plan whose schema_version is newer/unknown (see #18; the
@@ -187,7 +193,7 @@ def from_dict(d: dict) -> Plan:
         title=d["title"],
         frame_slug=d["frame_slug"],
         # A pre-0.7.0 plan predates the field; treat it as the current schema.
-        schema_version=int(d.get("schema_version", PLAN_SCHEMA_VERSION)),
+        schema_version=parse_schema_version(d, PLAN_SCHEMA_VERSION),
         status=d.get("status", "drafting"),
         created=d.get("created", ""),
         updated=d.get("updated", ""),
