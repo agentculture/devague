@@ -70,6 +70,35 @@ def test_status_names_gaps_and_next_move(tmp_path: Path) -> None:
     assert "devague capture --kind audience" in proc.stdout
 
 
+def test_status_suggestion_does_not_imply_agent_confirm(tmp_path: Path) -> None:
+    # A user-origin capture auto-confirms; the suggestion must not imply the
+    # agent should run a follow-up `confirm` (the user-only-confirm hard rule).
+    _drive(tmp_path, "new", "Devague ships a documented spec contract")
+    proc = _drive(tmp_path, "status")
+    assert "auto-confirm" in proc.stdout
+    assert "then: devague confirm" not in proc.stdout
+
+
+def test_status_header_reflects_frame_flag(tmp_path: Path) -> None:
+    _drive(tmp_path, "new", "First frame")
+    second = _drive(tmp_path, "new", "Second frame", "--json")
+    slug = json.loads(second.stdout)["slug"]
+    # current pointer is now the second frame; ask about the first explicitly.
+    proc = _drive(tmp_path, "status", "--frame", "first-frame")
+    assert "frame: first-frame" in proc.stdout
+    assert slug != "first-frame"  # guards the test against a no-op
+
+
+def test_status_surfaces_real_frame_errors(tmp_path: Path) -> None:
+    # A bad --frame must surface devague's error, not a misleading fallback.
+    _drive(tmp_path, "new", "A real frame")
+    proc = run("status", "--frame", "ghost", cwd=tmp_path)
+    assert proc.returncode != 0
+    assert "no such frame" in proc.stderr
+    assert "no frames yet" not in proc.stdout
+    assert "unknown" not in proc.stdout
+
+
 def test_export_blocked_until_converged(tmp_path: Path) -> None:
     _drive(tmp_path, "new", "Devague ships a documented spec contract")
     proc = run("export", cwd=tmp_path)
