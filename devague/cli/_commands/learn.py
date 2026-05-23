@@ -44,6 +44,49 @@ NOT_A = (
     "a PRD generator (it never invents content to fill a template)",
 )
 
+# Assign-to-workforce invocation guidance: when and how to fan out a converged
+# plan's waves to a workforce. This is a cited skill convention, not an
+# orchestration engine (devague#20). The three human gates ensure spec, plan,
+# and PR pass human review.
+ASSIGN_TO_WORKFORCE_GUIDANCE = {
+    "title": "Assign-to-workforce: parallel plan execution",
+    "when_to_fan_out": (
+        "Once a plan converges (all targets covered, all tasks have acceptance "
+        "criteria, dependency graph is acyclic), you can fan out its waves to "
+        "parallel agents working in isolated git worktrees."
+    ),
+    "prerequisites": (
+        "A converged plan with deterministic dependency waves " "(devague plan waves)."
+    ),
+    "human_gates": (
+        "The human approves at exactly three points: (1) the exported spec, "
+        "(2) the implementation split plan (plan/tasks map, per-task "
+        "agent/model assignment, go/no-go to workforce), and (3) the final PR. "
+        "The human is NOT in the per-task worktree-merge loop."
+    ),
+    "worktree_isolation": (
+        "Each task runs in an isolated git worktree (one per task per wave). "
+        "This keeps file-contention safe: overlapping same-file changes "
+        "surface as merge conflicts at reconcile time, not live races."
+    ),
+    "main_agent_merge_gate": (
+        "The main agent gates each subagent worktree merge with TDD: tests "
+        "pass before AND after merge. No human per-task merge decision."
+    ),
+    "tdd_acceptance_criteria": (
+        "Each task carries TDD acceptance criteria (tests first) scoped "
+        "tightly enough for a simpler/cheaper model to build. The tests "
+        "validate that the task was built correctly — no re-deriving the "
+        "design needed."
+    ),
+    "not_orchestration": (
+        "devague itself does not orchestrate: it does not spawn subagents, "
+        "manage worktrees, mark tasks done, or pick a backend. Orchestration "
+        "is a cited skill convention (assign-to-workforce), not part of the "
+        "deterministic CLI."
+    ),
+}
+
 # The anti-fabrication rules. Agent-agnostic: repo-specific agreements live in
 # your agent's main instruction file (AGENTS.md, CLAUDE.md, a system prompt, …),
 # not here.
@@ -95,6 +138,15 @@ _TEXT = (
     + "\n".join(f"  - {n}" for n in NOT_A)
     + "\n\nOperating rules (the anti-fabrication contract — do not violate):\n"
     + "\n".join(f"  - {r}" for r in OPERATING_RULES)
+    + "\n\n"
+    + "Assign-to-workforce: parallel plan execution via subagent-driven development\n"
+    f"  When: {ASSIGN_TO_WORKFORCE_GUIDANCE['when_to_fan_out']}\n"
+    f"  Prerequisites: {ASSIGN_TO_WORKFORCE_GUIDANCE['prerequisites']}\n"
+    f"  Human gates (3): {ASSIGN_TO_WORKFORCE_GUIDANCE['human_gates']}\n"
+    f"  Safety: {ASSIGN_TO_WORKFORCE_GUIDANCE['worktree_isolation']}\n"
+    f"  Main agent: {ASSIGN_TO_WORKFORCE_GUIDANCE['main_agent_merge_gate']}\n"
+    f"  TDD: {ASSIGN_TO_WORKFORCE_GUIDANCE['tdd_acceptance_criteria']}\n"
+    f"  Scope: {ASSIGN_TO_WORKFORCE_GUIDANCE['not_orchestration']}\n"
     + "\n\nFull portable guidance for any assisting model:\n"
     f"  {GUIDANCE_DOC_URL}\n"
     f"  (in the devague repo: {GUIDANCE_DOC_REPO_PATH})\n"
@@ -120,6 +172,7 @@ def cmd_learn(args: argparse.Namespace) -> int:
                 "operating_rules": list(OPERATING_RULES),
                 "guidance_doc": GUIDANCE_DOC_URL,
                 "guidance_doc_repo_path": GUIDANCE_DOC_REPO_PATH,
+                "assign_to_workforce": ASSIGN_TO_WORKFORCE_GUIDANCE,
                 "summary": _TEXT,
             },
             json_mode=True,
