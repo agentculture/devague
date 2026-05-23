@@ -35,6 +35,20 @@
 
 - A frame with many proposed items is reviewed and resolved in a single 'devague review' plus one batched confirm/reject, and the test suite proves: review export works before convergence, multi-id confirm/reject works, and no review-flow command auto-confirms a proposal.
 
-## Non-goals
+## Scope / boundaries
 
 - Scope is the review/confirm UX layered over the existing proposed-vs-confirmed contract (#5/#16); it does not change the state model itself — proposals still only become authoritative by explicit user action.
+
+## Non-goals
+
+- Does not generate a polished buildable spec from unconfirmed review output — review output stays explicitly non-authoritative, distinct from what 'export' produces post-convergence.
+- Does not auto-resolve questions and does not auto-confirm any LLM-proposed content anywhere in the review flow.
+- The CLI does not call an LLM.
+- Does not require GitHub, NotebookLM, or any external service.
+
+## Decisions
+
+- Batch confirm/reject is TRANSACTIONAL: validate all ids first; if any id is unknown/invalid, resolve none and exit non-zero with a hint — never a half-applied batch.
+- `devague confirm --from-review <file>` IS in scope for 0.6.0: it parses a reviewed decision set (confirm/reject per id) from the review artifact and applies it, so the review artifact format must be documented and round-trippable.
+- devague manages .gitignore: it ensures .devague/reviews/ and .devague/questions/ are git-ignored so review/question state is uncommitted working state by default; the user opts in to promote one into docs.
+- Pending questions/decisions are produced by a CLI move that writes `.devague/questions/<slug>.md` and owns the format (first-class + unit-testable), not a hand-written skill artifact.

@@ -35,7 +35,16 @@ def render_spec(frame: Frame) -> str:
         out += ["## Success signals", "", *[f"- {t}" for t in succ], ""]
     bnd = _texts(frame, "boundary")
     if bnd:
-        out += ["## Non-goals", "", *[f"- {t}" for t in bnd], ""]
+        out += ["## Scope / boundaries", "", *[f"- {t}" for t in bnd], ""]
+    nongoals = _texts(frame, "non_goal")
+    if nongoals:
+        out += ["## Non-goals", "", *[f"- {t}" for t in nongoals], ""]
+    assumptions = _texts(frame, "assumption")
+    if assumptions:
+        out += ["## Assumptions", "", *[f"- {t}" for t in assumptions], ""]
+    decisions = _texts(frame, "decision")
+    if decisions:
+        out += ["## Decisions", "", *[f"- {t}" for t in decisions], ""]
     hqs = [q for c in frame.claims for q in c.hard_questions]
     if hqs:
         out += [
@@ -44,6 +53,9 @@ def render_spec(frame: Frame) -> str:
             *[f"- {q.text}" + (" (blocking)" if q.blocking else "") for q in hqs],
             "",
         ]
+    oqs = _texts(frame, "open_question")
+    if oqs:
+        out += ["## Open questions", "", *[f"- {t}" for t in oqs], ""]
     follow = [v.text for v in frame.open_vagueness if v.kind in ("follow_up", "out_of_scope")]
     if follow:
         out += ["## Open / follow-up", "", *[f"- {t}" for t in follow], ""]

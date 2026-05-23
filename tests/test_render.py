@@ -76,6 +76,50 @@ def test_spec_md_omits_empty_before_after_section() -> None:
     assert "## Before → After" not in out
 
 
+def _rich_frame() -> Frame:
+    """A frame exercising the kinds added by the #5/#16 contract."""
+    f = Frame(slug="r", title="Rich Feature")
+    f.add_claim("announcement", "Shipped", origin="user")
+    f.add_claim("boundary", "scope is X only", origin="user")
+    f.add_claim("non_goal", "does not call an LLM", origin="user")
+    f.add_claim("non_goal", "no external services", origin="user")
+    f.add_claim("assumption", "frames fit in memory", origin="user")
+    f.add_claim("decision", "batch is transactional", origin="user")
+    req = f.add_claim("requirement", "review lists proposed items", origin="user")
+    f.add_honesty(req, "review never mutates state", origin="user")
+    return f
+
+
+def test_spec_md_renders_non_goal_and_decision() -> None:
+    # Regression for #21 / Qodo: spec-md must not silently drop non_goal + decision.
+    out = render.render(_rich_frame(), "spec-md")
+    assert "## Non-goals" in out
+    assert "does not call an LLM" in out
+    assert "no external services" in out
+    assert "## Decisions" in out
+    assert "batch is transactional" in out
+    assert "## Assumptions" in out
+    assert "frames fit in memory" in out
+    # boundary keeps its own section, distinct from non-goals
+    assert "## Scope / boundaries" in out
+    assert "scope is X only" in out
+    assert_markdownlint_clean(out)
+
+
+def test_frame_md_renders_non_goal_and_decision() -> None:
+    out = render.render(_rich_frame(), "frame-md")
+    for needle in (
+        "## Non-goals",
+        "does not call an LLM",
+        "## Decisions",
+        "batch is transactional",
+        "## Requirements",
+        "## Assumptions",
+    ):
+        assert needle in out, needle
+    assert_markdownlint_clean(out)
+
+
 def test_unknown_format_raises() -> None:
     with pytest.raises(DevagueError):
         render.render(_frame(), "nope")
