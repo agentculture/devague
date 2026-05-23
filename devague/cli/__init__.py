@@ -56,7 +56,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     from devague.cli._commands import capture as _capture_cmd
     from devague.cli._commands import confirm as _confirm_cmd
+    from devague.cli._commands import converge as _converge_cmd
     from devague.cli._commands import explain as _explain_cmd
+    from devague.cli._commands import export as _export_cmd
     from devague.cli._commands import interrogate as _interrogate_cmd
     from devague.cli._commands import learn as _learn_cmd
     from devague.cli._commands import list_frames as _list_cmd
@@ -73,6 +75,8 @@ def _build_parser() -> argparse.ArgumentParser:
     _confirm_cmd.register(sub)
     _reject_cmd.register(sub)
     _park_cmd.register(sub)
+    _converge_cmd.register(sub)
+    _export_cmd.register(sub)
     _show_cmd.register(sub)
     _list_cmd.register(sub)
 
