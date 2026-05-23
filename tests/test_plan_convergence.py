@@ -70,6 +70,29 @@ def test_cycle_blocks_with_deterministic_path() -> None:
     assert "dependency cycle: t1 -> t2 -> t1" in res.missing
 
 
+def test_active_task_depending_on_rejected_task_blocks() -> None:
+    # A rejected task is omitted from the exported plan, so an active task depending
+    # on it would render a dangling `depends on:` line — the gate must catch it.
+    p = _converging()
+    rejected = p.add_task("dropped")  # t2
+    p.set_status(rejected.id, "rejected")
+    p.add_dep(p.find_task("t1"), "t2")
+    res = evaluate(p)
+    assert any("t1" in m and "depends on rejected task t2" in m for m in res.missing)
+
+
+def test_cycle_among_rejected_tasks_does_not_block() -> None:
+    # A cycle that lives entirely among rejected (non-exported) tasks is irrelevant.
+    p = _converging()
+    a = p.add_task("x")  # t2
+    b = p.add_task("y")  # t3
+    p.add_dep(a, "t3")
+    p.add_dep(b, "t2")
+    p.set_status("t2", "rejected")
+    p.set_status("t3", "rejected")
+    assert evaluate(p).passed is True
+
+
 def test_self_loop_cycle() -> None:
     p = _converging()
     p.add_dep(p.find_task("t1"), "t1")

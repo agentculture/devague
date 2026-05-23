@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import Optional
 
 from devague.convergence import ConvergenceResult
-from devague.plan import CoverageTarget, Plan
+from devague.plan import CoverageTarget, Plan, Task
 
 
 def _missing_tasks(plan: Plan) -> list[str]:
@@ -77,16 +77,17 @@ def _walk_from(root: str, deps: dict[str, list[str]], color: dict[str, int]) -> 
     return None
 
 
-def _find_cycle(plan: Plan) -> Optional[list[str]]:
+def _find_cycle(tasks: list[Task]) -> Optional[list[str]]:
     """Return the first dependency cycle (as an id path) in stored order, else None.
 
-    White/gray/black DFS over the dep graph. Only deps that reference a real task are
-    followed (dangling deps are reported separately).
+    White/gray/black DFS over ``tasks``. Only deps that reference a task *in this set*
+    are followed; deps pointing outside it (unknown or rejected) are reported
+    separately by :func:`_missing_dep_integrity`.
     """
-    ids = {t.id for t in plan.tasks}
-    deps = {t.id: [d for d in t.deps if d in ids] for t in plan.tasks}
-    color = {t.id: _WHITE for t in plan.tasks}
-    for root in (t.id for t in plan.tasks):
+    ids = {t.id for t in tasks}
+    deps = {t.id: [d for d in t.deps if d in ids] for t in tasks}
+    color = {t.id: _WHITE for t in tasks}
+    for root in (t.id for t in tasks):
         if color[root] == _WHITE:
             cycle = _walk_from(root, deps, color)
             if cycle:
@@ -95,14 +96,24 @@ def _find_cycle(plan: Plan) -> Optional[list[str]]:
 
 
 def _missing_dep_integrity(plan: Plan) -> list[str]:
-    ids = {t.id for t in plan.tasks}
-    missing = [
-        f"task {t.id} depends on unknown task {d}"
-        for t in plan.tasks
-        for d in t.deps
-        if d not in ids
-    ]
-    cycle = _find_cycle(plan)
+    """Dependency integrity over *active* (non-rejected) tasks.
+
+    Rejected tasks are omitted from the exported plan, so a dependency on one would
+    render a ``depends on:`` line whose target never appears — that is an integrity
+    failure, distinct from a dangling dep on a task that does not exist at all. Cycles
+    and dangling deps that live only among rejected tasks do not block convergence.
+    """
+    active = [t for t in plan.tasks if t.status != "rejected"]
+    active_ids = {t.id for t in active}
+    all_ids = {t.id for t in plan.tasks}
+    missing: list[str] = []
+    for t in active:
+        for d in t.deps:
+            if d not in all_ids:
+                missing.append(f"task {t.id} depends on unknown task {d}")
+            elif d not in active_ids:
+                missing.append(f"task {t.id} depends on rejected task {d}")
+    cycle = _find_cycle(active)
     if cycle:
         missing.append("dependency cycle: " + " -> ".join(cycle))
     return missing
