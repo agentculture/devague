@@ -225,3 +225,8 @@ __marimo__/
 
 # devague: local current-frame pointer (frames under .devague/frames/ are committed)
 .devague/current
+
+# devague working state (not committed by default)
+.devague/questions/
+
+.devague/reviews/
