@@ -108,7 +108,6 @@ cmd_status() {
         python3 - <<'PY'
 import json
 import os
-import re
 import sys
 
 
@@ -154,52 +153,25 @@ if conv is None:
     print("next move: devague plan show     # inspect the plan")
     sys.exit(0)
 
-if conv.get("passed"):
+if conv.get("ready_for_plan"):
     print("convergence: PASSED ✓")
+    for w in conv.get("warnings") or []:
+        print(f"  ⚠ {w}")
     print("next move: devague plan export   # write the buildable plan")
     sys.exit(0)
 
-missing = conv.get("missing") or []
-print(f"convergence: NOT passed — {len(missing)} gap(s):")
-for gap in missing:
-    print(f"  - {gap}")
+blockers = conv.get("blockers") or []
+print(f"convergence: NOT passed — {len(blockers)} gap(s):")
+for b in blockers:
+    print(f"  - {b}")
+for w in conv.get("warnings") or []:
+    print(f"  ⚠ {w}")
 
-
-def suggest(gap):
-    if "no tasks yet" in gap:
-        return 'devague plan task "<summary>" --covers <c*/h*> --accept "<criterion>"'
-    m = re.search(r"coverage target (\w+) ", gap)
-    if m:
-        tid = m.group(1)
-        return (
-            f'cover {tid}: devague plan task "<summary>" --covers {tid} --accept "<...>"'
-            f"   (or: devague plan cover <tN> --target {tid})"
-        )
-    m = re.search(r"task (t\d+) has no acceptance", gap)
-    if m:
-        return f'devague plan accept {m.group(1)} "<acceptance criterion>"'
-    m = re.search(r"task (t\d+) still proposed", gap)
-    if m:
-        tid = m.group(1)
-        return (
-            f"this is an LLM proposal — the USER decides:"
-            f" devague plan confirm {tid}   (or: devague plan reject {tid})"
-        )
-    m = re.search(r"task (t\d+) depends on unknown task (t\d+)", gap)
-    if m:
-        return f"fix {m.group(1)}'s dependency on missing {m.group(2)} (add it, or drop the dep)"
-    if "dependency cycle" in gap:
-        return "break the dependency cycle: re-point one task's --dep so the graph is acyclic"
-    m = re.search(r"blocking risk (r\d+)", gap)
-    if m:
-        return f"resolve {m.group(1)}: cover it with a task, or re-record it as non-blocking"
-    return "devague plan show     # inspect and decide"
-
-
-if missing:
+moves = conv.get("required_next_moves") or []
+if moves:
     print()
     print("recommended next move (first gap):")
-    print(f"  {suggest(missing[0])}")
+    print(f"  {moves[0]}")
 PY
 }
 
