@@ -15,6 +15,35 @@ def test_new_creates_frame_with_announcement(tmp_path, monkeypatch) -> None:
     assert f.claims[0].status == "confirmed"
 
 
+def test_new_same_title_does_not_overwrite(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    main(["new", "Shipped instant specs"])
+    capsys.readouterr()
+    rc = main(["new", "Shipped instant specs", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["slug"] == "shipped-instant-specs-2"  # unique, first frame preserved
+    assert sorted(store.list_slugs()) == ["shipped-instant-specs", "shipped-instant-specs-2"]
+
+
+def test_frame_flag_rejects_path_traversal(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    main(["new", "Shipped instant specs"])
+    capsys.readouterr()
+    rc = main(["show", "--frame", "../../etc/passwd"])
+    assert rc == 1
+    assert "slug" in capsys.readouterr().err.lower()
+
+
+def test_frame_flag_unknown_slug_errors(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    main(["new", "Shipped instant specs"])
+    capsys.readouterr()
+    rc = main(["show", "--frame", "ghost"])
+    assert rc == 1
+    assert "no such frame" in capsys.readouterr().err.lower()
+
+
 def test_capture_adds_classified_claim(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     main(["new", "Shipped instant specs"])

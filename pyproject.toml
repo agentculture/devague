@@ -1,6 +1,6 @@
 [project]
 name = "devague"
-version = "0.3.1"
+version = "0.3.2"
 description = "devague — turns a vague feature idea into a buildable spec by working backwards."
 readme = "README.md"
 license = "MIT"
@@ -50,7 +50,7 @@ source = ["devague"]
 omit = ["devague/__pycache__/*"]
 
 [tool.coverage.report]
-fail_under = 70
+fail_under = 95
 show_missing = true
 exclude_lines = [
     "pragma: no cover",

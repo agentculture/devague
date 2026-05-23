@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-05-23
+
+### Security
+
+- `store.validate_slug()` now guards every slug-derived path (`--frame`,
+  `.devague/current`, and a persisted `frame.slug`) against path traversal and
+  absolute paths via a strict allowlist, closing an arbitrary file read/write
+  through `load()` / `save()` / `export`.
+
+### Fixed
+
+- `devague new` no longer silently overwrites an existing frame when two titles
+  slugify to the same value: `store.unique_slug()` allocates `<slug>-2`,
+  `<slug>-3`, … and the chosen slug is surfaced in the output.
+
+### Changed
+
+- `devague new` and `devague learn` now use issue #4's exact entry point —
+  first question *"What's the announcement?"* with the "users, teammates, or
+  yourself" supporting prompt.
+- Documented the canonical ten-stage guided sequence (Announcement → Spec) in
+  the design doc and `devague learn` (also exposed via `learn --json`), while
+  keeping the engine move-driven rather than a rigid wizard.
+- Raised the coverage gate from 70 % to 95 %.
+
 ## [0.3.1] - 2026-05-23
 
 ### Fixed

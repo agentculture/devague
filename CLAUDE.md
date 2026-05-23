@@ -21,8 +21,12 @@ Real commands: `uv sync`; `uv run devague --version`; `python -m devague`;
 The agent drives the **deterministic** CLI — no LLM calls inside the CLI
 itself. The workflow:
 
-1. `devague new "<announcement>"` — creates a Frame seeded with the
-   announcement claim (auto-confirmed, since it comes from the user).
+1. `devague new "<announcement>"` — the announcement-first entry point. The
+   canonical first question is *"What's the announcement?"* ("Pretend this
+   shipped successfully — what would you announce to users, teammates, or
+   yourself?"). Creates a Frame seeded with the announcement claim
+   (auto-confirmed, since it comes from the user). `devague learn` documents the
+   full ten-stage guided sequence.
 2. `devague capture --kind <kind> "<text>"` — add claims; LLM-proposed ones
    (`--origin llm`) land as `proposed` and require explicit user `confirm`.
 3. `devague interrogate <claim-id>` — attach honesty conditions and hard

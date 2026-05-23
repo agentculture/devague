@@ -145,6 +145,36 @@ changes required. v1 implements only the two markdown renderers but builds the s
 than imposed phases. The exported `spec-md` is a clean handoff that can feed an
 implementation plan (e.g. the writing-plans discipline).
 
+**First question (devague#4):** the announcement-first entry point is exactly
+
+> What's the announcement?
+
+with the supporting prompt
+
+> Pretend this shipped successfully. What would you announce to users,
+> teammates, or yourself?
+
+**Canonical guided sequence.** The engine is move-driven (not a rigid wizard),
+but #4's Definition of Done requires the guided stages be *documented* so users
+and agents have a recommended arc. The ten stages map onto claim kinds and the
+moves that advance each — `learn` teaches this sequence verbatim:
+
+| # | Stage | Question | Advancing move |
+|---|-------|----------|----------------|
+| 1 | Announcement | what are we saying shipped? | `new` |
+| 2 | Audience | who needs this? | `capture --kind audience` |
+| 3 | After | what changed for them? | `capture --kind after_state` |
+| 4 | Matter | why is it worth doing? | `capture --kind why_it_matters` |
+| 5 | Before | what pain made this necessary? | `capture --kind before_state` |
+| 6 | Honest | what must be true for it to be honest? | `interrogate --honesty` |
+| 7 | FAQ | what hard questions remain? | `interrogate --hard-question` |
+| 8 | Boundaries | what are we not promising? | `capture --kind boundary` |
+| 9 | Success | how will we know? | `capture --kind success_signal` |
+| 10 | Spec | what should be built? | `converge` → `export` |
+
+The sequence is guidance, not a gate: the agent may revisit or reorder stages,
+and convergence (not stage completion) is what unlocks `export`.
+
 ## Implementation phases
 
 **Phase 0 — Rename `specifix` → `devague`** (do first, its own PR):

@@ -17,6 +17,12 @@ def resolve(slug: str | None) -> Frame:
         )
     try:
         return store.load(slug)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"invalid frame slug: {slug!r}",
+            "slugs are lowercase letters, digits, and hyphens — no path separators",
+        ) from exc
     except FileNotFoundError:
         raise DevagueError(
             EXIT_USER_ERROR, f"no such frame: {slug}", "run 'devague list' to see frames"
