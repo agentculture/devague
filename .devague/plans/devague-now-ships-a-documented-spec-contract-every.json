@@ -1,0 +1,363 @@
+{
+  "slug": "devague-now-ships-a-documented-spec-contract-every",
+  "title": "Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice",
+  "frame_slug": "devague-now-ships-a-documented-spec-contract-every",
+  "status": "exported",
+  "created": "2026-05-23T08:33:18Z",
+  "updated": "2026-05-23T08:48:16Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "Devague now ships a documented spec contract: every frame is a durable, reloadable artifact, and converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) instead of prose-only advice"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "A frame round-trips losslessly (save then load yields an identical frame) including schema_version, the new claim types, and the structured convergence payload; existing 0.4.0 frames still load"
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "Devague and the assisting LLM that drives it \u2014 they coordinate around structured feature-framing state without a rigid wizard"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "Every move accepts and emits documented JSON, and the contract spells out per-move input / output / state-transition / validation-errors so an LLM can drive devague without guessing internal state"
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "A vague idea becomes a claim-based, pressure-tested, buildable spec held in a durable, reloadable artifact whose entities are validated"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "Matches shipped 0.4.0 reality \u2014 converge --json emits {passed, missing} today and no contract doc is committed (verifiable in the repo before relying on it)"
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "Framing state is partly implicit and undocumented; converge returns prose-only advice ({passed, missing}); there is no documented contract an LLM can rely on"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "The contract is enforced by validation on load: a schema-violating frame is rejected with a clear, actionable error rather than silently accepted"
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "An LLM and devague can only coordinate reliably around a contract that is documented, validated, and machine-readable \u2014 convergence must mean something, not vibes"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "Convergence stays evidence-based and export stays gated on converge passing; the gate is computed only from confirmed claims and confirmed honesty conditions, never a hunch"
+    },
+    {
+      "id": "c6",
+      "kind": "boundary",
+      "text": "Not a full PRD generator and not a fixed wizard; the move-driven, deterministic model stays"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "The deterministic move-driven model is preserved: no fixed prompt sequence is added; the CLI stays a state tracker and the LLM still chooses the next move"
+    },
+    {
+      "id": "c7",
+      "kind": "boundary",
+      "text": "The local contract requires no GitHub, agents, or external services"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "Every contract operation (create / load / mutate / show / converge / export) runs fully offline against local .devague/ state with zero network calls"
+    },
+    {
+      "id": "c8",
+      "kind": "boundary",
+      "text": "Convergence is never claimed on vibes, and LLM-proposed content is never silently promoted to confirmed truth"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "LLM-proposed claims and honesty conditions persist as proposed (origin=llm) and require an explicit user confirm before they affect convergence \u2014 nothing auto-confirms"
+    },
+    {
+      "id": "c9",
+      "kind": "success_signal",
+      "text": "converge returns a structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) with blockers instead of prose-only advice"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "converge --json emits ONLY the new structured shape {ready_for_spec, blockers, warnings, parked_items, required_next_moves} (hard break); the skill's status helper is updated in the same change; blockers block convergence and warnings do not"
+    },
+    {
+      "id": "c10",
+      "kind": "success_signal",
+      "text": "A documented spec contract exists in the repo, with worked contract examples for at least one feature frame"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "The committed contract doc is the source of truth for kinds / states / fields / transitions and includes at least one worked frame example the CLI can actually round-trip"
+    },
+    {
+      "id": "c11",
+      "kind": "success_signal",
+      "text": "The CLI can create, load, mutate, and display a frame locally; core entities are validated"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "create / load / mutate / show round-trip through the JSON store under validation, and the demonstrated operations are covered by passing tests"
+    },
+    {
+      "id": "c12",
+      "kind": "success_signal",
+      "text": "Tests cover claim provenance, honesty-condition confirmation, parking vagueness, and convergence failure"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "Each of the four areas (provenance, honesty-condition confirmation, parking vagueness, convergence failure) has at least one test asserting the contract behavior, all green in CI"
+    },
+    {
+      "id": "c13",
+      "kind": "boundary",
+      "text": "The contract formalizes 0.4.0's shipped vocabulary as canonical \u2014 state in {proposed,confirmed,rejected,parked} x origin in {user,llm}; no rename and no migration of existing frames"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "The doc maps the issue's proposed names (llm_proposed, user_confirmed, intentionally_out_of_scope, ...) onto the shipped (state x origin) model so no information is lost and no rename is required"
+    },
+    {
+      "id": "c14",
+      "kind": "success_signal",
+      "text": "The claim-type vocabulary adds non_goal, requirement, assumption, and decision to the shipped set, each with a documented convergence-gate impact"
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "Each new type's gate impact is documented and tested: requirement is spec-affecting (needs a confirmed honesty condition like other claims); non_goal and decision are descriptive (non-blocking); an unconfirmed assumption surfaces as a warning, not a blocker"
+    },
+    {
+      "id": "c15",
+      "kind": "success_signal",
+      "text": "Every frame carries a schema_version field; load validates by version so existing frames keep loading as the schema grows"
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "schema_version is written on every save and checked on load; an unknown or newer version fails closed with a clear error rather than corrupting state"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Define the contract entity model: add claim types non_goal/requirement/assumption/decision and a schema_version field",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "CLAIM_KINDS gains non_goal, requirement, assumption, decision; Frame carries schema_version; dataclasses validate kind/state/origin against their enums"
+      ],
+      "deps": [],
+      "covers": [
+        "c13",
+        "c14",
+        "c15"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "Implement schema_version write-on-save + validate-on-load with fail-closed versioning and lossless round-trip",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "save writes schema_version; load rejects unknown/newer version with a clear error; save then load yields an identical frame including new types + schema_version; existing 0.4.0 frames still load"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "h1",
+        "h4",
+        "h15"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Add load-time validation that rejects schema-violating frames with clear, actionable errors",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a malformed or enum-violating frame raises a DevagueError with an actionable message on load (no silent accept); create/load/mutate/show round-trip under validation"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c3",
+        "c11"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Replace converge output with the structured result (ready_for_spec, blockers, warnings, parked_items, required_next_moves) as a hard break",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "converge --json emits only the new structured shape; ready_for_spec gates export; blockers block convergence and warnings do not; the gate is computed only from confirmed claims and conditions; required_next_moves is derived from blockers"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c9",
+        "h9",
+        "c5",
+        "h5"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "Implement convergence-gate semantics for the new claim types",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "requirement is spec-affecting (needs a confirmed honesty condition); non_goal and decision are descriptive (non-blocking); an unconfirmed assumption surfaces as a warning, not a blocker; each rule has a test"
+      ],
+      "deps": [
+        "t4"
+      ],
+      "covers": [
+        "c14",
+        "h14"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "Update the /think and /spec-to-plan status helpers to consume the new structured converge payload",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "both status helpers read ready_for_spec/blockers/warnings/required_next_moves and no longer depend on {passed, missing}; status output distinguishes blockers from warnings"
+      ],
+      "deps": [
+        "t4"
+      ],
+      "covers": [
+        "h9"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "Give every move a documented JSON I/O contract (input, output, state transition, validation errors)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "each move supports --json with a documented input/output/state-transition/validation-error shape; the strict stdout/stderr split holds; an LLM can drive devague from JSON without guessing internal state"
+      ],
+      "deps": [],
+      "covers": [
+        "c2",
+        "h2"
+      ]
+    },
+    {
+      "id": "t8",
+      "summary": "Guarantee all contract operations run fully offline",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "create/load/mutate/show/converge/export perform zero network calls; a test asserts no network or socket access"
+      ],
+      "deps": [],
+      "covers": [
+        "c7",
+        "h7"
+      ]
+    },
+    {
+      "id": "t9",
+      "summary": "Enforce and preserve anti-fabrication and the move-driven model",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "claims/conditions with origin=llm persist as proposed; confirm is the only transition to confirmed; no code path auto-confirms; no fixed prompt sequence is added (the CLI stays a move-driven state tracker)"
+      ],
+      "deps": [],
+      "covers": [
+        "c8",
+        "h8",
+        "c6",
+        "h6"
+      ]
+    },
+    {
+      "id": "t10",
+      "summary": "Write the documented spec contract with a worked, round-trippable frame example",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a committed contract doc is the source of truth for kinds/states/fields/transitions and per-move I/O; it documents the shipped (state x origin) vocabulary and maps the issue's proposed names onto it; it states the current 0.4.0 reality (passed/missing, no prior doc); it includes at least one worked frame example the CLI round-trips"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t4",
+        "t7"
+      ],
+      "covers": [
+        "c1",
+        "c4",
+        "h3",
+        "c10",
+        "h10",
+        "h13"
+      ]
+    },
+    {
+      "id": "t11",
+      "summary": "Add the contract test suite",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests cover claim provenance, honesty-condition confirmation, parking vagueness, and convergence failure; plus lossless round-trip, multi-version load, and the structured-result fields; all green in CI"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t3",
+        "t4",
+        "t5",
+        "t9"
+      ],
+      "covers": [
+        "c11",
+        "h11",
+        "c12",
+        "h12"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "Whether to also ship a formal machine-readable JSON Schema file alongside the dataclasses (frame follow-up v1) \u2014 affects the doc scope in t10",
+      "kind": "unknown_nonblocking",
+      "task_id": null
+    },
+    {
+      "id": "r2",
+      "text": "Whether requirement-type claims should carry acceptance criteria like plan tasks (frame follow-up v2) \u2014 overlaps the spec-to-plan leg",
+      "kind": "unknown_nonblocking",
+      "task_id": null
+    }
+  ]
+}
