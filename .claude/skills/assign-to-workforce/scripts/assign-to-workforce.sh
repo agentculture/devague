@@ -91,12 +91,15 @@ cmd_split_plan() {
     done
 
     local waves_json tmp_err waves_rc old_exit_trap
-    tmp_err="$(mktemp)"
-    # Clean up the temp file on any exit path — including a signal between its
-    # creation and the explicit removal below — WITHOUT permanently changing the
-    # script's process-global EXIT handling: capture any prior EXIT trap, install
-    # ours, then restore it once the file is safely gone (#30; PR #31 review).
+    # Clean up the temp file on any exit path — including a signal after its
+    # creation — WITHOUT permanently changing the script's process-global EXIT
+    # handling. Capture any prior EXIT trap BEFORE mktemp (that capture forks a
+    # subshell, so doing it first keeps it out of the untracked-file window),
+    # then install our cleanup trap on the line immediately after mktemp, and
+    # restore the prior trap once the file is safely gone (#30; PR #31 review;
+    # devague#32).
     old_exit_trap="$(trap -p EXIT)"
+    tmp_err="$(mktemp)"
     trap 'rm -f "$tmp_err"' EXIT
     set +e
     waves_json="$("${DEVAGUE[@]}" plan waves --json "${extra_args[@]}" 2>"$tmp_err")"

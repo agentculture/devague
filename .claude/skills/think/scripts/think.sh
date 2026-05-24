@@ -5,9 +5,9 @@
 # half lives in the sibling /spec-to-plan skill, which drives `devague plan`).
 # devague turns a vague feature idea into a buildable spec by working backwards.
 # This wrapper is the agent-facing operator for the deterministic devague CLI:
-# it resolves the CLI portably, forwards every move verbatim, and adds one
-# value-add subcommand — `status` — that reads the convergence gate and names
-# the recommended next move.
+# it resolves the CLI portably and forwards every move verbatim — including the
+# `status` verb the CLI internalised in 0.11.0 (devague#30/#31), which reads the
+# convergence gate and names the recommended next move.
 #
 # Origin: authored and maintained in agentculture/devague. steward pulls this
 # skill from here and broadcasts it to the rest of the AgentCulture mesh, so it

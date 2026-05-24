@@ -3,10 +3,10 @@
 #
 # The skill is named `spec-to-plan`; the product/CLI it drives is `devague` (the
 # idea→spec half lives in the sibling /think skill). This wrapper forwards every
-# move to `devague plan <move>` verbatim, and adds one value-add subcommand —
-# `status` — that reads the plan convergence gate and names the recommended next
-# move. It is the forward leg: seed a plan from a *converged* frame, then work it
-# into a buildable plan.
+# move to `devague plan <move>` verbatim — including the `status` verb the CLI
+# internalised in 0.11.0 (devague#30/#31), which reads the plan convergence gate
+# and names the recommended next move. It is the forward leg: seed a plan from a
+# *converged* frame, then work it into a buildable plan.
 #
 # Origin: authored and maintained in agentculture/devague. steward pulls this
 # skill from here and broadcasts it to the rest of the AgentCulture mesh, so it
