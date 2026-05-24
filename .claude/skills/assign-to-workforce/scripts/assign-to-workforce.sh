@@ -90,10 +90,13 @@ cmd_split_plan() {
         shift
     done
 
-    local waves_json tmp_err waves_rc
+    local waves_json tmp_err waves_rc old_exit_trap
     tmp_err="$(mktemp)"
-    # Clean up on ANY exit path — including a signal between here and the
-    # explicit removal below — so the temp file never leaks (#30).
+    # Clean up the temp file on any exit path — including a signal between its
+    # creation and the explicit removal below — WITHOUT permanently changing the
+    # script's process-global EXIT handling: capture any prior EXIT trap, install
+    # ours, then restore it once the file is safely gone (#30; PR #31 review).
+    old_exit_trap="$(trap -p EXIT)"
     trap 'rm -f "$tmp_err"' EXIT
     set +e
     waves_json="$("${DEVAGUE[@]}" plan waves --json "${extra_args[@]}" 2>"$tmp_err")"
@@ -102,6 +105,8 @@ cmd_split_plan() {
     local waves_err
     waves_err="$(cat "$tmp_err")"
     rm -f "$tmp_err"
+    trap - EXIT
+    eval "${old_exit_trap}"  # empty string is a no-op; re-installs a prior trap if any
 
     if [ "$waves_rc" -ne 0 ]; then
         printf '%s\n' "$waves_err" >&2

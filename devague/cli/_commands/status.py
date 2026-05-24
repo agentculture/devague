@@ -36,11 +36,13 @@ def cmd_status(args: argparse.Namespace) -> int:
     slugs = store.list_slugs()
     if not slugs:
         emit_empty(_LABELS, json_mode=json_mode)
-        return 0
-    # A bad --frame raises here (before any stdout) so the error reaches stderr.
-    frame = resolve(args.frame)
-    result = evaluate(frame)
-    emit_status(_LABELS, selected=frame.slug, total=len(slugs), result=result, json_mode=json_mode)
+    else:
+        # A bad --frame raises here (before any stdout) so the error reaches stderr.
+        frame = resolve(args.frame)
+        result = evaluate(frame)
+        emit_status(
+            _LABELS, selected=frame.slug, total=len(slugs), result=result, json_mode=json_mode
+        )
     return 0
 
 

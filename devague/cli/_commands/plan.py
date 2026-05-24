@@ -344,16 +344,16 @@ def cmd_plan_status(args: argparse.Namespace) -> int:
     slugs = plan_store.list_slugs()
     if not slugs:
         emit_empty(_STATUS_LABELS, json_mode=json_mode)
-        return 0
-    # resolve_plan + _live raise here (before any stdout) on a bad --plan or a
-    # source frame that regressed below convergence — routed to stderr.
-    plan = resolve_plan(args.plan)
-    _frame, targets = _live(plan)
-    plan.targets = targets  # in-memory refresh only; status does not save
-    result = evaluate_plan(plan, targets=targets)
-    emit_status(
-        _STATUS_LABELS, selected=plan.slug, total=len(slugs), result=result, json_mode=json_mode
-    )
+    else:
+        # resolve_plan + _live raise here (before any stdout) on a bad --plan or a
+        # source frame that regressed below convergence — routed to stderr.
+        plan = resolve_plan(args.plan)
+        _frame, targets = _live(plan)
+        plan.targets = targets  # in-memory refresh only; status does not save
+        result = evaluate_plan(plan, targets=targets)
+        emit_status(
+            _STATUS_LABELS, selected=plan.slug, total=len(slugs), result=result, json_mode=json_mode
+        )
     return 0
 
 
