@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-05-24
+
+### Changed
+
+- Trio skill-script header comments (`think.sh`, `spec-to-plan.sh`) no longer claim the wrapper *adds* a `status` subcommand — since 0.11.0 it is forwarded verbatim like every other move (devague#32, steward PR #58 review).
+
+### Fixed
+
+- `assign-to-workforce.sh` now installs its `mktemp` cleanup `EXIT` trap on the line immediately after creating the temp file, capturing the prior trap beforehand so the subshell-forking capture no longer sits inside the untracked-file window (devague#32).
+
 ## [0.11.0] - 2026-05-24
 
 ### Added
