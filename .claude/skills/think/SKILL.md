@@ -31,8 +31,9 @@ fixed sequence of prompts. **You (the agent) choose the next move; the CLI just
 tracks state and tells you what's still missing.** Run `devague learn` for the
 canonical ten-stage arc and `devague explain <move>` for any single move.
 
-This skill is the operator: a portable wrapper plus one helper (`status`) that
-reads the convergence gate and tells you the recommended next move.
+This skill is the operator: a portable wrapper that resolves the CLI and
+forwards every move verbatim — including `status`, the read-only verb that reads
+the convergence gate and tells you the recommended next move.
 
 ## How to run
 
@@ -47,9 +48,9 @@ bash .claude/skills/think/scripts/think.sh status
 It resolves the CLI portably — an installed `devague` on `PATH` (the normal
 case), falling back to `uv run devague` when you are inside the devague checkout.
 If neither resolves it prints an install hint (`uv tool install devague`). Every
-move except `status` is forwarded verbatim, so you can equally call the CLI
-directly (`devague <move> …`) when it is installed; the wrapper exists for
-portable resolution and the `status` helper.
+move — including `status` — is forwarded verbatim, so you can equally call the
+CLI directly (`devague <move> …`) when it is installed; the wrapper exists only
+for portable resolution.
 
 ### Moves
 
@@ -64,6 +65,7 @@ portable resolution and the `status` helper.
 | `park "<text>" --kind <kind>` | Move uncertainty into first-class open vagueness instead of forcing an answer. |
 | `converge` | Evaluate the gate; list remaining gaps. |
 | `export` | Write the buildable spec to `docs/specs/` — only after `converge` passes. |
+| `status` | Read-only: where the frame stands + the recommended next move (`--json` too). |
 | `show` / `list` | Render a frame / list frames (`--json` for raw state). |
 | `learn` / `explain <move>` | Teach the method / explain one move. |
 
@@ -84,15 +86,18 @@ per-move input/output/transition/error contract are documented in
 live shape of any move, run it with `--json` (or `devague learn --json` /
 `devague explain <move>`).
 
-### `status` — the next-move helper
+### `status` — the next-move verb
 
-`status` is a wrapper-only verb (the CLI has no `status`). It reads
-`converge --json` + `list --json` and prints where the current frame stands, the
-remaining gaps, and the recommended next move. `converge --json` emits the
-structured result `{ready_for_spec, blockers, warnings, parked_items,
-required_next_moves}` (issue [#5](https://github.com/agentculture/devague/issues/5));
-the helper reads `ready_for_spec`, lists the `blockers` and `warnings`, and shows
-`required_next_moves[0]` as the recommended move — no longer deriving it itself.
+`status` is a first-class, **read-only** CLI verb (`devague status`, internalised
+from this wrapper in 0.11.0 — issue
+[#30](https://github.com/agentculture/devague/issues/30)). It composes
+`list` + `converge` and prints where the current frame stands, the remaining
+gaps, and the recommended next move; it never mutates state (the
+`drafting`↔`converged` transition stays in `converge`). It reports
+`ready_for_spec`, lists the `blockers` and `warnings`, and shows
+`required_next_moves[0]` as the recommended move. Pass `--json` for the same
+fields as a structured payload (`{frame, total, ready_for_spec, blockers,
+warnings, parked_items, required_next_moves}`).
 
 ```text
 frame: my-feature    (1 frame total)

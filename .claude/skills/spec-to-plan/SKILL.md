@@ -41,8 +41,9 @@ bash .claude/skills/spec-to-plan/scripts/spec-to-plan.sh status
 
 It resolves the CLI portably — an installed `devague` on `PATH` (the normal
 case), falling back to `uv run devague` inside the devague checkout, else an
-install hint. Every move except `status` is forwarded verbatim as `devague plan
-<move>`, so you can equally call the CLI directly (`devague plan <move> …`).
+install hint. Every move — including `status` — is forwarded verbatim as
+`devague plan <move>`, so you can equally call the CLI directly
+(`devague plan <move> …`).
 
 ### Moves
 
@@ -58,17 +59,24 @@ install hint. Every move except `status` is forwarded verbatim as `devague plan
 | `converge` | Evaluate the gate against the **live** source frame; list remaining gaps. |
 | `export` | Write the buildable plan to `docs/plans/` — only after `converge` passes. |
 | `waves` | Emit deterministic dependency waves (`{plan, waves}`) — scheduling metadata only, *not* orchestration. Read-only, works on an in-progress plan; refuses a cyclic/dangling graph. Devague describes the graph; an operator decides how to run it (#20). |
+| `status` | Read-only: where the plan stands + the recommended next move, re-checked against the live frame (`--json` too). |
 | `show` / `list` | Render a plan / list plans (`--json` for raw state). |
 | `learn` / `explain <move>` | Teach the method / explain one move. |
 
 Risk kinds (shared with the frame engine): `unknown_nonblocking`,
 `unknown_blocking`, `out_of_scope`, `follow_up`.
 
-### `status` — the next-move helper
+### `status` — the next-move verb
 
-`status` is a wrapper-only verb. It reads `devague plan converge --json` +
-`devague plan list --json` and prints where the current plan stands, the
-remaining gaps, and the recommended next move derived from the first gap.
+`status` is a first-class, **read-only** CLI verb (`devague plan status`,
+internalised from this wrapper in 0.11.0 — issue
+[#30](https://github.com/agentculture/devague/issues/30)). It composes
+`devague plan list` + `devague plan converge` and prints where the current plan
+stands, the remaining gaps, and the recommended next move derived from the first
+gap. Like `converge`/`export` it re-checks the **live** source frame (so frame
+drift surfaces as an error), but it never mutates state. Pass `--json` for the
+structured payload (`{plan, total, ready_for_plan, blockers, warnings,
+parked_items, required_next_moves}`).
 
 ```text
 plan: my-feature    (1 plan total)

@@ -67,6 +67,7 @@ Moves (forwarded to `devague plan`; run `devague plan learn` for the method):
   converge     check whether the plan can export
   export       write the buildable plan (only after converge passes)
   waves        emit deterministic dependency waves (scheduling metadata, not orchestration)
+  status       where the plan stands + the recommended next move
   show / list  render a plan / list plans
   learn        teach the method   |   explain <move>  explain one move
 
@@ -74,106 +75,12 @@ Plans persist under .devague/ in the current directory — run from the repo you
 are speccing. Results go to stdout, diagnostics to stderr; pass --json to any
 move for structured output.
 
-Note: `status` is a wrapper-only verb; everything else is forwarded verbatim as
-`devague plan <move>`, so new plan moves work without editing this script.
+Note: every move — including `status` — is forwarded verbatim as `devague plan
+<move>`, so new plan moves work without editing this script. (`status` was
+internalised into the CLI in devague 0.11.0; it is no longer wrapper-only.)
 
 Prior leg: a plan is seeded from a converged frame produced by the /think skill.
 EOF
-}
-
-# ── status: read the plan convergence gate and recommend the next move ──────
-cmd_status() {
-    local list_json conv_out conv_err conv_rc req_plan="" prev="" tmp_err
-
-    for arg in "$@"; do
-        case "$prev" in --plan) req_plan="$arg" ;; esac
-        case "$arg" in --plan=*) req_plan="${arg#--plan=}" ;; esac
-        prev="$arg"
-    done
-
-    list_json="$("${DEVAGUE[@]}" plan list --json 2>/dev/null || true)"
-
-    tmp_err="$(mktemp)"
-    set +e
-    conv_out="$("${DEVAGUE[@]}" plan converge --json "$@" 2>"$tmp_err")"
-    conv_rc=$?
-    set -e
-    conv_err="$(cat "$tmp_err")"
-    rm -f "$tmp_err"
-
-    DEVAGUE_LIST_JSON="$list_json" \
-        DEVAGUE_CONV_JSON="$conv_out" \
-        DEVAGUE_CONV_ERR="$conv_err" \
-        DEVAGUE_CONV_RC="$conv_rc" \
-        DEVAGUE_REQ_PLAN="$req_plan" \
-        python3 - <<'PY'
-import json
-import os
-import sys
-
-
-def load(name):
-    raw = os.environ.get(name, "").strip()
-    if not raw:
-        return None
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        return None
-
-
-lst = load("DEVAGUE_LIST_JSON") or {}
-conv = load("DEVAGUE_CONV_JSON")
-conv_err = os.environ.get("DEVAGUE_CONV_ERR", "").strip()
-req_plan = os.environ.get("DEVAGUE_REQ_PLAN", "").strip()
-try:
-    conv_rc = int(os.environ.get("DEVAGUE_CONV_RC", "0") or "0")
-except ValueError:
-    conv_rc = 0
-
-plans = lst.get("plans") or []
-current = lst.get("current")
-
-if not plans:
-    print("no plans yet — seed one from a converged frame:")
-    print('  devague plan new --frame "<slug>"')
-    print("  (the frame must have converged in the /think skill first)")
-    sys.exit(0)
-
-shown = req_plan or current or "(none selected)"
-total = len(plans)
-print(f"plan: {shown}    ({total} plan{'s' if total != 1 else ''} total)")
-
-if conv is None:
-    # A non-zero converge exit is a real error (deleted/regressed source frame,
-    # bad --plan) — relay devague's own error:/hint: lines instead of masking it.
-    if conv_rc != 0 and conv_err:
-        sys.stderr.write(conv_err + "\n")
-        sys.exit(conv_rc)
-    print("convergence: unknown (could not evaluate the plan)")
-    print("next move: devague plan show     # inspect the plan")
-    sys.exit(0)
-
-if conv.get("ready_for_plan"):
-    print("convergence: PASSED ✓")
-    for w in conv.get("warnings") or []:
-        print(f"  ⚠ {w}")
-    print("next move: devague plan export   # write the buildable plan")
-    sys.exit(0)
-
-blockers = conv.get("blockers") or []
-print(f"convergence: NOT passed — {len(blockers)} gap(s):")
-for b in blockers:
-    print(f"  - {b}")
-for w in conv.get("warnings") or []:
-    print(f"  ⚠ {w}")
-
-moves = conv.get("required_next_moves") or []
-if moves:
-    print()
-    print("recommended next move (first gap):")
-    print(f"  {moves[0]}")
-PY
 }
 
 main() {
@@ -182,14 +89,10 @@ main() {
             usage
             return 0
             ;;
-        status)
-            shift
-            resolve_devague
-            cmd_status "$@"
-            ;;
         *)
-            # Forward everything else to `devague plan <move>` verbatim, so the
-            # CLI's own parser owns the plan surface.
+            # Forward every move to `devague plan <move>` verbatim — including the
+            # internalised `status` verb (`devague plan status`) — so the CLI's own
+            # parser owns the plan surface.
             resolve_devague
             exec "${DEVAGUE[@]}" plan "$@"
             ;;
