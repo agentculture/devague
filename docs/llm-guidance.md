@@ -126,5 +126,8 @@ same stream. Exit code is `0` on success, non-zero on user error (with a
 - **Entity model + per-move contract:** [`spec-contract.md`](spec-contract.md).
 - **Live shape of any move:** run it with `--json`, or `devague learn` /
   `devague explain <move>`.
+- **Authoring the operator skills:** [`skills.md`](skills.md), or run `devague
+  learn skills` — how to create the `think` / `spec-to-plan` /
+  `assign-to-workforce` skills in your own runtime (with user consent).
 - **Repo-specific working agreements:** your agent's main instruction file
   (`AGENTS.md`, `CLAUDE.md`, system prompt, …) — not this document.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 
 from devague import __version__
+from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._output import emit_result
 
 MOVES = {
@@ -154,34 +155,246 @@ _TEXT = (
 )
 
 
+# --- Authoring the three operator skills (devague#34) -----------------------
+#
+# `devague learn` knows the operator skills exist but never taught an agent how
+# to *author* them. This section closes that gap: it is written as instructions
+# the assisting agent follows — devague itself never writes skill files (it stays
+# deterministic and non-orchestrating, #20); the agent does, with user consent.
+#
+# As with GUIDANCE_DOC_URL, neither `docs/` nor `.claude/skills/` ship in the
+# wheel, so the canonical source is referenced by URL — always resolvable for an
+# agent operating an installed devague from an arbitrary repo.
+SKILLS_DOC_URL = "https://github.com/agentculture/devague/blob/main/docs/skills.md"
+SKILLS_DOC_REPO_PATH = "docs/skills.md"
+_SKILLS_BROWSE = "https://github.com/agentculture/devague/blob/main/.claude/skills"
+_SKILLS_RAW = "https://raw.githubusercontent.com/agentculture/devague/main/.claude/skills"
+
+# Consent + no-clobber rules — the agent behavior `learn` enforces.
+SKILLS_CONSENT = (
+    "These are instructions for you, the assisting agent — not a CLI side effect. "
+    "devague never writes skill files; you do.",
+    "If the user explicitly asked you to set up or learn the operator skills, "
+    "create them now using the recipe and per-skill sources below.",
+    "If you reached this by default (e.g. a bare 'devague learn'), ASK the user "
+    "for permission before creating anything.",
+    "Never overwrite an existing skill of the same name — if <skills>/<name>/ "
+    "already exists, stop and surface the conflict instead of clobbering it.",
+)
+
+# The authoring recipe. Structured so `--json` can carry it verbatim.
+SKILL_AUTHORING = {
+    "layout": (
+        "Each skill is one directory in your runtime's skills folder "
+        "(Claude Code: .claude/skills/<name>/):\n"
+        "  <skills>/<name>/SKILL.md           frontmatter + the operating doc\n"
+        "  <skills>/<name>/scripts/<name>.sh  portable CLI resolver (executable)"
+    ),
+    "frontmatter": (
+        "SKILL.md opens with YAML frontmatter:\n"
+        "  name: <name>\n"
+        "  description: >\n"
+        "    one paragraph — what it does, when to use it, and that it is\n"
+        "    authored in agentculture/devague.\n"
+        "  type: command    # REQUIRED by culture/agex backends; a SKILL.md\n"
+        "                   # without it is SILENTLY SKIPPED. Harmless on claude-code."
+    ),
+    "resolver": (
+        "scripts/<name>.sh resolves the devague CLI portably and forwards every "
+        "move verbatim:\n"
+        "  1. an installed 'devague' on PATH (the normal case);\n"
+        "  2. else 'uv run devague' when inside a devague checkout;\n"
+        "  3. else print the hint 'uv tool install devague' and exit non-zero.\n"
+        "Copy the exact script from the per-skill source below — don't hand-write it."
+    ),
+    "contract": (
+        "The skill drives the deterministic CLI and adds no logic of its own:\n"
+        "  - drive devague through its moves; never edit .devague/ state by hand;\n"
+        "  - LLM-proposed claims/honesty conditions stay 'proposed' — the user confirms;\n"
+        "  - three human gates only — the exported spec, the implementation split\n"
+        "    plan, and the final PR. devague never orchestrates (#20)."
+    ),
+}
+
+# The three operator skills, in workflow order.
+OPERATOR_SKILLS = (
+    {
+        "name": "think",
+        "leg": "idea -> spec (working backwards)",
+        "role": (
+            "Drives the flat devague verbs. Start from the announcement, capture "
+            "and classify claims, interrogate them, park open vagueness, and export "
+            "a spec only once the frame converges."
+        ),
+    },
+    {
+        "name": "spec-to-plan",
+        "leg": "spec -> plan (working forwards)",
+        "role": (
+            "Drives the 'devague plan' group. Seed a plan from a converged frame, "
+            "cover every target with TDD-accepted tasks in an acyclic order, and "
+            "export a plan only once it converges."
+        ),
+    },
+    {
+        "name": "assign-to-workforce",
+        "leg": "plan -> parallel implementation",
+        "role": (
+            "Reads 'devague plan waves' and fans out one agent per task per wave in "
+            "isolated git worktrees, with main-agent TDD-gated merges. Three human "
+            "gates; devague never orchestrates (#20)."
+        ),
+    },
+)
+
+_SKILL_NAMES = tuple(s["name"] for s in OPERATOR_SKILLS)
+
+
+def _skill_source(name: str) -> dict[str, str]:
+    """Canonical, always-resolvable source locations for one skill's files."""
+    return {
+        "browse": f"{_SKILLS_BROWSE}/{name}/SKILL.md",
+        "skill_md_raw": f"{_SKILLS_RAW}/{name}/SKILL.md",
+        "script_raw": f"{_SKILLS_RAW}/{name}/scripts/{name}.sh",
+        "repo_path": f".claude/skills/{name}/",
+    }
+
+
+def _skills_payload(names: tuple[str, ...]) -> dict[str, object]:
+    """Structured skills-authoring payload for the selected skill names."""
+    return {
+        "consent": list(SKILLS_CONSENT),
+        "authoring": SKILL_AUTHORING,
+        "operator_skills": [
+            {**s, **_skill_source(s["name"])} for s in OPERATOR_SKILLS if s["name"] in names
+        ],
+        "doc_url": SKILLS_DOC_URL,
+        "doc_repo_path": SKILLS_DOC_REPO_PATH,
+    }
+
+
+def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
+    """Render the skills-authoring section. `full` adds per-skill source URLs."""
+    parts = [
+        "Authoring your operator skills (create them with user consent)",
+        "=============================================================",
+        "",
+        "devague is driven by three operator skills. Recreate them in your own "
+        "runtime so you can drive devague the same way everywhere.",
+        "",
+        "Consent — read before creating anything:",
+    ]
+    parts += [f"  - {c}" for c in SKILLS_CONSENT]
+    parts += [
+        "",
+        "Recipe:",
+        SKILL_AUTHORING["layout"],
+        "",
+        SKILL_AUTHORING["frontmatter"],
+        "",
+        SKILL_AUTHORING["resolver"],
+        "",
+        SKILL_AUTHORING["contract"],
+        "",
+        "The three skills:",
+    ]
+    for s in OPERATOR_SKILLS:
+        if s["name"] not in names:
+            continue
+        parts.append(f"  {s['name']}  [{s['leg']}]")
+        parts.append(f"    {s['role']}")
+        if full:
+            src = _skill_source(s["name"])
+            parts.append(f"    SKILL.md:  {src['skill_md_raw']}")
+            parts.append(f"    script:    {src['script_raw']}")
+            parts.append(f"    browse:    {src['browse']}")
+        parts.append("")
+    if not full:
+        parts.append(
+            "Run 'devague learn skills:all' for the source URLs of all three, or "
+            "'devague learn skills:<name>' for one."
+        )
+        parts.append("")
+    parts += [
+        f"Full authoring guide: {SKILLS_DOC_URL}",
+        f"  (in the devague repo: {SKILLS_DOC_REPO_PATH})",
+    ]
+    return "\n".join(parts)
+
+
+def _resolve_topic(topic: str | None) -> tuple[str, tuple[str, ...]]:
+    """Map a learn topic to (mode, skill-names). Raises on an unknown topic."""
+    if topic is None:
+        return "bare", _SKILL_NAMES
+    if topic == "skills":
+        return "skills", _SKILL_NAMES
+    if topic.startswith("skills:"):
+        sub = topic.split(":", 1)[1]
+        if sub == "all":
+            return "skills_all", _SKILL_NAMES
+        if sub in _SKILL_NAMES:
+            return "skill", (sub,)
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"unknown skill: {sub}",
+            "skills: " + ", ".join(_SKILL_NAMES) + ", or 'all'",
+        )
+    raise DevagueError(
+        EXIT_USER_ERROR,
+        f"unknown learn topic: {topic}",
+        "topics: skills, skills:all, skills:<name>",
+    )
+
+
 def cmd_learn(args: argparse.Namespace) -> int:
-    if getattr(args, "json", False):
+    mode, names = _resolve_topic(getattr(args, "topic", None))
+    json_mode = getattr(args, "json", False)
+
+    if mode == "bare":
+        if json_mode:
+            emit_result(
+                {
+                    "tool": "devague",
+                    "version": __version__,
+                    "first_question": FIRST_QUESTION,
+                    "supporting_prompt": SUPPORTING_PROMPT,
+                    "stages": [
+                        {"step": i, "name": name, "prompt": prompt, "move": move}
+                        for i, (name, prompt, move) in enumerate(STAGES, 1)
+                    ],
+                    "moves": list(MOVES),
+                    "not_a": list(NOT_A),
+                    "operating_rules": list(OPERATING_RULES),
+                    "guidance_doc": GUIDANCE_DOC_URL,
+                    "guidance_doc_repo_path": GUIDANCE_DOC_REPO_PATH,
+                    "assign_to_workforce": ASSIGN_TO_WORKFORCE_GUIDANCE,
+                    "skills": _skills_payload(names),
+                    "summary": _TEXT,
+                },
+                json_mode=True,
+            )
+        else:
+            emit_result(_TEXT + "\n\n" + _skills_text(names, full=False), json_mode=False)
+        return 0
+
+    # A skills topic: emit just the authoring section.
+    full = mode in ("skills_all", "skill")
+    if json_mode:
         emit_result(
-            {
-                "tool": "devague",
-                "version": __version__,
-                "first_question": FIRST_QUESTION,
-                "supporting_prompt": SUPPORTING_PROMPT,
-                "stages": [
-                    {"step": i, "name": name, "prompt": prompt, "move": move}
-                    for i, (name, prompt, move) in enumerate(STAGES, 1)
-                ],
-                "moves": list(MOVES),
-                "not_a": list(NOT_A),
-                "operating_rules": list(OPERATING_RULES),
-                "guidance_doc": GUIDANCE_DOC_URL,
-                "guidance_doc_repo_path": GUIDANCE_DOC_REPO_PATH,
-                "assign_to_workforce": ASSIGN_TO_WORKFORCE_GUIDANCE,
-                "summary": _TEXT,
-            },
-            json_mode=True,
+            {"topic": getattr(args, "topic", None), **_skills_payload(names)}, json_mode=True
         )
     else:
-        emit_result(_TEXT, json_mode=False)
+        emit_result(_skills_text(names, full=full), json_mode=False)
     return 0
 
 
 def register(sub: argparse._SubParsersAction) -> None:
-    p = sub.add_parser("learn", help="Teach devague's working-backwards method.")
+    p = sub.add_parser("learn", help="Teach devague's method and how to author its skills.")
+    p.add_argument(
+        "topic",
+        nargs="?",
+        default=None,
+        help="Optional: 'skills', 'skills:all', or 'skills:<name>' to teach skill authoring.",
+    )
     p.add_argument("--json", action="store_true", help="Emit structured JSON.")
     p.set_defaults(func=cmd_learn)
