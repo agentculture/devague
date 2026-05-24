@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-05-24
+
+### Added
+
+- `devague learn` now teaches skill authoring (#34): an optional topic arg —
+  `devague learn skills` (and `skills:all` / `skills:NAME`) — emits a
+  self-contained recipe for authoring the three operator skills (think /
+  spec-to-plan / assign-to-workforce) in any runtime, framed as consent-gated,
+  no-clobber instructions the agent follows. The CLI never writes skill files
+  (#20); the agent does, with user consent. Bare `devague learn` appends the
+  condensed authoring section.
+- `docs/skills.md`: new canonical authoring guide (file layout, frontmatter incl.
+  the `type:` gotcha for culture backends, the portable resolver pattern, the
+  skill-to-devague contract, and the three human gates), referenced from
+  `docs/llm-guidance.md` and `devague plan learn`.
+
 ## [0.11.1] - 2026-05-24
 
 ### Changed

@@ -4,6 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**`learn` now teaches skill authoring (0.12.0, #34).** `devague learn` gained an
+optional topic arg: `devague learn skills` (and `skills:all` / `skills:<name>`)
+emits a self-contained recipe for authoring the three operator skills (`think` /
+`spec-to-plan` / `assign-to-workforce`) in any runtime — file layout, frontmatter
+(incl. the `type:` gotcha for culture backends), the portable resolver pattern,
+the skill↔devague contract, and the consent + no-clobber rules. It is framed as
+instructions the *agent* follows: the CLI never writes skill files (it stays
+deterministic and non-orchestrating, #20); the agent creates them with user
+consent. Bare `devague learn` appends the condensed authoring section. Canonical
+long-form guide: `docs/skills.md`.
+
 **`status` internalised into the CLI (0.11.0, #30).** The next-move helper that
 used to live as embedded Python inside the `think` / `spec-to-plan` skill
 wrappers is now a first-class, read-only CLI verb — `devague status` and

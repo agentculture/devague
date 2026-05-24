@@ -394,7 +394,11 @@ def cmd_plan_learn(args: argparse.Namespace) -> int:
         "anti-fabrication rule as claims. A plan exports only once it converges:\n"
         "every target covered by a confirmed task, every confirmed task has acceptance\n"
         "criteria, the dependency graph is acyclic, and no blocking risk remains.\n\n"
-        "Moves:\n" + "\n".join(f"  {name:<9} {desc}" for name, desc in PLAN_MOVES.items())
+        "Moves:\n"
+        + "\n".join(f"  {name:<9} {desc}" for name, desc in PLAN_MOVES.items())
+        + "\n\nTo author the operator skills (think / spec-to-plan / "
+        "assign-to-workforce) in\nyour own runtime, run 'devague learn skills' "
+        "(with user consent)."
     )
     if getattr(args, "json", False):
         emit_result(
