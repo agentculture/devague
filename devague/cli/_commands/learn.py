@@ -375,16 +375,23 @@ def cmd_learn(args: argparse.Namespace) -> int:
             )
         else:
             emit_result(_TEXT + "\n\n" + _skills_text(names, full=False), json_mode=False)
-        return 0
-
-    # A skills topic: emit just the authoring section.
-    full = mode in ("skills_all", "skill")
-    if json_mode:
-        emit_result(
-            {"topic": getattr(args, "topic", None), **_skills_payload(names)}, json_mode=True
-        )
     else:
-        emit_result(_skills_text(names, full=full), json_mode=False)
+        # A skills topic: emit just the authoring section. The JSON envelope
+        # carries the same tool/version identity as the bare payload so the
+        # whole `learn` command family shares one schema (Qodo PR #35).
+        full = mode in ("skills_all", "skill")
+        if json_mode:
+            emit_result(
+                {
+                    "tool": "devague",
+                    "version": __version__,
+                    "topic": getattr(args, "topic", None),
+                    **_skills_payload(names),
+                },
+                json_mode=True,
+            )
+        else:
+            emit_result(_skills_text(names, full=full), json_mode=False)
     return 0
 
 

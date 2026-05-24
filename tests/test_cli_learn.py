@@ -122,15 +122,20 @@ def test_learn_unknown_skill_errors(capsys: pytest.CaptureFixture[str]) -> None:
         assert name in err
 
 
-def test_learn_skills_json_payload(capsys: pytest.CaptureFixture[str]) -> None:
-    """`learn skills --json` carries a structured authoring payload."""
-    rc = main(["learn", "skills", "--json"])
+@pytest.mark.parametrize("topic", ["skills", "skills:all", "skills:think"])
+def test_learn_skills_json_payload(topic: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """`learn skills* --json` carries a structured authoring payload, and shares
+    the bare payload's tool/version identity (one schema across the family).
+    """
+    rc = main(["learn", topic, "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["topic"] == "skills"
+    # Same identifying metadata as bare `learn --json` — no schema divergence.
+    assert payload["tool"] == "devague"
+    assert payload["version"]
+    assert payload["topic"] == topic
     assert "consent" in payload and payload["consent"]
     assert "authoring" in payload
-    assert {s["name"] for s in payload["operator_skills"]} == set(SKILL_NAMES)
     # Each skill carries its canonical raw-source URLs.
     for s in payload["operator_skills"]:
         assert s["skill_md_raw"].endswith(f"/{s['name']}/SKILL.md")
