@@ -4,6 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**Skills re-synced to guildmaster + two new skills (0.13.0, #38).** The vendored
+canonical kit now sources from `guildmaster` (the supplier role moved from
+`steward` at the 2026-05-24 cutover): `cicd` / `communicate` re-synced (the `cicd`
+`portability-lint.sh` `xargs -r` divergence is preserved), the other four are
+content-unchanged with the ledger repointed, and two new skills were vendored —
+`agent-config` (read-only agent-config inventory) and `pypi-maintainer` (devague
+publishes to PyPI/TestPyPI). devague's three **origin** skills (`think` /
+`spec-to-plan` / `assign-to-workforce`) were **not** re-vendored back — devague is
+their upstream — but each gained `type: command` at the source. Provenance:
+`docs/skill-sources.md`.
+
 **`learn` now teaches skill authoring (0.12.0, #34).** `devague learn` gained an
 optional topic arg: `devague learn skills` (and `skills:all` / `skills:<name>`)
 emits a self-contained recipe for authoring the three operator skills (`think` /
@@ -204,10 +215,14 @@ AgentCulture`); the GitHub remote is `origin/main` and lives under
 workspace are the small Python CLI agents `agtag`, `appsec`, `seer-cli`, and
 `steward` — when in doubt about how something *should* look here, read theirs.
 
-`steward` is the source of truth for shared skills and the cross-repo way of
-working in AgentCulture. Vendored skills are cited, not imported (cite-don't-import):
-copy from `../steward/.claude/skills/<name>/` and track provenance in
-`docs/skill-sources.md`.
+`guildmaster` is the source of truth for shared skills and the cross-repo way of
+working in AgentCulture (the supplier role moved from `steward` at the 2026-05-24
+steward→guildmaster cutover; `steward` is still a sibling but no longer
+broadcasts). Vendored skills are cited, not imported (cite-don't-import): copy
+from `../guildmaster/.claude/skills/<name>/` and track provenance in
+`docs/skill-sources.md`. The exception is devague's own `think` / `spec-to-plan` /
+`assign-to-workforce` — devague is their origin, so guildmaster re-broadcasts them
+*from* here; never re-vendor them back.
 
 ## Stack expectations (when code lands)
 

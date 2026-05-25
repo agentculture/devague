@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-05-25
+
+### Added
+
+- Vendored two new skills from guildmaster (#38): `agent-config` (read-only Culture agent-config inventory backing guildmaster's `guild show`) and `pypi-maintainer` (switch a PyPI install between the production index, TestPyPI, and a local editable checkout). `pypi-maintainer` is a strong fit — devague publishes to PyPI + TestPyPI via `.github/workflows/publish.yml`.
+
+### Changed
+
+- Skills supplier repointed `steward` -> `guildmaster` after the 2026-05-24 steward->guildmaster cutover (#38). Re-synced `cicd` and `communicate` from guildmaster (`communicate` gains `scripts/templates/skill-new-brief.md`); `doc-test-alignment` / `run-tests` / `sonarclaude` / `version-bump` are content-unchanged with provenance updated in `docs/skill-sources.md` and `CLAUDE.md`.
+- devague's three origin skills (`think` / `spec-to-plan` / `assign-to-workforce`) now declare `type: command` at the source — the field guildmaster had to add on re-broadcast (required by culture/agex backends) and that `docs/skills.md` already specified — and their provenance prose repoints to guildmaster. They are deliberately NOT re-vendored back from guildmaster's re-broadcast copies: devague is their upstream.
+
+### Fixed
+
+- Preserved devague's intentional `cicd/scripts/portability-lint.sh` divergence (drops GNU-only `xargs -r`, which fails on BSD/macOS) across the guildmaster re-sync, instead of reintroducing the portability regression from the upstream copy.
+
 ## [0.12.0] - 2026-05-24
 
 ### Added

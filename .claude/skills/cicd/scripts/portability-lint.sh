@@ -22,7 +22,7 @@ esac
 
 # ----- Check 1: hard-coded /home/<user>/... paths -----
 # devague-divergence: drop GNU-only `xargs -r` (fails on BSD/macOS); `$files`
-# is already guarded non-empty above. Upstream to steward; remove on re-vendor.
+# is already guarded non-empty above. Upstream to guildmaster; remove on re-vendor.
 hits1=$(echo "$files" | xargs grep -nE '/home/[a-z][a-z0-9_-]+/' 2>/dev/null || true)
 
 # ----- Check 2: per-user dotfile *config* refs in committed docs/configs -----
@@ -32,7 +32,7 @@ hits1=$(echo "$files" | xargs grep -nE '/home/[a-z][a-z0-9_-]+/' 2>/dev/null || 
 md_yaml=$(echo "$files" | grep -E '\.(md|ya?ml|toml|json|jsonc)$' || true)
 if [ -n "$md_yaml" ]; then
     # devague-divergence: drop GNU-only `xargs -r` (see Check 1); `$md_yaml`
-    # is guarded non-empty by the `if` above. Upstream to steward.
+    # is guarded non-empty by the `if` above. Upstream to guildmaster.
     hits2=$(echo "$md_yaml" | xargs grep -nE '~/\.[A-Za-z]' 2>/dev/null \
         | grep -vE '~/\.claude/skills/[^[:space:]"]+/scripts/' \
         | grep -vE '~/\.culture/' \
