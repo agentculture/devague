@@ -1,13 +1,13 @@
 ---
 name: communicate
 description: >
-  Cross-repo + mesh communication from steward: file tracked GitHub issues
+  Cross-repo + mesh communication from guildmaster: file tracked GitHub issues
   on sibling repos, fetch issues from sibling repos to inline current state
   into briefs, and send live messages to Culture mesh channels. Use when
-  the next step lives outside steward (a brief for a sibling-repo agent, a
+  the next step lives outside guildmaster (a brief for a sibling-repo agent, a
   status ping for a Culture channel, or pulling an issue body + comments
-  into context). Issue posts auto-sign with `- steward (Claude)`; mesh
-  messages are unsigned (the IRC nick is the speaker). Not for in-steward
+  into context). Issue posts auto-sign with `- guildmaster (Claude)`; mesh
+  messages are unsigned (the IRC nick is the speaker). Not for in-guildmaster
   issues — use `gh issue create` or the `cicd` skill for those. Renamed
   from `coordinate` in steward 0.8.0; absorbed `gh-issues` in 0.9.1.
   Issue I/O is backed by `agtag` (>=0.1) starting in 0.11.0.

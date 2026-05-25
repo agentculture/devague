@@ -7,7 +7,7 @@ companion to `devague learn skills`, which surfaces a condensed, always-availabl
 version of the same recipe.
 
 These three skills are devague's **outbound** skills — devague is their
-origin/upstream (it dogfoods them to drive its own CLI), and steward re-vendors
+origin/upstream (it dogfoods them to drive its own CLI), and guildmaster re-vendors
 them to the rest of the AgentCulture mesh under the `cite, don't import` policy.
 See [`skill-sources.md`](skill-sources.md) for the provenance map. This guide is
 about *creating* them in a runtime that doesn't have them yet.
