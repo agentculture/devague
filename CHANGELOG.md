@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-06-10
+
+### Fixed
+
+- Completed the steward→guildmaster provenance repoint from #38: the three origin skills' `scripts/*.sh` header comments still read "steward pulls this skill" while their `SKILL.md` frontmatter already said "guildmaster pulls". Aligned all three script headers (`think` / `spec-to-plan` / `assign-to-workforce`) to "guildmaster pulls", removing the contradiction. (Surfaced by Qodo on a downstream agentirc vendoring PR.)
+- Made the `assign-to-workforce` final-PR step repo-agnostic: the worked example and flow referenced `.claude/skills/cicd/scripts/workflow.sh open` and "the `cicd` skill", which broke for downstream repos that vendor the trio but use a different PR workflow (e.g. agentirc's `pr-review`). Reworded the four `cicd` mentions to name the repo's PR workflow generically (`cicd` / `pr-review` / `gh pr create`).
+
 ## [0.13.0] - 2026-05-25
 
 ### Added

@@ -181,7 +181,8 @@ idea→spec leg cleanly before moving on:
    disk. Use a focused message, e.g. `git commit -m "spec: <slug> (devague
    /think)"`. The frame and the spec are the evidence trail for every confirmed
    claim — keep them together. (Per the repo's standing convention this normally
-   becomes a branch + PR via the `cicd` skill; commit-only is fine when the user
+   becomes a branch + PR via your repo's PR workflow — e.g. the `cicd` or
+   `pr-review` skill; commit-only is fine when the user
    asks for it.)
 2. **Hand off to `/spec-to-plan`.** The forward leg is the sibling skill:
    `devague plan new --frame <slug>` seeds a plan from the converged frame and

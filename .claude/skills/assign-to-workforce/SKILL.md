@@ -154,7 +154,8 @@ and their tests pass.
 ### Human gate 3 — the final PR
 
 Once all waves are merged and the full test suite passes, the main agent opens
-a PR via the `cicd` skill (`agex pr open`). The human reviews and merges. This
+a PR via the repo's PR workflow (e.g. the `cicd` skill's `agex pr open`, the
+`pr-review` skill, or `gh pr create`). The human reviews and merges. This
 is the last and only remaining human gate.
 
 ## Hard rules (do not violate)
@@ -222,8 +223,8 @@ git worktree remove ../worktrees/agent-t3
 git worktree add ../worktrees/agent-t4 -b agent/t4
 # ... spawn, await, merge with TDD gate, remove worktree ...
 
-# 6. Open the final PR (human gate 3)
-bash .claude/skills/cicd/scripts/workflow.sh open
+# 6. Open the final PR (human gate 3) via your repo's PR workflow —
+#    e.g. the cicd skill (`agex pr open`), the pr-review skill, or `gh pr create`.
 ```
 
 The exported plan-md from `devague plan export` is the standing brief for

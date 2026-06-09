@@ -12,7 +12,7 @@
 # the dependency graph; it does not spawn agents, manage worktrees, or pick
 # a backend. This wrapper is the operator-facing helper.
 #
-# Origin: authored and maintained in agentculture/devague. steward pulls this
+# Origin: authored and maintained in agentculture/devague. guildmaster pulls this
 # skill from here and broadcasts it to the rest of the AgentCulture mesh, so
 # it is written to run anywhere — portable bash, no devague-checkout assumptions.
 #
@@ -73,7 +73,8 @@ you are implementing. Results go to stdout, diagnostics to stderr.
 Human gates (three only):
   1. The exported spec (already closed by the /think leg).
   2. This implementation split plan (go/no-go to assign to workforce).
-  3. The final PR (opened by the main agent via `cicd` / `agex pr open`).
+  3. The final PR (opened by the main agent via the repo's PR workflow,
+     e.g. `cicd` / `agex pr open`, `pr-review`, or `gh pr create`).
 
 The devague CLI is non-orchestrating (#20): `devague plan waves` describes
 the graph; the operator performs the fan-out. One worktree per task; TDD
