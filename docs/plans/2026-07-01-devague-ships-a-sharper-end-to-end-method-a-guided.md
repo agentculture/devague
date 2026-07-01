@@ -1,4 +1,4 @@
-# Build Plan — devague ships a sharper end-to-end method: a guided scope-exploration stage before the announcement frame, per-item instructions on every claim and task, sharper spec and plan exports, and a guided plan-to-fanout leg that carries those instructions to the workforce.
+# Build Plan — devague ships a sharper end-to-end method
 
 slug: `devague-ships-a-sharper-end-to-end-method-a-guided` · status: `exported` · from frame: `devague-ships-a-sharper-end-to-end-method-a-guided`
 
@@ -25,7 +25,7 @@ slug: `devague-ships-a-sharper-end-to-end-method-a-guided` · status: `exported`
 - depends on: t1
 - covers: c9, h2, c6, c4, h9
 - acceptance:
-  - devague scope records an explored surface + finding as first-class state with provenance and optional --seeds <claim-id> links; unknown claim id refused with a hint
+  - devague scope records an explored surface + finding as first-class state with provenance and optional `--seeds <claim-id>` links; unknown claim id refused with a hint
   - scope --list and --json render the recorded entries; the move is deterministic — no LLM calls, no subprocess
 
 ### t4 — Instruction flags on frame moves: capture/interrogate --instruction (capture.py, interrogate.py)
@@ -36,7 +36,7 @@ slug: `devague-ships-a-sharper-end-to-end-method-a-guided` · status: `exported`
   - capture --instruction and interrogate --instruction store the instruction verbatim on the item; devague review lists instructions alongside their items
   - adding or changing an instruction on a confirmed claim/honesty condition flips it back to proposed — the user re-confirms (user decision, gate-2 review)
 
-### t5 — Instruction flags on plan moves: plan task --instruction + instruct <tN> (cli/_commands/plan.py)
+### t5 — Instruction flags on plan moves: plan task --instruction + `instruct <tN>` (cli/_commands/plan.py)
 
 - depends on: t2
 - covers: c10

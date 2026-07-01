@@ -1,11 +1,11 @@
 {
   "slug": "devague-ships-a-sharper-end-to-end-method-a-guided",
-  "title": "devague ships a sharper end-to-end method: a guided scope-exploration stage before the announcement frame, per-item instructions on every claim and task, sharper spec and plan exports, and a guided plan-to-fanout leg that carries those instructions to the workforce.",
+  "title": "devague ships a sharper end-to-end method",
   "frame_slug": "devague-ships-a-sharper-end-to-end-method-a-guided",
   "schema_version": 1,
   "status": "exported",
   "created": "2026-07-01T22:22:54Z",
-  "updated": "2026-07-01T22:29:27Z",
+  "updated": "2026-07-01T22:32:31Z",
   "targets": [
     {
       "id": "c1",
@@ -161,7 +161,7 @@
       "origin": "llm",
       "status": "confirmed",
       "acceptance_criteria": [
-        "devague scope records an explored surface + finding as first-class state with provenance and optional --seeds <claim-id> links; unknown claim id refused with a hint",
+        "devague scope records an explored surface + finding as first-class state with provenance and optional `--seeds <claim-id>` links; unknown claim id refused with a hint",
         "scope --list and --json render the recorded entries; the move is deterministic \u2014 no LLM calls, no subprocess"
       ],
       "deps": [
@@ -193,7 +193,7 @@
     },
     {
       "id": "t5",
-      "summary": "Instruction flags on plan moves: plan task --instruction + instruct <tN> (cli/_commands/plan.py)",
+      "summary": "Instruction flags on plan moves: plan task --instruction + `instruct <tN>` (cli/_commands/plan.py)",
       "origin": "llm",
       "status": "confirmed",
       "acceptance_criteria": [
