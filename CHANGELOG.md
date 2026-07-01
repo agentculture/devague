@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-07-02
+
+### Added
+
+- spec + plan: sharper end-to-end method — a guided scope-exploration stage (new devague scope move), per-item instructions on claims and plan tasks, sharper exports plus a deterministic structural gate, and a guided plan-to-fanout leg (docs/specs + docs/plans 2026-07-01, frame + plan state; /think and /spec-to-plan run, 14 tasks over 5 file-disjoint waves)
+
 ## [0.14.0] - 2026-06-23
 
 ### Added
