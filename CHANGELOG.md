@@ -9,7 +9,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- spec + plan: sharper end-to-end method — a guided scope-exploration stage (new devague scope move), per-item instructions on claims and plan tasks, sharper exports plus a deterministic structural gate, and a guided plan-to-fanout leg (docs/specs + docs/plans 2026-07-01, frame + plan state; /think and /spec-to-plan run, 14 tasks over 5 file-disjoint waves)
+- Exported **spec and plan artifacts** for the upcoming "sharper end-to-end
+  method" increment (docs/specs + docs/plans 2026-07-01, plus the frame/plan
+  state JSON as the evidence trail; produced by a dogfooded /think and
+  /spec-to-plan run). **Documentation and state only — no CLI changes ship in
+  this release.** The `devague scope` move, per-item instructions, sharper
+  exports + structural gate, and guided plan-to-fanout leg described there are
+  *planned* work, tracked by the committed plan (14 tasks over 5 file-disjoint
+  waves) and not yet implemented.
 
 ## [0.14.0] - 2026-06-23
 
