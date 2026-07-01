@@ -1,0 +1,276 @@
+{
+  "slug": "devague-ships-a-sharper-end-to-end-method-a-guided",
+  "title": "devague ships a sharper end-to-end method",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-01T22:07:23Z",
+  "updated": "2026-07-01T22:32:01Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague ships a sharper end-to-end method: a guided scope-exploration stage before the announcement frame, per-item instructions on every claim and task, sharper spec and plan exports, and a guided plan-to-fanout leg that carries those instructions to the workforce.",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "an operator can run idea to scope to spec to plan to fanout end-to-end and every handoff carries the per-item instructions without manual re-entry",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q1",
+          "text": "does the added scope stage slow the lightweight case \u2014 small ideas that today go announcement to converge in minutes?",
+          "resolved": false,
+          "blocking": false
+        }
+      ],
+      "links": []
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "devague operators \u2014 the agent driving /think and /spec-to-plan \u2014 plus the humans who own the three gates, and the per-task workforce subagents who receive the instructions",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "each named audience actually touches the shipped surface: the operator agent runs the new moves, the gate-owning humans review the sharper artifacts, and workforce subagents receive the instruction payloads",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c3",
+      "kind": "after_state",
+      "text": "an idea's scope is explored and mapped before the frame is built; every claim, honesty condition, and plan task can carry its own working instruction; exports read sharp \u2014 every item actionable, no boilerplate; and the plan-to-fanout leg hands the workforce per-task instructions instead of bare summaries",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "the after-state is observable in one dogfooded run: a real idea goes scope, frame, sharper spec, plan, fanout using only the shipped surface",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c4",
+      "kind": "before_state",
+      "text": "today the frame starts cold at the announcement with no scope survey; claims and tasks carry only their summary text; exports leave the reader to re-derive how to act on each item; and plan waves emits task ids whose context assign-to-workforce must reconstruct by hand",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "the before-state pains are citable gaps in today's code: no scope move exists, neither store has an instruction field, and assign-to-workforce reconstructs task context by hand",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c5",
+      "kind": "why_it_matters",
+      "text": "scope grounded up front means convergence measures real coverage instead of vibes, and per-item instructions make every exported artifact executable by a cheaper model without re-deriving the design",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "coverage reported by the gate maps to scope that was actually explored \u2014 convergence measures explored territory, not just whatever text happened to be captured",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c6",
+      "kind": "boundary",
+      "text": "the CLI stays deterministic and non-orchestrating per issue 20: scope exploration is an agent/skill-side stage and fanout guidance lives in the assign-to-workforce skill \u2014 no LLM calls and no orchestration land inside the CLI",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "the shipped diff contains no LLM calls, no subagent spawning, and no worktree management anywhere inside the devague package",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c7",
+      "kind": "non_goal",
+      "text": "not a wizard: scope exploration does not become a mandatory fixed first stage; the move-driven adaptive arc stays intact and small ideas can still skip straight to the announcement",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c8",
+      "kind": "success_signal",
+      "text": "a spec produced with the new process shows scope-exploration provenance on its boundary and non-goal claims; every exported plan task renders an instruction block; and an assign-to-workforce run consumes those instructions as the subagent brief without the operator re-typing context",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "every success signal is checkable on artifacts alone: the exported spec shows scope provenance, the exported plan renders instruction blocks, and a fanout brief quotes them verbatim",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "a scope-exploration stage precedes the frame: before or right after 'new', the operator surveys the repo/context the idea touches and the findings seed boundary, non-goal, and assumption claims that cite what was explored",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "a frame built with scope exploration contains boundary and non-goal claims that cite the surfaces actually explored \u2014 provenance, not generic disclaimers",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "claims and plan tasks accept an optional per-item instruction \u2014 how to verify or implement that item \u2014 stored in frame/plan state and rendered verbatim in exports; an absent instruction renders nothing",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "instructions round-trip: capture, store, export renders them verbatim; an item without an instruction renders nothing rather than fabricated filler",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q2",
+          "text": "LLM-proposed instructions must stay proposed too \u2014 does the user confirm loop scale when every claim and task can carry one?",
+          "resolved": false,
+          "blocking": false
+        }
+      ],
+      "links": []
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "sharper exports: the rendered spec-md and plan-md make every item directly actionable, with the definition of sharper agreed with the user before build",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "sharper has a written definition the user confirmed before any renderer change lands",
+          "status": "confirmed"
+        },
+        {
+          "id": "h6",
+          "text": "the tightened gate stays deterministic: it checks structural sharpness signals \u2014 instruction present on spec-affecting items, a measurable success signal, claim text meeting explicit structural rules \u2014 never LLM text judgment inside the CLI",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q3",
+          "text": "which structural checks can a deterministic CLI actually run to catch woolly text, and what is the false-positive story when they misfire on legitimate prose?",
+          "resolved": false,
+          "blocking": false
+        }
+      ],
+      "links": []
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "the plan-to-fanout leg is guided end-to-end: plan waves output carries each task's instruction and acceptance criteria, and the assign-to-workforce skill consumes that payload as the per-subagent brief",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "an assign-to-workforce subagent receives its task's instruction and acceptance criteria in its brief with no operator paraphrasing required",
+          "status": "confirmed"
+        }
+      ],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c13",
+      "kind": "assumption",
+      "text": "scope exploration is performed by the operating agent reading the repo and context \u2014 it adds no new CLI dependencies and no LLM calls inside devague",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c14",
+      "kind": "decision",
+      "text": "sharper results means both legs: exports render every item actionable with instruction blocks and no boilerplate, and the convergence gate tightens to flag vague untestable claim text",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c15",
+      "kind": "decision",
+      "text": "scope exploration lands as a new deterministic CLI move \u2014 devague scope \u2014 that records explored surfaces and findings as first-class state with provenance; the operating agent performs the actual exploration",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    },
+    {
+      "id": "c16",
+      "kind": "decision",
+      "text": "per-item instructions attach to both frame claims and plan tasks via an optional instruction field, with a schema_version bump in both stores, flowing spec to plan to fanout",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "the exact stored shape of the scope move's record \u2014 fields, provenance format, how findings link to the claims they seed",
+      "kind": "unknown_nonblocking",
+      "claim_id": "c15"
+    },
+    {
+      "id": "v2",
+      "text": "whether the tightened gate's structural checks land as blockers or as warnings first (a deprecation-style soft rollout)",
+      "kind": "unknown_nonblocking",
+      "claim_id": "c14"
+    }
+  ]
+}

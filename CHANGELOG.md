@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-07-02
+
+### Added
+
+- Exported **spec and plan artifacts** for the upcoming "sharper end-to-end
+  method" increment (docs/specs + docs/plans 2026-07-01, plus the frame/plan
+  state JSON as the evidence trail; produced by a dogfooded /think and
+  /spec-to-plan run). **Documentation and state only — no CLI changes ship in
+  this release.** The `devague scope` move, per-item instructions, sharper
+  exports + structural gate, and guided plan-to-fanout leg described there are
+  *planned* work, tracked by the committed plan (14 tasks over 5 file-disjoint
+  waves) and not yet implemented.
+
 ## [0.14.0] - 2026-06-23
 
 ### Added
