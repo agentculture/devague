@@ -55,7 +55,7 @@ install hint. Every move — including `status` — is forwarded verbatim as
 | `accept <tN> "<crit>"` | Add an acceptance criterion to a task. |
 | `depend <tN> --on <tM>` | Record that task `tN` depends on `tM`. |
 | `cover <tN> --target <c*/h*>` | Mark a task as covering a coverage target. |
-| `confirm <tN>` / `reject <tN>` | Resolve a task. **User-only decision.** |
+| `confirm <tN>` / `reject <tN>` | Resolve a task. **User-only decision.** Takes **one task id per call** — loop for batches (unlike the frame engine's transactional multi-id `confirm`; parity is a recorded follow-up in the 2026-07-01 plan, devague#53). |
 | `risk "<text>" --kind <kind>` | Record a first-class plan risk (`--task <tN>` to attach). |
 | `converge` | Evaluate the gate against the **live** source frame; list remaining gaps. |
 | `export` | Write the buildable plan to `docs/plans/` — only after `converge` passes. |
@@ -118,6 +118,28 @@ These are the point of the method — convergence must mean something.
 When authoring a plan that will be built via parallel execution (fanned out to
 multiple agents via the downstream `/assign-to-workforce` skill), prefer the
 following discipline to maximize parallelism and minimize merge friction:
+
+### Acceptance criteria are the instruction contract (today)
+
+Until the planned per-task `instruction` field lands (task t5 of the
+sharper-end-to-end-method plan, devague#53), **acceptance criteria are where a
+task's working instructions live**. Write each criterion as something a cheaper
+model can execute test-first without re-deriving the design: name the files or
+modules the task owns, the observable behavior that proves it done, and the
+compatibility constraints ("pre-existing plans load with no error"). A criterion
+a subagent can't act on alone is a summary, not a contract. The enriched
+`waves --json` payload (carrying summary + instructions + acceptance criteria +
+covered targets per task) is planned in the same increment — until then, the
+brief is composed from `plan show --json` + the exported plan-md.
+
+### Text hygiene for exports
+
+The exported plan-md must pass markdown lint. The plan's H1 inherits the
+*frame's* title — set a short, period-free `--title` at `devague new` time (see
+`/think`'s export-hygiene rules). And backtick angle-bracket placeholders in
+task text (`` `instruct <tN>` ``, not `instruct <tN>`) — bare ones fail MD033.
+There is no task-edit move yet, so fixing text after confirmation means
+hand-editing state JSON.
 
 ### Small and crisply scoped
 

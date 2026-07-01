@@ -110,7 +110,13 @@ Once the human approves, the main agent fans out each wave in order:
 
 2. **Spawn a task agent** inside that worktree (using the approved model from
    the split plan), with:
-   - The task id, summary, and acceptance criteria as its brief.
+   - The task id, summary, acceptance criteria, and covered targets as its
+     brief — **quoted verbatim** from `devague plan show --json` (or the
+     exported plan-md). No operator paraphrasing: the plan text *is* the
+     contract the user confirmed, and a reworded brief silently drifts from it.
+     (When the enriched `waves --json` payload lands — devague#53, task t9 —
+     the brief comes straight from that one payload, per-task instructions
+     included.)
    - Instruction to work **test-first** (TDD): write the failing test(s) that
      match the acceptance criteria before implementing.
    - Instruction to commit its work to the worktree branch.
@@ -228,7 +234,9 @@ bash .claude/skills/cicd/scripts/workflow.sh open
 
 The exported plan-md from `devague plan export` is the standing brief for
 each task agent — its task id, summary, acceptance criteria, and the targets
-it covers are already in that file.
+it covers are already in that file. Quote those fields **verbatim** into each
+task agent's brief; the fan-out is honest only if what the subagent builds
+against is exactly what the user confirmed in the plan.
 
 ## Provenance
 

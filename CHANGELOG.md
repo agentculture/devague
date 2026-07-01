@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-07-02
+
+### Added
+
+- New fourth origin skill `scope` (idea→scope): guided pre-frame scope exploration — survey the surfaces an idea touches read-only, classify findings, seed the /think frame with provenance-citing boundary/non-goal/assumption claims. Method-only until the `devague scope` CLI move lands (#53 plan t3).
+
+### Changed
+
+- `think` skill: scope-first pointer to /scope, export hygiene (always pass `new --title`; backtick angle-bracket tokens; no retitle/edit move exists), and the question→resolve→decision-claim loop.
+- `spec-to-plan` skill: acceptance-criteria-as-instruction-contract coaching, plan-export text hygiene, and the single-task-id `confirm` note (frame confirm is multi-id; parity is a #53 follow-up).
+- `assign-to-workforce` skill: task briefs must quote summary/acceptance criteria/covered targets verbatim from plan state — no operator paraphrasing (spec #53 honesty condition h5).
+- docs/skills.md + docs/skill-sources.md + CLAUDE.md: the origin-skill family is now four; `devague learn skills` still teaches the three CLI-driving skills until #53 t10/t11 land.
+
 ## [0.14.1] - 2026-07-02
 
 ### Added

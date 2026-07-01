@@ -37,6 +37,15 @@ This skill is the operator: a portable wrapper that resolves the CLI and
 forwards every move verbatim — including `status`, the read-only verb that reads
 the convergence gate and tells you the recommended next move.
 
+**Explore scope first when the idea touches an existing codebase.** The sibling
+**`/scope`** skill is the optional opening leg: survey the surfaces the idea
+touches *before* framing, then seed the frame with `boundary` / `non_goal` /
+`assumption` claims that cite what was actually explored (provenance, not
+generic disclaimers). Small ideas skip it and start here — no wizard. (From the
+sharper end-to-end method spec, devague#53; the deterministic `devague scope`
+move that will record findings as first-class state is planned there, not yet
+shipped.)
+
 ## How to run
 
 The entry point is `scripts/think.sh`. Invoke it from the repository you are
@@ -58,7 +67,7 @@ for portable resolution.
 
 | Move | What it does |
 |------|--------------|
-| `new "<announcement>"` | Start a frame from the announcement (the first move). Seeds an auto-confirmed `announcement` claim. |
+| `new "<announcement>" [--title "<short>"]` | Start a frame from the announcement (the first move). Seeds an auto-confirmed `announcement` claim. Always pass `--title` (see *Export hygiene*). |
 | `capture --kind <kind> "<text>"` | Record + classify a claim. `--origin llm` lands it as `proposed`. |
 | `interrogate <id> --honesty "…"` | Attach an honesty condition (what must be true). Also `--hard-question`, `--risk`, `--contradicts`, `--blocking`. |
 | `confirm <id> [<id>…]` / `reject <id> [<id>…]` | Resolve one or more claims (`c*`) / honesty conditions (`h*`) in one **transactional** call. **User-only decision.** Also `confirm --from-review <file>` to apply an edited review artifact. |
@@ -113,6 +122,34 @@ recommended next move (first gap):
 
 Run it whenever you're unsure what to do next.
 
+### Export hygiene — keep the artifacts lint-clean
+
+The exported spec-md must pass the repo's markdown lint. Two gotchas found by
+dogfooding (devague#53), both cheap to avoid up front and expensive after —
+there is no retitle/edit move yet, so fixing them later means hand-editing
+state JSON and re-exporting:
+
+- **Always pass `--title "<short title>"` to `new`.** The title becomes the H1
+  of every exported artifact (the plan inherits it too). The default is the
+  full announcement — long, and if it ends with a period the H1 fails MD026
+  (trailing punctuation). Keep the title short, no trailing period.
+- **Backtick angle-bracket tokens.** A placeholder like `--seeds <claim-id>`
+  in claim or honesty-condition text renders as inline HTML (MD033) unless
+  wrapped in backticks. Write `` `--seeds <claim-id>` ``, not the bare form.
+- **Lint before committing:** `markdownlint-cli2 "docs/specs/<file>.md"`.
+
+### Pending decisions — the `question` loop
+
+When a genuine design decision surfaces mid-frame, don't guess and don't stall:
+
+1. `question "<the decision to make>"` — records it as durable working state.
+2. Put it to the user (with concrete options where possible).
+3. `question --resolve <qid> --decision "<what the user chose>"`.
+4. `capture --kind decision "<the choice>"` — a user-origin capture
+   auto-confirms, making the decision a first-class frame claim.
+
+This keeps every user decision traceable from question → resolution → claim.
+
 ## Hard rules (do not violate)
 
 These are the point of the method — convergence must mean something.
@@ -149,7 +186,7 @@ A short end-to-end session (the kind you'd run to spec a feature like
 ```bash
 d() { bash .claude/skills/think/scripts/think.sh "$@"; }
 
-d new "Devague ships a documented spec contract"
+d new "Devague ships a documented spec contract" --title "documented spec contract"
 d capture --kind audience "devague + the assisting LLM"
 d capture --kind after_state "a vague idea becomes a buildable, pressure-tested spec"
 d capture --kind why_it_matters "specs converge on evidence, not vibes"

@@ -4,6 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**Operator kit carries the sharper method + new `/scope` skill (0.15.0).** The
+sharper end-to-end method spec+plan merged in #53 (0.14.1: docs + state only);
+this release carries its *method-level* half into the operator skills. New
+fourth origin skill **`scope`** (idea→scope, the optional pre-frame exploration
+leg — method-only: no script, no CLI verb; findings land via existing moves with
+provenance-citing claims). `think` gained scope-first guidance, export hygiene
+(`new --title`, backtick angle-bracket tokens — no retitle/edit move exists),
+and the `question`→resolve→`decision`-claim loop; `spec-to-plan` gained the
+acceptance-criteria-as-instruction-contract coaching and the single-id `confirm`
+note; `assign-to-workforce` now requires **verbatim** task briefs (no operator
+paraphrasing). The CLI is unchanged — `devague scope`, per-item `--instruction`,
+sharper renderers/gates are the #53 build plan (t1–t14), still unimplemented;
+`devague learn skills` still teaches the three CLI-driving skills until t10/t11.
+
 **Skills re-synced to guildmaster + two new skills (0.13.0, #38).** The vendored
 canonical kit now sources from `guildmaster` (the supplier role moved from
 `steward` at the 2026-05-24 cutover): `cicd` / `communicate` re-synced (the `cicd`
@@ -194,8 +208,10 @@ and hard questions, parking unresolved uncertainty as first-class "open
 vagueness," and only exporting a buildable spec once the frame *converges*. The
 plan method: seed a plan from that converged frame and converge it on coverage,
 acceptance criteria, and an acyclic dependency order before exporting a plan.
-Two operator skills cover the two legs: **`/think`** (idea→spec) and
-**`/spec-to-plan`** (spec→plan); the product/CLI for both is **`devague`**.
+The operator skills cover the legs in flow order: **`/scope`** (idea→explored
+scope, the optional opening leg), **`/think`** (idea→spec), **`/spec-to-plan`**
+(spec→plan), and **`/assign-to-workforce`** (plan→parallel implementation); the
+product/CLI they drive is **`devague`**.
 
 This is a **state machine over claims, honesty conditions, open vagueness, and
 convergence** driven by LLM-chosen moves — not a linear wizard. The CLI is
@@ -220,9 +236,9 @@ working in AgentCulture (the supplier role moved from `steward` at the 2026-05-2
 steward→guildmaster cutover; `steward` is still a sibling but no longer
 broadcasts). Vendored skills are cited, not imported (cite-don't-import): copy
 from `../guildmaster/.claude/skills/<name>/` and track provenance in
-`docs/skill-sources.md`. The exception is devague's own `think` / `spec-to-plan` /
-`assign-to-workforce` — devague is their origin, so guildmaster re-broadcasts them
-*from* here; never re-vendor them back.
+`docs/skill-sources.md`. The exception is devague's own `scope` / `think` /
+`spec-to-plan` / `assign-to-workforce` — devague is their origin, so guildmaster
+re-broadcasts them *from* here; never re-vendor them back.
 
 ## Stack expectations (when code lands)
 
