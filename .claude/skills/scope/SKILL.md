@@ -64,7 +64,8 @@ of the method: no wizard.)
 ## How findings land (the shipped surface)
 
 There is no `devague scope` CLI verb yet — findings land through the existing
-moves, driven via the `/think` wrapper:
+`devague` moves (this skill invokes the CLI directly and stays self-contained;
+if `devague` isn't on your PATH: `uv tool install devague`):
 
 | Finding | Move |
 |---------|------|
@@ -104,12 +105,11 @@ git ls-files devague/ | head -30       # the CLI package map
 #       docs/spec-contract.md (schema contract), .claude/skills/think/SKILL.md
 
 # 3–4. hand off to /think and seed with provenance
-d() { bash .claude/skills/think/scripts/think.sh "$@"; }
-d new "devague exports carry per-item instructions" --title "per-item instructions"
-d capture --origin llm --kind requirement "claims gain an optional instruction field — devague/frame.py claim model + docs/spec-contract.md schema both need a bump"
-d capture --origin llm --kind boundary "render/spec_md.py renders instructions verbatim; absent instructions render nothing — the renderer never fabricates filler"
-d capture --origin llm --kind non_goal "no LLM calls land inside the CLI (issue 20) — instruction text is authored by the operator/user, never generated in-CLI"
-d question "do instructions attach to frame claims, plan tasks, or both?"
+devague new "devague exports carry per-item instructions" --title "per-item instructions"
+devague capture --origin llm --kind requirement "claims gain an optional instruction field — devague/frame.py claim model + docs/spec-contract.md schema both need a bump"
+devague capture --origin llm --kind boundary "render/spec_md.py renders instructions verbatim; absent instructions render nothing — the renderer never fabricates filler"
+devague capture --origin llm --kind non_goal "no LLM calls land inside the CLI (issue 20) — instruction text is authored by the operator/user, never generated in-CLI"
+devague question "do instructions attach to frame claims, plan tasks, or both?"
 ```
 
 Every claim above names the file or issue that was actually read — that is the

@@ -35,7 +35,7 @@ upstream repo are shared across all rows.
 
 ## Origin skills (outbound)
 
-Not every skill here is inbound. The `think`, `spec-to-plan`, and
+Not every skill here is inbound. The `scope`, `think`, `spec-to-plan`, and
 `assign-to-workforce` skills are **authored and maintained in this repo** —
 devague is their origin/upstream, not a downstream consumer. The devague agent
 dogfoods them to operate the devague CLI while improving the tool. The flow runs
