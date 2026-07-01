@@ -1,12 +1,14 @@
 # Authoring devague's operator skills
 
-This is the canonical guide for **authoring the three devague operator skills**
+This is the canonical guide for **authoring the devague operator skills**
 in an agent runtime — what files they need, where they live, the entry-point
 shape, and the contract between a skill and devague's state. It is the long-form
 companion to `devague learn skills`, which surfaces a condensed, always-available
-version of the same recipe.
+version of the same recipe. (`devague learn skills` currently teaches the three
+CLI-driving skills; the recipe for the method-only `scope` skill joins it when
+its `devague scope` CLI move lands — see the #53 build plan, tasks t3/t10/t11.)
 
-These three skills are devague's **outbound** skills — devague is their
+These skills are devague's **outbound** skills — devague is their
 origin/upstream (it dogfoods them to drive its own CLI), and guildmaster re-vendors
 them to the rest of the AgentCulture mesh under the `cite, don't import` policy.
 See [`skill-sources.md`](skill-sources.md) for the provenance map. This guide is
@@ -124,13 +126,32 @@ A skill drives the deterministic CLI and adds no business logic of its own:
   merges live in the `assign-to-workforce` skill and the operating agent, not in
   the CLI and not in a CI runner.
 
-## The three operator skills
+## The operator skills
 
 | Skill | Leg | What it drives |
 |-------|-----|----------------|
+| `scope` | idea → explored scope (the optional opening leg) | read-only exploration; findings land via existing `devague` moves |
 | `think` | idea → spec (working backwards) | the flat `devague <move>` verbs |
 | `spec-to-plan` | spec → plan (working forwards) | the `devague plan <move>` group |
 | `assign-to-workforce` | plan → parallel implementation | reads `devague plan waves` (read-only) |
+
+### `scope` — idea → explored scope (method-only)
+
+Survey the surfaces an idea touches **before** framing it: enumerate candidates,
+explore each read-only, classify findings (in scope / out of scope / genuinely
+unknown), then seed the `/think` frame with `boundary` / `non_goal` /
+`assumption` claims that **cite what was explored**. Optional by size — small
+ideas skip straight to `/think` (no wizard). From the sharper end-to-end method
+spec ([devague#53](https://github.com/agentculture/devague/pull/53)).
+
+Method-only today: it ships no entry-point script and drives no CLI verb of its
+own. The deterministic `devague scope` move (findings as first-class frame state
+with provenance) is planned in the #53 build plan (task t3); this skill's
+`devague learn skills` authoring recipe lands with that move (tasks t10/t11).
+
+- Source:
+  [`.claude/skills/scope/`](https://github.com/agentculture/devague/blob/main/.claude/skills/scope/SKILL.md)
+  (`SKILL.md` only).
 
 ### `think` — idea → buildable spec
 
