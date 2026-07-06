@@ -364,7 +364,21 @@ def cmd_plan_waves(args: argparse.Namespace) -> int:
         )
     waves = dependency_waves(plan.tasks)
     if getattr(args, "json", False):
-        emit_result({"plan": plan.slug, "waves": waves}, json_mode=True)
+        # Enough for a subagent brief with no external context (#53 t9, c8/h12):
+        # every active (non-rejected) task appearing in ``waves`` gets its full
+        # working contract — summary, verbatim instruction, acceptance criteria,
+        # and covered targets — keyed by task id.
+        tasks_payload = {
+            t.id: {
+                "summary": t.summary,
+                "instruction": t.instruction,
+                "acceptance_criteria": list(t.acceptance_criteria),
+                "covers": list(t.covers),
+            }
+            for t in plan.tasks
+            if t.status != "rejected"
+        }
+        emit_result({"plan": plan.slug, "waves": waves, "tasks": tasks_payload}, json_mode=True)
     elif not waves:
         emit_result("no tasks to schedule", json_mode=False)
     else:

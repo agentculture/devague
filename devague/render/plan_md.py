@@ -53,6 +53,12 @@ def _announcement(frame: Optional[Frame]) -> Optional[str]:
 def _task_lines(task: Task) -> list[str]:
     mark = "" if task.status == "confirmed" else f" _({task.status})_"
     body: list[str] = []
+    if task.instruction:
+        # Verbatim working instruction — never fabricated filler when absent (#53
+        # t9), mirroring t6's nested ``- instruction:`` bullet in spec_md.py /
+        # frame_md.py. A task is a heading rather than a claim bullet, so the
+        # instruction renders as the first body bullet, immediately under it.
+        body.append(f"- instruction: {task.instruction}")
     if task.deps:
         body.append(f"- depends on: {', '.join(task.deps)}")
     if task.covers:
