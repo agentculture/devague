@@ -45,11 +45,19 @@ def render_review(frame: Frame) -> str:
         return "\n".join(out).rstrip() + "\n"
     if claims:
         out += ["## Proposed claims", ""]
-        out += [f"- pending `{c.id}` ({c.kind}): {c.text}" for c in claims]
+        for c in claims:
+            out.append(f"- pending `{c.id}` ({c.kind}): {c.text}")
+            # An absent instruction renders nothing — never fabricated filler
+            # (#53 t4, c10).
+            if c.instruction:
+                out.append(f"  - instruction: {c.instruction}")
         out += [""]
     if pairs:
         out += ["## Proposed honesty conditions", ""]
-        out += [f"- pending `{h.id}` (on `{c.id}` {c.kind}): {h.text}" for c, h in pairs]
+        for c, h in pairs:
+            out.append(f"- pending `{h.id}` (on `{c.id}` {c.kind}): {h.text}")
+            if h.instruction:
+                out.append(f"  - instruction: {h.instruction}")
         out += [""]
     return "\n".join(out).rstrip() + "\n"
 
