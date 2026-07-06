@@ -41,10 +41,15 @@ the convergence gate and tells you the recommended next move.
 **`/scope`** skill is the optional opening leg: survey the surfaces the idea
 touches *before* framing, then seed the frame with `boundary` / `non_goal` /
 `assumption` claims that cite what was actually explored (provenance, not
-generic disclaimers). Small ideas skip it and start here — no wizard. (From the
-sharper end-to-end method spec, devague#53; the deterministic `devague scope`
-move that will record findings as first-class state is planned there, not yet
-shipped.)
+generic disclaimers). Small ideas skip it and start here — no wizard. Findings
+now land on the frame itself through the shipped `devague scope` move: start
+the frame with `new` first (scope entries live on it, like any other claim),
+then record each explored surface with
+`` `devague scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]` ``
+— `--seeds` links the finding to claim ids it went on to seed, and an unknown
+seed id is refused with a hint. Read every recorded entry back with
+`` `scope --list [--json]` ``. (From the sharper end-to-end method spec,
+devague#53, task t3.)
 
 ## How to run
 
@@ -68,10 +73,11 @@ for portable resolution.
 | Move | What it does |
 |------|--------------|
 | `new "<announcement>" [--title "<short>"]` | Start a frame from the announcement (the first move). Seeds an auto-confirmed `announcement` claim. Always pass `--title` (see *Export hygiene*). |
-| `capture --kind <kind> "<text>"` | Record + classify a claim. `--origin llm` lands it as `proposed`. |
-| `interrogate <id> --honesty "…"` | Attach an honesty condition (what must be true). Also `--hard-question`, `--risk`, `--contradicts`, `--blocking`. |
+| `capture --kind <kind> "<text>" [--instruction "<text>"]` | Record + classify a claim. `--origin llm` lands it as `proposed`. `--instruction` attaches verbatim working guidance (how to verify/implement the claim) at creation time. |
+| `interrogate <id> --honesty "…"` | Attach an honesty condition (what must be true). Also `--hard-question`, `--risk`, `--contradicts`, `--blocking`. `--instruction "<text>"` adds/updates a claim's or honesty condition's instruction — `<id>` may be a claim (`c*`) or, with `--instruction` alone, an honesty condition (`h*`). |
 | `confirm <id> [<id>…]` / `reject <id> [<id>…]` | Resolve one or more claims (`c*`) / honesty conditions (`h*`) in one **transactional** call. **User-only decision.** Also `confirm --from-review <file>` to apply an edited review artifact. |
-| `review` | List every **proposed** (unconfirmed) claim + honesty condition with ids (`--json` too); writes a non-authoritative artifact to `.devague/reviews/<slug>.md`. Un-gated; never mutates. |
+| `review` | List every **proposed** (unconfirmed) claim + honesty condition with ids and their instructions (`--json` too); writes a non-authoritative artifact to `.devague/reviews/<slug>.md`. Un-gated; never mutates. |
+| `scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]` / `scope --list` | Record (or list) a pre-frame exploration finding as first-class state (see the scope pointer above). |
 | `question "<text>"` | Record / list / `--resolve` a pending user decision as durable working state in `.devague/questions/<slug>.md`. |
 | `park "<text>" --kind <kind>` | Move uncertainty into first-class open vagueness instead of forcing an answer. |
 | `converge` | Evaluate the gate; list remaining gaps. |
@@ -96,6 +102,38 @@ per-move input/output/transition/error contract are documented in
 [#5](https://github.com/agentculture/devague/issues/5)); for the authoritative
 live shape of any move, run it with `--json` (or `devague learn --json` /
 `devague explain <move>`).
+
+### Instructions — verbatim guidance, never fabricated
+
+Claims and honesty conditions may carry an optional `instruction`: verbatim
+text on how to verify or implement the item — write it yourself, don't invent
+filler to satisfy the gate. Two ways to set it:
+
+- `capture --kind <kind> "<text>" --instruction "<text>"` — at creation.
+- `interrogate <c*|h*> --instruction "<text>"` — add or change one on an
+  existing claim or honesty condition (this is the one case where `interrogate`
+  accepts an `h*` id directly, since the instruction targets whichever item you
+  name).
+
+**Re-confirm rule.** Changing the instruction on an already-`confirmed` claim
+or honesty condition flips its status back to `proposed` — the instruction is
+part of what the user confirmed, so a change to it must go back through the
+user. `interrogate` prints a diagnostic note (stderr) when this happens; re-run
+`confirm <id>`.
+
+**Gate warnings, not blockers.** `converge` emits two deterministic,
+warning-only structural-sharpness signals — neither holds back `ready_for_spec`:
+
+- a confirmed spec-affecting claim (`announcement`, `audience`, `after_state`,
+  `before_state`, `why_it_matters`, `boundary`, `success_signal`, `requirement`)
+  with no `instruction`;
+- a confirmed `success_signal` claim (or claims) where none contains a
+  measurable token — a numeral, `%`, or a comparator (`<`/`>`/`≤`/`≥`).
+
+Both are pure predicates over frame state, never LLM judgment on prose — see
+`devague/convergence.py`'s module docstring for the exact rules (S1/S2). A
+frame can converge and export with these warnings still showing; they nudge
+toward a sharper, more directly actionable spec.
 
 ### `status` — the next-move verb
 
@@ -187,7 +225,12 @@ A short end-to-end session (the kind you'd run to spec a feature like
 d() { bash .claude/skills/think/scripts/think.sh "$@"; }
 
 d new "Devague ships a documented spec contract" --title "documented spec contract"
-d capture --kind audience "devague + the assisting LLM"
+
+# Optional scope stage: record what you explored before capturing claims
+d scope "devague/frame.py" --finding "the claim model devague#5 extends lives here"
+
+d capture --kind audience "devague + the assisting LLM" \
+    --instruction "check docs/spec-contract.md names devague + the LLM as readers"
 d capture --kind after_state "a vague idea becomes a buildable, pressure-tested spec"
 d capture --kind why_it_matters "specs converge on evidence, not vibes"
 d capture --kind boundary "not a full PRD generator; no fixed wizard"
@@ -197,11 +240,16 @@ d capture --kind success_signal "a frame exports only after the gate passes"
 d interrogate c1 --honesty "the contract round-trips: save -> load -> identical frame"
 # ...user reviews and runs: d confirm h1
 
+# Attach a working instruction to the now-confirmed honesty condition — this
+# flips h1 back to 'proposed' (the re-confirm rule), so the user re-confirms:
+d interrogate h1 --instruction "run tests/test_contract.py::test_contract_round_trips"
+# ...user reviews and runs: d confirm h1
+
 # Park a genuine unknown instead of guessing:
 d park "exact JSON schema versioning policy" --kind unknown_nonblocking
 
-d status        # what's left + the next move
-d converge      # gate; resolve any listed gaps
+d status        # what's left + the next move (warnings show with a ⚠ marker)
+d converge      # gate; resolve any listed gaps (warnings never block export)
 d export        # writes docs/specs/<slug>.md once converged
 ```
 
