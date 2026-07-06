@@ -1,4 +1,34 @@
-"""The convergence gate: is a frame solid enough to export a buildable spec?"""
+"""The convergence gate: is a frame solid enough to export a buildable spec?
+
+Structural-sharpness rules (#53 t7)
+-----------------------------------
+
+Beyond the hard blockers, the gate emits **warning-only** structural-sharpness
+signals. They never move ``ready_for_spec`` — the soft-rollout decision (the
+resolved parked-v2 item): the tightened gate's structural checks land as
+warnings first, so no frame that converges today is newly blocked. Each rule is
+a **pure predicate over frame state** — never LLM text judgment (h6) — and is
+enumerated here with its exact predicate and its known false-positive mode:
+
+- **S1 — instruction present on spec-affecting claims.** For every *confirmed*
+  claim whose ``kind`` is spec-affecting, warn if ``instruction`` is empty (after
+  ``.strip()``). Predicate: ``kind in SPEC_AFFECTING_KINDS and status ==
+  "confirmed" and not instruction.strip()``. Restricted to confirmed claims so a
+  still-proposed claim (already a blocker) is not double-signalled. Known
+  false positive: a self-evident claim that genuinely needs no separate
+  verification instruction is still nudged for one — harmless, warning-only.
+
+- **S2 — measurable success signal.** If the frame has at least one confirmed
+  ``success_signal`` claim but **none** of them contains a measurable token,
+  warn once. A claim text is "measurable" iff it contains a numeral, a ``%``, or
+  a comparator (``<`` ``>`` ``≤`` ``≥``) — the ``_MEASURABLE_TOKEN`` regex. Gated
+  on there being ≥1 confirmed success_signal so it never piles onto the existing
+  "missing a 'success_signal' claim" blocker. Known false positive: a perfectly
+  checkable *binary* success signal worded without a numeral (e.g. "the exported
+  spec shows scope provenance") trips the warning even though it is verifiable —
+  the operator can ignore it or add a count. It never *misses* a woolly numeric
+  claim; it only over-fires on numeral-free-but-checkable prose.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +36,12 @@ import re
 from dataclasses import dataclass, field
 
 from devague.frame import SPEC_AFFECTING_KINDS, Frame
+
+# A success signal counts as measurable if its text carries any of: a numeral, a
+# percent sign, or a comparison operator (ASCII ``<`` / ``>`` or their unicode
+# ``≤`` / ``≥`` forms — ``<=`` / ``>=`` are covered by ``<`` / ``>``). Pure
+# structure; no semantics, no LLM (h6, #53 t7 rule S2).
+_MEASURABLE_TOKEN = re.compile(r"[0-9%<>≤≥]")
 
 
 @dataclass
@@ -83,6 +119,33 @@ def _assumption_warnings(frame: Frame) -> list[str]:
     ]
 
 
+def _sharpness_warnings(frame: Frame, confirmed: list) -> list[str]:
+    """Deterministic structural-sharpness signals (see module docstring: S1, S2).
+
+    Warning-only and never blocking (soft rollout per parked-v2). Pure predicates
+    over frame state — no LLM judgment.
+    """
+    warnings = [
+        # S1: a confirmed spec-affecting claim that ships into the spec without a
+        # verification/implementation instruction is not directly actionable.
+        f"claim {c.id} ({c.kind}) is confirmed but carries no instruction — add "
+        f"one so the exported spec is directly actionable "
+        f'(devague interrogate {c.id} --instruction "<how to verify or implement>")'
+        for c in confirmed
+        if c.kind in SPEC_AFFECTING_KINDS and not c.instruction.strip()
+    ]
+    # S2: at least one confirmed success_signal exists but none is measurable.
+    signals = [c for c in confirmed if c.kind == "success_signal"]
+    if signals and not any(_MEASURABLE_TOKEN.search(c.text) for c in signals):
+        warnings.append(
+            "no confirmed success_signal claim is measurable — none names a "
+            "number, percentage, or comparator; add a measurable target "
+            "(devague capture --kind success_signal "
+            "\"<e.g. '95% of runs converge', 'under 3s'>\")"
+        )
+    return warnings
+
+
 def _parked_items(frame: Frame) -> list[str]:
     """Tracked, non-blocking open vagueness (everything but unknown_blocking)."""
     return [f"[{v.kind}] {v.text}" for v in frame.open_vagueness if v.kind != "unknown_blocking"]
@@ -143,7 +206,7 @@ def evaluate(frame: Frame) -> ConvergenceResult:
     return ConvergenceResult(
         ready=not blockers,
         blockers=blockers,
-        warnings=_assumption_warnings(frame),
+        warnings=_assumption_warnings(frame) + _sharpness_warnings(frame, confirmed),
         parked_items=_parked_items(frame),
         required_next_moves=[suggest_move(b) for b in blockers],
     )
