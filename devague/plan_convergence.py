@@ -176,7 +176,7 @@ def suggest_move(blocker: str) -> str:
 def _tdd_fitness_warnings(plan: Plan) -> list[str]:
     """Non-blocking warnings that flag poor parallel/TDD fitness.
 
-    Two deterministic, purely structural heuristics:
+    Three deterministic, purely structural heuristics:
 
     1. **Missing acceptance criteria on confirmed tasks.**
        A confirmed task with zero acceptance criteria cannot be validated test-first.
@@ -186,7 +186,13 @@ def _tdd_fitness_warnings(plan: Plan) -> list[str]:
        Proposed and rejected tasks are excluded: proposed tasks are gated by the
        "still proposed" blocker; rejected tasks are not built.
 
-    2. **Over-serialized dependency graph.**
+    2. **Missing instruction on confirmed tasks.**
+       A confirmed task with an empty instruction field lacks operator guidance for
+       implementation. The warning is purely advisory and does not affect convergence;
+       it reminds the operator to attach working instructions. Proposed and rejected
+       tasks are excluded for the same reasons as heuristic 1.
+
+    3. **Over-serialized dependency graph.**
        When every wave produced by :func:`~devague.plan.dependency_waves` contains
        exactly one active confirmed task AND there are at least three such tasks, the
        plan is fully serial — every task blocks the next, no fan-out is possible.
@@ -197,7 +203,7 @@ def _tdd_fitness_warnings(plan: Plan) -> list[str]:
        **confirmed** active (non-rejected) tasks; proposed tasks are unresolved and may
        be rejected, so counting them would produce unstable warnings.
 
-    Neither warning changes ``ready_for_plan`` or ``blockers``.
+    No warning changes ``ready_for_plan`` or ``blockers``.
     """
     warnings: list[str] = []
 
@@ -209,7 +215,15 @@ def _tdd_fitness_warnings(plan: Plan) -> list[str]:
                 " — add TDD acceptance tests before implementation"
             )
 
-    # Heuristic 2: over-serialized graph.
+    # Heuristic 2: confirmed task with no instruction.
+    for t in plan.tasks:
+        if t.status == "confirmed" and not t.instruction:
+            warnings.append(
+                f"task {t.id} has no instruction"
+                f' — attach operator guidance with `devague plan instruct {t.id} "<text>"`'
+            )
+
+    # Heuristic 3: over-serialized graph.
     active_confirmed = [t for t in plan.tasks if t.status == "confirmed"]
     if len(active_confirmed) >= 3:
         waves = dependency_waves(plan.tasks)
