@@ -20,12 +20,22 @@ _SECTIONS = [
 ]
 
 
+def _instruction_lines(instruction: str, indent: str = "  ") -> list[str]:
+    """A nested ``- instruction: <verbatim text>`` bullet under an item, or nothing
+    when the item carries no instruction — never fabricated filler (#53 t1/t6,
+    c10/h3).
+    """
+    return [f"{indent}- instruction: {instruction}"] if instruction else []
+
+
 def _claim_lines(claim) -> list[str]:
     mark = "" if claim.status == "confirmed" else f" _({claim.status})_"
     lines = [f"- {claim.text}{mark}"]
+    lines += _instruction_lines(claim.instruction)
     for h in claim.honesty_conditions:
         hm = "" if h.status == "confirmed" else f" _({h.status})_"
         lines.append(f"  - honesty: {h.text}{hm}")
+        lines += _instruction_lines(h.instruction, indent="    ")
     for q in claim.hard_questions:
         qm = "blocking" if q.blocking else "open"
         lines.append(f"  - Q ({qm}): {q.text}")
@@ -52,6 +62,22 @@ def _vagueness_lines(frame: Frame) -> list[str]:
     return lines
 
 
+def _scope_lines(frame: Frame) -> list[str]:
+    """Scope-exploration provenance, mirroring spec_md's scope section (#53 t6):
+    each recorded surface + finding, with the claim ids it seeded. Empty
+    ``scope_entries`` renders nothing.
+    """
+    if not frame.scope_entries:
+        return []
+    lines = ["## Scope exploration", ""]
+    for e in frame.scope_entries:
+        lines.append(f"- `{e.id}` — `{e.surface}`: {e.finding}")
+        if e.seeds:
+            lines.append(f"  - seeds: {', '.join(f'`{s}`' for s in e.seeds)}")
+    lines.append("")
+    return lines
+
+
 def render_frame(frame: Frame) -> str:
     out = [
         f"# Announcement Frame — {frame.title}",
@@ -61,5 +87,6 @@ def render_frame(frame: Frame) -> str:
     ]
     for kind, heading in _SECTIONS:
         out.extend(_section_lines(frame, kind, heading))
+    out.extend(_scope_lines(frame))
     out.extend(_vagueness_lines(frame))
     return "\n".join(out).rstrip() + "\n"
