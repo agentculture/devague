@@ -107,10 +107,10 @@ pre-frame leg (the `/scope` skill, #53). Lives on the frame as
   id is refused at construction, the same fail-closed rule as everywhere else.
 
 The domain model (`Frame.add_scope_entry`) and its round-trip through
-`schema_version` 2 already ship. The CLI move that records one —
+`schema_version` 2 ship in #53 task t1, and the CLI move that records one —
 `devague scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]`, plus
-`scope --list [--json]` to read them back — is planned in the #53 build plan
-(task t3); it is not yet part of the Moves table below.
+`scope --list [--json]` to read them back — ships in #53 task t3. An unknown
+seed claim id is refused with a hint and nothing is persisted.
 
 ## Vocabulary
 
@@ -167,19 +167,17 @@ like any other proposed content — this is deliberate, not a bug, and keeps the
 anti-fabrication guarantee intact even for a field that arrives after the
 initial confirm.
 
-The CLI surface that sets instructions is planned, not yet shipped in this
-increment:
+The CLI surface that sets instructions ships in this increment:
 
 - frame side: `capture --instruction "<text>"` (at creation) and
   `interrogate <c*|h*> --instruction "<text>"` (on an existing claim or honesty
   condition) — #53 task t4;
-- plan side: `plan task --instruction "<text>"` (at creation) and a new
-  `plan instruct <tN> --instruction "<text>"` move (on an existing task) — #53
-  task t5.
+- plan side: `plan task --instruction "<text>"` (at creation) and the
+  `plan instruct <tN> "<text>"` move (on an existing task) — #53 task t5.
 
-`devague review` is meant to list each item's instruction alongside it once t4
-lands, so the human review loop sees instructions the same way it sees
-proposed claims and honesty conditions today.
+`devague review` lists each item's instruction alongside it (t4), so the human
+review loop sees instructions the same way it sees proposed claims and honesty
+conditions.
 
 ## Convergence result
 
@@ -201,13 +199,15 @@ on `ready_for_spec`.
 ### Structural sharpness warnings (soft rollout)
 
 Two more deterministic warnings tighten the frame gate without changing what
-blocks convergence — planned for `convergence.py` in #53 task t7:
+blocks convergence — shipped in `convergence.py` by #53 task t7, each rule's
+exact predicate and false-positive story documented in that module's docstring:
 
 - a confirmed spec-affecting claim carries no `instruction`;
-- the frame has no measurable `success_signal` (a deterministic structural
-  heuristic — never LLM judgment on the claim text).
+- the confirmed `success_signal` claims contain no measurability token
+  (a numeral, `%`, or a comparator — a deterministic structural heuristic,
+  never LLM judgment on the claim text).
 
-The plan gate gains the symmetric warning in `plan_convergence.py` (#53 task
+The plan gate carries the symmetric warning in `plan_convergence.py` (#53 task
 t8): a confirmed task carries no `instruction`.
 
 All three land as **warnings only** in this increment: they surface in
