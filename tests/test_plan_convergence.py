@@ -23,6 +23,7 @@ def _plan_with_tasks(
 
     ids are t1.. in stored order; targets are auto-created to keep the plan
     otherwise convergence-clean (each confirmed task covers its own target).
+    Confirmed tasks automatically get a default instruction to avoid TDD warnings.
     """
     p = Plan(slug="demo", title="Demo", frame_slug="demo")
     for i, (summary, deps, status, acceptance) in enumerate(specs, start=1):
@@ -33,6 +34,8 @@ def _plan_with_tasks(
             deps=list(deps),
             acceptance_criteria=list(acceptance),
         )
+        if status == "confirmed":
+            t.instruction = f"implement {summary}"
         p.tasks.append(t)
         if status == "confirmed":
             tgt = CoverageTarget(id=f"c{i}", kind="requirement", text=summary)
@@ -42,10 +45,11 @@ def _plan_with_tasks(
 
 
 def _converging() -> Plan:
-    """Minimal plan that is fully converged: one confirmed task, one target, criteria."""
+    """Minimal plan that is fully converged: one task, target, criteria, instruction."""
     p = Plan(slug="demo", title="Demo", frame_slug="demo")
     p.targets = [CoverageTarget(id="c1", kind="announcement", text="shipped")]
     t = p.add_task("do the thing")  # confirmed
+    t.instruction = "implement the feature"
     p.add_acceptance(t, "it works")
     p.add_cover(t, "c1")
     return p
