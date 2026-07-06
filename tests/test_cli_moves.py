@@ -62,9 +62,9 @@ def test_load_newer_schema_errors_cleanly(tmp_path, monkeypatch, capsys) -> None
     main(["new", "Shipped instant specs"])
     capsys.readouterr()
     p = store.path_for("shipped-instant-specs")
-    p.write_text(
-        p.read_text().replace('"schema_version": 1', '"schema_version": 99'), encoding="utf-8"
-    )
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = 99  # newer than any real SCHEMA_VERSION
+    p.write_text(json.dumps(raw), encoding="utf-8")
     rc = main(["show"])
     assert rc == 1
     err = capsys.readouterr().err.lower()
