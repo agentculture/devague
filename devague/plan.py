@@ -26,8 +26,8 @@ from devague.frame import (
 
 # Bump when the persisted plan shape changes incompatibly. `plan_store.load`
 # fails closed on a plan whose schema_version is newer/unknown (see #18; the
-# plan-engine peer of frame.SCHEMA_VERSION).
-PLAN_SCHEMA_VERSION = 1
+# plan-engine peer of frame.SCHEMA_VERSION). v2 (#53 t2) adds Task.instruction.
+PLAN_SCHEMA_VERSION = 2
 
 TASK_STATUSES = ("proposed", "confirmed", "rejected")
 # Risks reuse the frame's open-vagueness kinds: a plan risk is the task-level peer of
@@ -45,6 +45,9 @@ class Task:
     acceptance_criteria: list[str] = field(default_factory=list)
     deps: list[str] = field(default_factory=list)  # task ids this task depends on
     covers: list[str] = field(default_factory=list)  # frame claim/honesty ids (c*/h*)
+    # Optional verbatim operator/user-authored working instruction (#53 t2); "" means
+    # "no instruction" — never fabricated, rendered/serialized only as given.
+    instruction: str = ""
 
     def __post_init__(self) -> None:
         if self.origin not in ORIGINS:
@@ -221,6 +224,7 @@ def from_dict(d: dict) -> Plan:
             acceptance_criteria=list(t.get("acceptance_criteria", [])),
             deps=list(t.get("deps", [])),
             covers=list(t.get("covers", [])),
+            instruction=t.get("instruction", ""),
         )
         for t in d.get("tasks", [])
     ]

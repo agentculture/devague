@@ -96,6 +96,35 @@ def test_load_legacy_plan_without_schema_version(tmp_path, monkeypatch) -> None:
     assert plan_store.load("demo").schema_version == PLAN_SCHEMA_VERSION
 
 
+def test_load_v1_plan_with_tasks_but_no_instruction_field(tmp_path, monkeypatch) -> None:
+    # #53 t2: a pre-existing (schema_version 1) plan predates the instruction field
+    # on Task entirely — it must still load, with instruction defaulting to "".
+    monkeypatch.chdir(tmp_path)
+    plan_store.PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    legacy = {
+        "slug": "demo",
+        "title": "Demo",
+        "frame_slug": "demo",
+        "schema_version": 1,
+        "tasks": [{"id": "t1", "summary": "first task"}],
+    }
+    plan_store.path_for("demo").write_text(json.dumps(legacy), encoding="utf-8")
+    loaded = plan_store.load("demo")
+    # A declared v1 stays 1 (not silently upgraded); loading itself must not error,
+    # and the new field defaults to "" for a task dict that predates it.
+    assert loaded.schema_version == 1
+    assert loaded.find_task("t1").instruction == ""
+
+
+def test_save_load_roundtrips_task_instruction_verbatim(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    p = _plan()
+    p.find_task("t1").instruction = "write the failing test before the fix"
+    plan_store.save(p)
+    loaded = plan_store.load("demo")
+    assert loaded.find_task("t1").instruction == "write the failing test before the fix"
+
+
 def test_load_rejects_slug_mismatch(tmp_path, monkeypatch) -> None:
     # A file under demo.json whose internal slug is a *different* valid slug must
     # be rejected, so a later save() can't be redirected onto another plan.
