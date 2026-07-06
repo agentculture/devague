@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # assign-to-workforce.sh — fan out devague plan waves to parallel agents.
 #
-# The skill is named `assign-to-workforce`; it reads `devague plan waves`
-# (scheduling metadata produced by the /spec-to-plan skill) and renders the
-# implementation split plan: task map + per-task agent/model proposal + a
-# go/no-go prompt for the human. The actual fan-out (worktree creation,
-# spawning, TDD-gated merges) is performed by the operator/main agent once
-# the human approves the split plan.
+# The skill is named `assign-to-workforce`; it reads `devague plan waves --json`
+# — the enriched payload (devague#53 t9: {"plan", "waves", "tasks"}, the latter
+# keyed by task id with summary/instruction/acceptance_criteria/covers) — and
+# renders the implementation split plan: task map (summary, instruction
+# marker, acceptance-criteria count — all verbatim from the payload) +
+# per-task agent/model proposal + a go/no-go prompt for the human. The actual
+# fan-out (worktree creation, spawning, TDD-gated merges) is performed by the
+# operator/main agent once the human approves the split plan.
 #
 # The devague CLI is non-orchestrating (#20): `devague plan waves` describes
 # the dependency graph; it does not spawn agents, manage worktrees, or pick
@@ -61,9 +63,11 @@ Usage:
 
 Commands:
   split-plan   Read `devague plan waves --json` and render the human-facing
-               implementation split plan: task map + per-task agent/model
-               proposal + go/no-go. Present this to the human before any
-               fan-out; do not proceed without approval.
+               implementation split plan: task map (summary, instruction
+               marker, acceptance-criteria count — all verbatim from the
+               payload) + per-task agent/model proposal + go/no-go. Present
+               this to the human before any fan-out; do not proceed without
+               approval.
   waves        Forward `devague plan waves` (and any extra flags) verbatim.
                On a converged plan exits 0 and lists the dependency waves.
 
@@ -135,6 +139,9 @@ except json.JSONDecodeError as exc:
 
 plan_slug = data.get("plan", "(unknown)")
 waves = data.get("waves") or []
+# The enriched payload (devague#53 t9): every active task's full working
+# contract, keyed by id — summary, instruction, acceptance criteria, covers.
+tasks_meta = data.get("tasks") or {}
 
 print(f"Implementation split plan — plan: {plan_slug}")
 print()
@@ -147,14 +154,21 @@ print()
 print("Task assignments (proposed — edit before approving):")
 print()
 
-headers = ("Task", "Wave", "Summary", "Agent type", "Model", "Scope note")
+headers = ("Task", "Wave", "Summary", "Instruction", "Accept.", "Agent type", "Model", "Scope note")
 rows = []
 for i, wave in enumerate(waves, 1):
     for task_id in wave:
+        meta = tasks_meta.get(task_id) or {}
+        # Verbatim from the payload — no operator paraphrasing (#53 t13, c12/h5).
+        summary = meta.get("summary") or "(no summary recorded)"
+        has_instruction = "yes" if meta.get("instruction") else "no"
+        accept_count = str(len(meta.get("acceptance_criteria") or []))
         rows.append((
             task_id,
             str(i),
-            "(see plan export for summary + acceptance criteria)",
+            summary,
+            has_instruction,
+            accept_count,
             "subagent",
             "cheaper/faster",
             "TDD-scoped task; isolated worktree; tests gate merge",
@@ -178,7 +192,9 @@ print("then confirm: \"Approved — assign to workforce\" or \"Edit first\".")
 print()
 print("Once approved, fan out wave by wave:")
 print("  1. Create one git worktree per task in the wave.")
-print("  2. Spawn a task agent per worktree (brief = task summary + acceptance criteria).")
+print("  2. Spawn a task agent per worktree — its brief quotes `devague plan")
+print("     waves --json`'s summary, instruction, and acceptance criteria for")
+print("     that task id verbatim (no paraphrasing).")
 print("  3. Await all tasks in the wave; then TDD-gate each merge (tests before + after).")
 print("  4. Advance to the next wave.")
 print("  5. Open the final PR (human gate 3) after all waves merge and tests pass.")
