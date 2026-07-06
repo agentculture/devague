@@ -1,0 +1,280 @@
+{
+  "slug": "devague-multi-repo-efforts",
+  "title": "devague multi-repo efforts",
+  "frame_slug": "devague-multi-repo-efforts",
+  "schema_version": 1,
+  "status": "exported",
+  "created": "2026-07-06T21:52:13Z",
+  "updated": "2026-07-06T21:55:36Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague supports multi-repo efforts: one effort \u2014 frame, plan, and workforce fan-out \u2014 can span multiple repositories instead of stopping at the edge of a single repo"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "honest only if a plan whose tasks target >=2 repos converges and exports without hand-editing state JSON"
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "the operator agent + user running efforts that span AgentCulture sibling repos (e.g. devague + guildmaster + eidetic-cli), and the workforce subagents briefed per task"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "the multi-repo surface is exercised entirely through the existing operator skills (scope/think/spec-to-plan/assign-to-workforce) \u2014 no new privileged tooling beyond what the audience already runs"
+    },
+    {
+      "id": "c3",
+      "kind": "before_state",
+      "text": "an effort lives in one cwd-relative .devague/ per repo (store.py:1-3 'the frames live in the repo being specced'; plan_store.py:18) \u2014 a cross-repo effort must be hand-split into disconnected per-repo frames with no shared convergence gate"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "verified against the shipped code at 0.15.0: store.py:15-18 and plan_store.py:18-19 are cwd-relative and no repo field exists in frame.py or plan.py"
+    },
+    {
+      "id": "c4",
+      "kind": "why_it_matters",
+      "text": "the last Colleague-assisted effort showed real efforts scale past one repo; devague's honesty gates should cover the whole effort, not stop at the repo edge"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "the four pain points are the user's own report (2026-07-07): no shared convergence, task-to-repo mapping, fan-out mechanics, review across repos \u2014 not inferred"
+    },
+    {
+      "id": "c5",
+      "kind": "after_state",
+      "text": "one effort spans repos end-to-end: tasks name their target repo, the waves payload briefs the workforce per repo, and the human gates stay explicit across all touched repos"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "honest only if every element is deliverable by the decided shape: hub-repo state (q2), repo-tagged tasks in one plan (q3), per-repo PRs with worktree-merge dependency ordering (q4)"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "a plan task can name the repo it targets \u2014 devague/plan.py Task carries summary/acceptance/deps/covers today, no repo dimension; the workforce brief needs one"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "existing single-repo frames/plans load unchanged: repo-less tasks stay valid (fail-closed schema bump, default = the effort's home repo)"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "the waves payload carries each task's repo target so the operator creates the worktree in the right repo \u2014 cli/_commands/plan.py:326 emits bare task ids today; natural carrier is the #53 t9 enriched payload"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "the repo field in `waves --json` is descriptive text the operator resolves \u2014 devague never validates it against the filesystem"
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "assign-to-workforce covers the multi-repo fan-out: per-repo worktrees, per-repo TDD gates, and the final-PR gate across every touched repo \u2014 SKILL.md today hard-assumes one repo (one `../worktrees` root, one main branch, one final PR)"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "the TDD gate runs per repo: a task's tests pass before and after the merge in that task's repo; a green suite in one repo never vouches for another"
+    },
+    {
+      "id": "c9",
+      "kind": "boundary",
+      "text": "the CLI stays deterministic and non-orchestrating (issue 20): multi-repo lands as descriptive metadata only \u2014 the CLI never clones a repo, never reads or writes another repo's files, never manages worktrees or backends"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "a boundary audit (grep/bandit, as in #53 t14) shows this effort added no git plumbing, repo I/O, or subprocess orchestration to the devague package"
+    },
+    {
+      "id": "c14",
+      "kind": "success_signal",
+      "text": "one real effort touching >=2 repos runs scope -> frame -> plan -> fan-out end-to-end on the shipped surface, with each task built in its target repo and every touched repo getting its reviewed PR"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "the end-to-end run is real (>=2 actual repos, committed as a worked example or e2e evidence), not a single-repo run relabeled"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Plan schema: optional repo target on Task (plan.py, plan_store.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a task with a repo target round-trips save/load verbatim; the field is descriptive text (a repo name), owned by plan.py + plan_store.py only",
+        "pre-existing plans and repo-less tasks load with no error \u2014 an absent repo means the effort's home repo (h2); plan schema_version bumped once, fail-closed, on top of the #53 t2 bump"
+      ],
+      "deps": [],
+      "covers": [
+        "c6",
+        "h2"
+      ]
+    },
+    {
+      "id": "t2",
+      "summary": "CLI: `plan task --repo <name>` flag + `retarget <tN> --repo <name>` move (cli/_commands/plan.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "`plan task --repo <name>` stores the repo target verbatim and `plan show --json` includes it per task",
+        "a new `retarget <tN> --repo <name>` move sets or updates the target on an existing task and flips a confirmed task back to proposed \u2014 the user re-confirms (mirrors the #53 instruction re-confirm rule)"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c6"
+      ]
+    },
+    {
+      "id": "t3",
+      "summary": "Waves: repo target in the enriched `waves --json` payload (cli/_commands/plan.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "every task entry in `waves --json` carries its repo target verbatim as descriptive text the operator resolves \u2014 no filesystem validation anywhere (h3); repo-less tasks emit the home-repo default",
+        "output stays deterministic and read-only; the dependency-wave computation itself is untouched (frame non-goal c10)"
+      ],
+      "deps": [
+        "t1",
+        "t2"
+      ],
+      "covers": [
+        "c7",
+        "h3"
+      ]
+    },
+    {
+      "id": "t4",
+      "summary": "Docs: spec-contract + hub-repo state model (docs/spec-contract.md, docs/llm-guidance.md, docs/skills.md)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "docs/spec-contract.md documents the task repo target, the hub-repo state home (the cwd-relative store \u2014 store.py:15-18, plan_store.py:18-19 \u2014 stays unchanged, cited), and the plan schema bump",
+        "docs/llm-guidance.md and docs/skills.md updated to match; the single-repo default is described as the unchanged base case (h8)"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c3",
+        "h8"
+      ]
+    },
+    {
+      "id": "t5",
+      "summary": "assign-to-workforce: multi-repo fan-out method (SKILL.md)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "SKILL.md documents per-repo worktrees (one per task, created in that task's target repo), the per-repo TDD gate \u2014 a task's tests pass before and after the merge in that task's repo; a green suite in one repo never vouches for another (h4)",
+        "gate 3 documented as one final PR per touched repo, reviewed together as one effort; cross-repo deps are satisfied at worktree-merge time, not PR-merge time (decision c18); the single-repo flow reads unchanged"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c8",
+        "h4"
+      ]
+    },
+    {
+      "id": "t6",
+      "summary": "split-plan script: repo column from the enriched payload (assign-to-workforce.sh)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "split-plan renders each task's repo target from `waves --json` in the implementation split table; single-repo plans render unchanged",
+        "the script stays skill-side \u2014 no CLI change, no orchestration added to the devague package"
+      ],
+      "deps": [
+        "t3",
+        "t5"
+      ],
+      "covers": [
+        "c8",
+        "c2"
+      ]
+    },
+    {
+      "id": "t7",
+      "summary": "Operator skills + CLI teaching surface (/spec-to-plan, /think, /scope SKILL.md; learn.py, explain.py)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "/spec-to-plan documents `--repo <name>` and `retarget <tN>` with a worked multi-repo example; /think and /scope document the hub-repo state home for a multi-repo effort",
+        "`devague plan learn` and `devague plan explain` cover the repo target; the whole surface is exercised through the four existing operator skills \u2014 no new privileged tooling (h7)"
+      ],
+      "deps": [
+        "t2",
+        "t3"
+      ],
+      "covers": [
+        "c2",
+        "h7"
+      ]
+    },
+    {
+      "id": "t8",
+      "summary": "E2E dogfood across >=2 real repos + boundary audit",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "one real effort touching >=2 actual repos (hub: this repo; candidate sibling: guildmaster or eidetic-cli) runs scope -> frame -> plan -> fan-out on the shipped surface, committed as a worked example or e2e evidence (h6), converging and exporting without hand-editing state JSON (h1)",
+        "boundary audit (grep/bandit, the #53 t14 pattern) shows no git plumbing, repo I/O, or subprocess orchestration added to the devague package (c9/h5)",
+        "the worked example demonstrably addresses the four user-reported pain points \u2014 shared convergence, task-to-repo mapping, fan-out mechanics, cross-repo review (c4/h9) \u2014 in the decided shape: hub-repo state, repo-tagged tasks, per-repo PRs (c5/h10)"
+      ],
+      "deps": [
+        "t4",
+        "t6",
+        "t7"
+      ],
+      "covers": [
+        "c1",
+        "h1",
+        "c4",
+        "h9",
+        "c5",
+        "h10",
+        "c9",
+        "h5",
+        "c14",
+        "h6"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "external precondition: the #53 build (t2/t5/t9 there \u2014 instruction fields + enriched waves payload) lands before this plan's t1/t3; a dependency on another plan's tasks cannot be recorded in this graph (decision c19)",
+      "kind": "follow_up",
+      "task_id": "t1"
+    },
+    {
+      "id": "r2",
+      "text": "the e2e run needs a second real repo willing to take a dogfood PR \u2014 candidate guildmaster or eidetic-cli; pick at execution time",
+      "kind": "unknown_nonblocking",
+      "task_id": "t8"
+    },
+    {
+      "id": "r3",
+      "text": "`plan confirm` takes one id per call (no transactional multi-id parity with the frame engine yet \u2014 recorded follow-up in #53); batch-confirming multi-repo plans stays manual until then",
+      "kind": "follow_up",
+      "task_id": null
+    }
+  ]
+}

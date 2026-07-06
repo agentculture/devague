@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.1] - 2026-07-07
+
+### Added
+
+- Exported **spec and plan artifacts** for the "multi-repo efforts" increment
+  (docs/specs + docs/plans 2026-07-06, plus the frame/plan state JSON as the
+  evidence trail; produced by a dogfooded /scope → /think → /spec-to-plan run).
+  **Documentation and state only — no CLI changes ship in this release.** The
+  decided shape: hub-repo state home (the cwd-relative store is unchanged), one
+  plan per effort with repo-tagged tasks (single gate, single dependency
+  graph), the repo target as descriptive metadata riding the #53 carriers
+  (per-item instructions, enriched waves payload), per-repo worktrees + TDD
+  gates in assign-to-workforce, and one final PR per touched repo with
+  cross-repo dependencies satisfied at worktree-merge time. Implementation is
+  the committed plan (8 tasks over 6 file-disjoint waves), sequenced **after**
+  the #53 build (t1–t14) and explicitly not reopening it.
+
 ## [0.14.1] - 2026-07-02
 
 ### Added
