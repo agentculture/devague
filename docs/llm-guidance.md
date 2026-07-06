@@ -31,8 +31,15 @@ what remains before a spec (or plan) can be exported.
 
 ## 2. The state you operate on
 
-Two legs share one chassis:
+Three legs share one chassis (the third optional):
 
+- **Scope (idea → explored scope, optional).** The `/scope` skill's pre-frame
+  survey: `ScopeEntry` records (`surface` explored, `finding`, and the claim
+  `id`s it `seeds`) that ground the frame in what was actually looked at,
+  instead of generic disclaimers. Small ideas skip straight to the frame — this
+  leg is optional by size, never a mandatory first stage. Its state
+  (`Frame.scope_entries`) already exists; the `devague scope` move that writes
+  it is landing in a follow-up (#53 task t3).
 - **Frame (idea → spec).** Claims (each with a *kind* — `announcement`,
   `audience`, `after_state`, `before_state`, `why_it_matters`, `boundary`,
   `success_signal`, `open_question`, `non_goal`, `requirement`, `assumption`,
@@ -51,6 +58,16 @@ Every element carries two orthogonal axes:
 `origin` and `status` are independent. An `llm`-proposed claim is *proposed*
 until a human acts on it; a `user`-provided claim is *confirmed* on arrival.
 Keeping these distinct is the whole point of the tool — see §4.
+
+Claims, honesty conditions, and plan tasks also carry an optional
+**`instruction`** — verbatim text on how to verify or implement that item,
+`""` by default (never fabricated to fill the gap). Setting or changing an
+instruction on an already-`confirmed` item flips its status back to
+`proposed` — it re-enters the user-confirm loop like any other content change.
+The moves that set it (`capture --instruction` / `interrogate --instruction`
+on the frame side, `plan task --instruction` / `plan instruct <tN>` on the plan
+side) are landing in #53 tasks t4/t5; see [`spec-contract.md`](spec-contract.md)
+for the full field contract.
 
 ## 3. You choose the move; order is adaptive
 
@@ -71,6 +88,12 @@ conversation order**. If the user hands you the audience and the success signal
 before the announcement is crisp, capture those now and circle back. Drive
 toward the shape; do not impose a sequence on the user.
 
+An optional scope-exploration stage can precede all of this when the idea
+touches an existing codebase: survey the surfaces it touches, then seed the
+frame's `boundary` / `non_goal` / `assumption` claims with what was actually
+found — provenance, not a generic disclaimer. It's optional by size: skip
+straight to `new` for a small idea; nothing about it is a fixed first stage.
+
 ## 4. Hard rules — the anti-fabrication contract
 
 These are not style preferences. Convergence is only meaningful if these hold.
@@ -88,6 +111,12 @@ These are not style preferences. Convergence is only meaningful if these hold.
 - **Converge, don't vibe.** `export` is gated on `converge` passing. Never
   declare a frame or plan "ready" on a hunch — run `converge` and resolve every
   listed gap first.
+- **Instructions are optional and verbatim — never fabricated.** Leave
+  `instruction` empty rather than invent one just to satisfy a gate warning
+  (once the structural sharpness warnings in #53 t7/t8 land). Changing an
+  instruction on an already-confirmed item deliberately demotes it back to
+  `proposed` — that is the same anti-fabrication contract catching a
+  late-arriving field, not a bug.
 
 ## 5. Good vs. bad operator behavior
 
@@ -99,6 +128,7 @@ These are not style preferences. Convergence is only meaningful if these hold.
 | User asks "is this ready?" | "Yes, looks solid." | run `converge`; report the actual blockers/warnings |
 | The user skipped a stage | march through the stages in order anyway | capture what they gave you; let the arc fill in adaptively |
 | Plan: a task has no clear acceptance test | mark it confirmed and move on | leave it without criteria (the gate blocks it) or `park` the risk |
+| A gate warns a claim/task has no instruction (#53 t7/t8) | invent a generic instruction just to silence the warning | leave it empty, or write a real one and let the user confirm it |
 
 ## 6. The forward leg (spec → plan), in brief
 
@@ -112,6 +142,9 @@ spirit:
 - **Park genuine unknowns as risks** (`unknown_blocking` holds convergence back).
 - **Converge against the live frame** — `converge`/`export` re-load the source
   frame; if it regressed below convergence, re-converge the spec first.
+- **Instructions ride along to the workforce.** A task's optional
+  `instruction` (landing #53 t5) is meant to reach `assign-to-workforce`'s
+  per-subagent brief verbatim — no operator paraphrasing (#53 t9/t13).
 
 ## 7. Output contract
 
