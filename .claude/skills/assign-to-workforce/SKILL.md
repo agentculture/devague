@@ -48,15 +48,19 @@ bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh help
 It resolves the CLI portably — an installed `devague` on `PATH` (the normal
 case), falling back to `uv run devague` when you are inside the devague
 checkout, else an install hint. The `split-plan` subcommand reads
-`devague plan waves --json` and renders the human-facing implementation split
-plan: task map, proposed per-task agent + model assignment, and the go/no-go
-question. The `waves` subcommand forwards to `devague plan waves` verbatim.
+`devague plan waves --json` — the enriched payload (devague#53 t9) that
+carries every active task's summary, instruction, acceptance criteria, and
+covered targets keyed by task id — and renders the human-facing
+implementation split plan: task map (task id, wave, summary verbatim, whether
+an instruction is present, acceptance-criteria count), proposed per-task
+agent + model assignment, and the go/no-go question. The `waves` subcommand
+forwards to `devague plan waves` verbatim.
 
 ### Usage
 
 | Subcommand | What it does |
 |------------|--------------|
-| `split-plan [--plan S]` | Read `devague plan waves` and print the implementation split plan — task map with per-task agent + model proposal — ready for human go/no-go review. |
+| `split-plan [--plan S]` | Read `devague plan waves --json` and print the implementation split plan — task map (summary/instruction/acceptance-criteria count, verbatim) with per-task agent + model proposal — ready for human go/no-go review. |
 | `waves [--plan S] [--json]` | Forward to `devague plan waves [--json]`. Read-only; lists wave batches. On a converged plan exits 0 listing the waves. |
 | `help` | Print usage. |
 
@@ -78,8 +82,10 @@ implementation stage (per task, the TDD gate is the main agent's).
 
 The split plan contains:
 
-1. **Task map** — every task id, its one-line summary, acceptance criteria, and
-   the wave it belongs to (from `devague plan waves`).
+1. **Task map** — every task id, its one-line summary (verbatim), whether it
+   carries a working instruction, its acceptance-criteria count, and the wave
+   it belongs to — all read straight from `devague plan waves --json` (no
+   operator paraphrasing).
 2. **Per-task agent + model proposal** — for each task: the proposed agent type
    (subagent / teammate / generalist), the proposed model (e.g. a cheaper/faster
    model for a well-scoped task), and the scope justification (why this task is
@@ -98,6 +104,37 @@ bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh split-pla
 
 Do not proceed to fan-out until the human approves the split plan.
 
+### The `waves --json` payload — the single source for every brief
+
+`devague plan waves --json` emits `{"plan": "<slug>", "waves": [[...], ...],
+"tasks": {...}}` — the ordered dependency-wave batches plus a top-level
+`tasks` object keyed by task id, each entry carrying that task's full working
+contract:
+
+```json
+{
+  "plan": "<slug>",
+  "waves": [["t1"], ["t2", "t3"]],
+  "tasks": {
+    "t1": {
+      "summary": "<task summary>",
+      "instruction": "<verbatim instruction, or \"\" if none>",
+      "acceptance_criteria": ["<criterion>", "..."],
+      "covers": ["<c*/h* id>", "..."]
+    }
+  }
+}
+```
+
+This one payload is enough to build a per-subagent brief with **no external
+context** — no need to also read `devague plan show --json` or the exported
+plan-md. `split-plan` reads it to render the task map above; the fan-out step
+below reads the same payload to build each task agent's brief. Quote
+`summary`, `instruction`, `acceptance_criteria`, and `covers` **verbatim**
+into every brief — never paraphrase them. (Documented identically in the
+sibling `/spec-to-plan` skill, since both skills consume the same payload —
+stay consistent if either changes.)
+
 ### Fan-out — one agent per task per wave in isolated worktrees
 
 Once the human approves, the main agent fans out each wave in order:
@@ -110,13 +147,12 @@ Once the human approves, the main agent fans out each wave in order:
 
 2. **Spawn a task agent** inside that worktree (using the approved model from
    the split plan), with:
-   - The task id, summary, acceptance criteria, and covered targets as its
-     brief — **quoted verbatim** from `devague plan show --json` (or the
-     exported plan-md). No operator paraphrasing: the plan text *is* the
-     contract the user confirmed, and a reworded brief silently drifts from it.
-     (When the enriched `waves --json` payload lands — devague#53, task t9 —
-     the brief comes straight from that one payload, per-task instructions
-     included.)
+   - The task id, summary, working instruction, acceptance criteria, and
+     covered targets as its brief — **quoted verbatim** from `devague plan
+     waves --json` (see *The `waves --json` payload* above). No operator
+     paraphrasing anywhere in this flow: the plan text *is* the contract the
+     user confirmed, and a reworded brief silently drifts from it. If a task
+     has no instruction (`""`), say so rather than inventing one.
    - Instruction to work **test-first** (TDD): write the failing test(s) that
      match the acceptance criteria before implementing.
    - Instruction to commit its work to the worktree branch.
@@ -232,11 +268,11 @@ git worktree add ../worktrees/agent-t4 -b agent/t4
 bash .claude/skills/cicd/scripts/workflow.sh open
 ```
 
-The exported plan-md from `devague plan export` is the standing brief for
-each task agent — its task id, summary, acceptance criteria, and the targets
-it covers are already in that file. Quote those fields **verbatim** into each
-task agent's brief; the fan-out is honest only if what the subagent builds
-against is exactly what the user confirmed in the plan.
+`devague plan waves --json` is the standing brief for each task agent — its
+task id, summary, instruction, acceptance criteria, and the targets it covers
+are all in that one payload. Quote those fields **verbatim** into each task
+agent's brief; the fan-out is honest only if what the subagent builds against
+is exactly what the user confirmed in the plan.
 
 ## Provenance
 
