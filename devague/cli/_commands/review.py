@@ -20,10 +20,17 @@ def _json_payload(frame) -> dict:
     return {
         "slug": frame.slug,
         "proposed_claims": [
-            {"id": c.id, "kind": c.kind, "text": c.text} for c in proposed_claims(frame)
+            {"id": c.id, "kind": c.kind, "text": c.text, "instruction": c.instruction}
+            for c in proposed_claims(frame)
         ],
         "proposed_honesty": [
-            {"id": h.id, "claim_id": c.id, "claim_kind": c.kind, "text": h.text}
+            {
+                "id": h.id,
+                "claim_id": c.id,
+                "claim_kind": c.kind,
+                "text": h.text,
+                "instruction": h.instruction,
+            }
             for c, h in proposed_honesty(frame)
         ],
     }
