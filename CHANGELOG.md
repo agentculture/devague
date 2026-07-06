@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-07-07
+
+### Added
+
+- **The sharper end-to-end method ships** — the full #53 build plan (t1–t14),
+  implemented by a devague-orchestrated workforce fan-out (5 waves, one agent
+  per task, TDD-gated merges):
+  - **`devague scope` move** records explored surfaces as first-class
+    `ScopeEntry` state (`s1`… id, surface, finding, `--seeds` claim links with
+    unknown-id refusal); `scope --list [--json]` reads them back (t1/t3).
+  - **Per-item instructions**: optional verbatim `instruction` text on claims,
+    honesty conditions (`capture --instruction`,
+    `interrogate <c*|h*> --instruction`) and plan tasks
+    (`plan task --instruction`, new `plan instruct <tN>` move). Adding or
+    changing an instruction on a confirmed item flips it back to `proposed`
+    for re-confirmation (t2/t4/t5).
+  - **Sharper exports**: spec-md/frame-md render instruction blocks verbatim
+    plus a scope-provenance section; plan-md renders per-task instruction
+    bullets; absent instructions render nothing (golden-file tested) (t6/t9).
+  - **Enriched `waves --json`**: adds a top-level `tasks` object —
+    `{summary, instruction, acceptance_criteria, covers}` per task id — a
+    self-contained subagent brief; existing keys unchanged (t9).
+  - **Structural sharpness warnings** (soft rollout, warnings-only):
+    instruction-less confirmed spec-affecting claims, non-measurable
+    success signals (deterministic predicate, documented false-positive
+    story), and instruction-less confirmed plan tasks (t7/t8).
+  - **Teaching + skills**: `learn` presents the optional scope stage;
+    `explain scope` / `explain question` work; /think, /spec-to-plan, /scope
+    and /assign-to-workforce SKILL.md teach the shipped surface —
+    assign-to-workforce briefs now come verbatim from `waves --json`
+    (t10/t11/t13).
+  - **Dogfooded e2e + boundary audit** committed as tests: a real idea (the
+    unpark move, #57) runs scope → frame → spec → plan → fanout brief on the
+    shipped surface; the audit pins no LLM imports and no process spawning in
+    the package (#20) (t14).
+
+### Changed
+
+- Frame `SCHEMA_VERSION` and `PLAN_SCHEMA_VERSION` both bumped 1 → 2
+  (fail-closed on newer; v1 files load with empty defaults).
+- `docs/spec-contract.md`, `docs/llm-guidance.md`, `docs/skills.md` document
+  the scope entity, instruction fields, schema bumps, and gate rules (t12).
+
 ## [0.15.0] - 2026-07-02
 
 ### Added
