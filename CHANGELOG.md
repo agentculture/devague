@@ -9,7 +9,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Changed the project license from MIT to Apache-2.0 and updated package metadata and documentation references accordingly.
+- Changed the project license from MIT to Apache-2.0, added a retained MIT notice for vendored inbound skills, and updated package metadata and documentation references accordingly.
 
 ## [0.16.0] - 2026-07-07
 

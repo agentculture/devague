@@ -11,7 +11,7 @@ explicitly — these copies do not auto-update.
 
 **Upstream provenance.** All eight inbound skills come from
 [`agentculture/guildmaster`](https://github.com/agentculture/guildmaster),
-**MIT**-licensed. devague itself is Apache-2.0 licensed. The canonical kit (`cicd`,
+**MIT**-licensed; the retained MIT notice is in `LICENSES/MIT-guildmaster-skills.txt`. devague itself is Apache-2.0 licensed. The canonical kit (`cicd`,
 `communicate`, `version-bump`, `run-tests`, `sonarclaude`, `doc-test-alignment`)
 was first vendored from `steward` at commit
 [`21414a9`](https://github.com/agentculture/steward/commit/21414a9) (2026-05-22)
