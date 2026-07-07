@@ -125,6 +125,15 @@ A skill drives the deterministic CLI and adds no business logic of its own:
   `devague plan waves` (#20). The fan-out, worktree management, and TDD-gated
   merges live in the `assign-to-workforce` skill and the operating agent, not in
   the CLI and not in a CI runner.
+- **Instructions flow verbatim, never invented.** Claims, honesty conditions,
+  and plan tasks may carry an optional `instruction` field — how to verify or
+  implement that item (frame side: `capture --instruction` / `interrogate
+  --instruction`, #53 t4; plan side: `plan task --instruction` / `plan instruct
+  <tN>`, #53 t5). Setting or changing an instruction on an already-confirmed
+  item flips it back to `proposed` — the user re-confirms, same as any other
+  proposed content. `assign-to-workforce` is meant to quote a task's
+  instruction and acceptance criteria verbatim into the per-subagent brief
+  (#53 t9/t13) — no operator paraphrasing.
 
 ## The operator skills
 
@@ -144,10 +153,13 @@ unknown), then seed the `/think` frame with `boundary` / `non_goal` /
 ideas skip straight to `/think` (no wizard). From the sharper end-to-end method
 spec ([devague#53](https://github.com/agentculture/devague/pull/53)).
 
-Method-only today: it ships no entry-point script and drives no CLI verb of its
-own. The deterministic `devague scope` move (findings as first-class frame state
-with provenance) is planned in the #53 build plan (task t3); this skill's
-`devague learn skills` authoring recipe lands with that move (tasks t10/t11).
+The skill ships no entry-point script of its own, but the CLI surface it
+records into is live: `Frame.scope_entries` / `ScopeEntry` (`id`, `surface`,
+`finding`, `seeds`) shipped in #53 task t1, and the deterministic
+`devague scope` move that writes it (`devague scope "<surface>"
+--finding "<text>" [--seeds <claim-id> ...]`, plus `scope --list [--json]`)
+shipped in #53 task t3; this skill's `devague learn skills` authoring recipe
+lands with tasks t10/t11.
 
 - Source:
   [`.claude/skills/scope/`](https://github.com/agentculture/devague/blob/main/.claude/skills/scope/SKILL.md)
@@ -170,7 +182,10 @@ Seed a plan from a **converged** frame (`devague plan new --frame <slug>`), add
 tasks that cover every coverage target with acceptance criteria and an acyclic
 dependency order, park unknowns as first-class risks, and `export` only once the
 plan converges. Coaches small, file-disjoint, TDD-accepted tasks so the
-downstream fan-out can run wide waves.
+downstream fan-out can run wide waves. The per-task `instruction` field and the
+`plan task --instruction` / `plan instruct <tN>` moves shipped in #53 t2/t5;
+acceptance criteria remain the testable contract, instructions the working
+guidance carried verbatim to the workforce.
 
 - Source:
   [`.claude/skills/spec-to-plan/`](https://github.com/agentculture/devague/blob/main/.claude/skills/spec-to-plan/SKILL.md)
@@ -182,7 +197,9 @@ Reads `devague plan waves` (deterministic, read-only scheduling metadata) and
 fans out independent tasks to **one agent per task per wave in isolated git
 worktrees**, with **main-agent TDD-gated merges** (the task's tests pass before
 *and* after the merge). Exactly three human gates; the final PR uses the `cicd`
-skill (`agex pr open`).
+skill (`agex pr open`). Each subagent's brief quotes its task's fields verbatim
+from `plan show --json` / the exported plan-md — including the per-task
+`instruction` once #53 t5/t9 land — never an operator paraphrase.
 
 - Source:
   [`.claude/skills/assign-to-workforce/`](https://github.com/agentculture/devague/blob/main/.claude/skills/assign-to-workforce/SKILL.md)

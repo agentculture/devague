@@ -18,7 +18,7 @@ from pathlib import Path
 from devague import plan_store, store
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._frames import resolve as resolve_frame
-from devague.cli._output import emit_result
+from devague.cli._output import emit_diagnostic, emit_result
 from devague.cli._paths import dated_name
 from devague.cli._plans import resolve_plan
 from devague.cli._status import StatusLabels, emit_empty, emit_status
@@ -33,11 +33,13 @@ PLANS_OUT_DIR = Path("docs/plans")
 
 _JSON_HELP = "Emit structured JSON."
 _TASK_ID_HELP = "Task id."
+_INSTRUCTION_HELP = "Verbatim working instruction — how to verify or implement this task."
 _RESOLVE_HINT = "resolve: "  # prefix for a "; "-joined blocker remediation hint
 
 PLAN_MOVES = {
     "new": "Start a plan from a converged frame (derives coverage targets).",
-    "task": "Add a task; optionally --accept / --dep / --covers inline.",
+    "task": "Add a task; optionally --accept / --dep / --covers / --instruction inline.",
+    "instruct": "Add/update a task's working instruction (may flip confirmed -> proposed).",
     "accept": "Add an acceptance criterion to a task.",
     "depend": "Record that a task depends on another (--on).",
     "cover": "Mark a task as covering a coverage target (c*/h*).",
@@ -153,6 +155,7 @@ def cmd_plan_task(args: argparse.Namespace) -> int:
     for tid in args.covers or []:
         _require_target(plan, tid)
     task = plan.add_task(args.summary, origin=args.origin)
+    task.instruction = args.instruction or ""
     for crit in args.accept or []:
         plan.add_acceptance(task, crit)
     for dep in args.dep or []:
@@ -168,11 +171,49 @@ def cmd_plan_task(args: argparse.Namespace) -> int:
                 "acceptance": len(task.acceptance_criteria),
                 "deps": task.deps,
                 "covers": task.covers,
+                "instruction": task.instruction,
             },
             json_mode=True,
         )
     else:
         emit_result(f"added {task.id} ({task.status})", json_mode=False)
+    return 0
+
+
+def cmd_plan_instruct(args: argparse.Namespace) -> int:
+    """Add/update a task's working instruction (verbatim; never fabricated).
+
+    Re-confirm rule (#53 t5, gate-2 review): setting or changing the instruction on a
+    CONFIRMED task flips it back to 'proposed' — the instruction is part of what the
+    user confirmed, so a change to it must go back through the user. A task that is
+    already 'proposed' (or 'rejected') is unaffected by this rule; only its instruction
+    changes.
+    """
+    plan = resolve_plan(args.plan)
+    task = _require_task(plan, args.id)
+    task.instruction = args.text
+    flipped = task.status == "confirmed"
+    if flipped:
+        task.status = "proposed"
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(
+            {
+                "id": task.id,
+                "instruction": task.instruction,
+                "status": task.status,
+                "flipped": flipped,
+            },
+            json_mode=True,
+        )
+    else:
+        emit_result(f"{task.id}: instruction set", json_mode=False)
+    if flipped:
+        emit_diagnostic(
+            f"note: {task.id}'s instruction changed on a confirmed task — "
+            "flipped back to 'proposed'; re-confirm it (devague plan confirm "
+            f"{task.id})"
+        )
     return 0
 
 
@@ -323,7 +364,21 @@ def cmd_plan_waves(args: argparse.Namespace) -> int:
         )
     waves = dependency_waves(plan.tasks)
     if getattr(args, "json", False):
-        emit_result({"plan": plan.slug, "waves": waves}, json_mode=True)
+        # Enough for a subagent brief with no external context (#53 t9, c8/h12):
+        # every active (non-rejected) task appearing in ``waves`` gets its full
+        # working contract — summary, verbatim instruction, acceptance criteria,
+        # and covered targets — keyed by task id.
+        tasks_payload = {
+            t.id: {
+                "summary": t.summary,
+                "instruction": t.instruction,
+                "acceptance_criteria": list(t.acceptance_criteria),
+                "covers": list(t.covers),
+            }
+            for t in plan.tasks
+            if t.status != "rejected"
+        }
+        emit_result({"plan": plan.slug, "waves": waves, "tasks": tasks_payload}, json_mode=True)
     elif not waves:
         emit_result("no tasks to schedule", json_mode=False)
     else:
@@ -456,8 +511,15 @@ def register(sub: argparse._SubParsersAction) -> None:
     pt.add_argument("--dep", action="append", help="A task id this depends on (repeatable).")
     pt.add_argument("--covers", action="append", help="A coverage target id c*/h* (repeatable).")
     pt.add_argument("--origin", choices=("user", "llm"), default="user", help="Who proposed it.")
+    pt.add_argument("--instruction", default="", help=_INSTRUCTION_HELP)
     _plan_opt(pt)
     pt.set_defaults(func=cmd_plan_task)
+
+    pin = psub.add_parser("instruct", help="Add/update a task's working instruction.")
+    pin.add_argument("id", help=_TASK_ID_HELP)
+    pin.add_argument("text", help=_INSTRUCTION_HELP)
+    _plan_opt(pin)
+    pin.set_defaults(func=cmd_plan_instruct)
 
     pa = psub.add_parser("accept", help="Add an acceptance criterion to a task.")
     pa.add_argument("id", help="Task id (e.g. t1).")

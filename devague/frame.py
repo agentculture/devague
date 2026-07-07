@@ -11,7 +11,8 @@ from typing import Optional
 
 # Bump when the persisted shape changes incompatibly. `store.load` fails closed
 # on a frame whose schema_version is newer/unknown (see #5, honesty condition h15).
-SCHEMA_VERSION = 1
+# v2 (#53 t1) adds Frame.scope_entries and Claim/HonestyCondition.instruction.
+SCHEMA_VERSION = 2
 
 CLAIM_KINDS = (
     "announcement",
@@ -59,6 +60,10 @@ class HonestyCondition:
     id: str
     text: str
     status: str = "proposed"  # proposed | confirmed | rejected
+    # Optional verbatim operator/user-authored text: how to verify this
+    # condition. Empty string means "no instruction" — never fabricated or
+    # defaulted to prose (#53 t1, c10/h3).
+    instruction: str = ""
 
     def __post_init__(self) -> None:
         if self.status not in HONESTY_STATUSES:
@@ -83,6 +88,10 @@ class Claim:
     honesty_conditions: list[HonestyCondition] = field(default_factory=list)
     hard_questions: list[HardQuestion] = field(default_factory=list)
     links: list[str] = field(default_factory=list)
+    # Optional verbatim operator/user-authored text: how to verify or
+    # implement this claim. Empty string means "no instruction" — never
+    # fabricated or defaulted to prose (#53 t1, c10/h3).
+    instruction: str = ""
 
     def __post_init__(self) -> None:
         if self.kind not in CLAIM_KINDS:
@@ -106,6 +115,19 @@ class Vagueness:
 
 
 @dataclass
+class ScopeEntry:
+    """A recorded scope-exploration finding: a surface explored, and what was
+    learned — the optional pre-frame leg (`/scope`, #53). ``seeds`` links this
+    finding to the claim ids it seeded, if any.
+    """
+
+    id: str
+    surface: str
+    finding: str
+    seeds: list[str] = field(default_factory=list)
+
+
+@dataclass
 class Frame:
     slug: str
     title: str
@@ -115,6 +137,7 @@ class Frame:
     updated: str = ""
     claims: list[Claim] = field(default_factory=list)
     open_vagueness: list[Vagueness] = field(default_factory=list)
+    scope_entries: list[ScopeEntry] = field(default_factory=list)
 
     @staticmethod
     def _next(items: list, prefix: str) -> str:
@@ -184,6 +207,22 @@ class Frame:
         self.open_vagueness.append(v)
         return v
 
+    def add_scope_entry(
+        self, surface: str, finding: str, seeds: Optional[list[str]] = None
+    ) -> ScopeEntry:
+        seed_ids = list(seeds) if seeds else []
+        for sid in seed_ids:
+            if self.find_claim(sid) is None:
+                raise ValueError(f"unknown seed claim id: {sid!r}")
+        entry = ScopeEntry(
+            id=self._next(self.scope_entries, "s"),
+            surface=surface,
+            finding=finding,
+            seeds=seed_ids,
+        )
+        self.scope_entries.append(entry)
+        return entry
+
     def set_status(self, item_id: str, status: str) -> bool:
         claim = self.find_claim(item_id)
         if claim is not None:
@@ -226,13 +265,32 @@ def from_dict(d: dict) -> Frame:
             text=c["text"],
             origin=c.get("origin", "user"),
             status=c.get("status", "confirmed"),
-            honesty_conditions=[HonestyCondition(**h) for h in c.get("honesty_conditions", [])],
+            honesty_conditions=[
+                HonestyCondition(
+                    id=h["id"],
+                    text=h["text"],
+                    status=h.get("status", "proposed"),
+                    instruction=h.get("instruction", ""),
+                )
+                for h in c.get("honesty_conditions", [])
+            ],
             hard_questions=[HardQuestion(**q) for q in c.get("hard_questions", [])],
             links=list(c.get("links", [])),
+            # v1 frames predate this field (#53 t1); default to "no instruction".
+            instruction=c.get("instruction", ""),
         )
         for c in d.get("claims", [])
     ]
     vag = [Vagueness(**v) for v in d.get("open_vagueness", [])]
+    scope_entries = [
+        ScopeEntry(
+            id=s["id"],
+            surface=s["surface"],
+            finding=s["finding"],
+            seeds=list(s.get("seeds", [])),
+        )
+        for s in d.get("scope_entries", [])
+    ]
     return Frame(
         slug=d["slug"],
         title=d["title"],
@@ -243,4 +301,6 @@ def from_dict(d: dict) -> Frame:
         updated=d.get("updated", ""),
         claims=claims,
         open_vagueness=vag,
+        # v1 frames predate this field (#53 t1); default to no scope entries.
+        scope_entries=scope_entries,
     )

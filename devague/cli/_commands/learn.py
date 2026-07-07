@@ -9,11 +9,20 @@ from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._output import emit_result
 
 MOVES = {
+    "scope": (
+        "Record an explored surface + finding as first-class state (optional "
+        "pre-frame leg; --seeds links a finding to the claims it seeded)."
+    ),
     "new": "Start a frame from the announcement (pretend it shipped).",
     "capture": "Record and classify a claim (audience, after_state, boundary, ...).",
     "interrogate": "Pressure-test a claim: honesty conditions, hard questions, contradictions.",
     "confirm": "Confirm a claim or honesty condition (user-only — no fabricated rigor).",
     "reject": "Reject a claim or honesty condition.",
+    "review": (
+        "List every proposed (unconfirmed) claim + honesty condition for "
+        "human review (read-only)."
+    ),
+    "question": "Record, list, or resolve a pending user decision (durable working state).",
     "park": "Move uncertainty into first-class open vagueness instead of forcing an answer.",
     "converge": "Check whether the frame is solid enough to export a spec.",
     "export": "Write the buildable spec — only once the frame converges.",
@@ -118,6 +127,45 @@ STAGES = [
     ("Spec", "what should be built?", "converge -> export"),
 ]
 
+# The optional pre-frame exploration lead-in (#53 t3/t10). It precedes the ten
+# numbered stages above rather than replacing one of them — optional-but-
+# recommended, not mandatory: recommended when the idea touches an existing
+# codebase, freely skippable for a small idea (the method's recorded non-goal:
+# devague never becomes a wizard with a fixed first stage).
+SCOPE_STAGE = {
+    "name": "Scope (optional, before Announcement)",
+    "prompt": "what does this idea touch, and what should it not touch?",
+    "move": 'scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]',
+    "loop": (
+        "Explore read-only first (no CLI moves while surveying), then record "
+        "each surveyed surface + finding with 'devague scope'; pass --seeds "
+        "with the claim ids a finding goes on to seed so the frame's boundary / "
+        "non_goal / assumption claims cite what was actually explored."
+    ),
+    "recommended_when": (
+        "Recommended when the idea touches an existing codebase or ecosystem — "
+        "grounds convergence in explored territory instead of guesses."
+    ),
+    "optional_by_size": (
+        "Optional-by-size, not a mandatory first stage: a small idea can skip "
+        "straight to 'new' (recorded non-goal — devague never becomes a wizard)."
+    ),
+}
+
+# The optional --instruction flags (frame side: #53 t4; plan side: #53 t5) ride
+# alongside the capture/interrogate stages above and carry through to the plan
+# handoff verbatim — noted once here rather than cluttering every stage line.
+INSTRUCTION_FLAGS_NOTE = (
+    "Any claim or honesty condition can also carry an optional --instruction —\n"
+    '  capture --kind <kind> "<text>" --instruction "<text>"\n'
+    '  interrogate <id> --honesty "<text>" --instruction "<text>"\n'
+    "verbatim text on how to verify or implement it; leave it empty rather than\n"
+    "invent one to fill a gate warning. It carries to the plan handoff:\n"
+    '  devague plan task "<summary>" --instruction "<text>"    (at creation)\n'
+    '  devague plan instruct <tN> "<text>"                     (on an existing task)\n'
+    "so a task's working guidance reaches the workforce brief unchanged."
+)
+
 _TEXT = (
     "devague turns a vague idea into a buildable spec by working backwards.\n\n"
     f"First question: {FIRST_QUESTION}\n"
@@ -127,11 +175,17 @@ _TEXT = (
     "The arc emerges from the moves; it is not a fixed wizard. You (the agent)\n"
     "choose the next move; devague tracks state. LLM-proposed claims and honesty\n"
     "conditions stay 'proposed' until the user confirms them.\n\n"
+    "Optional lead-in — scope exploration (recommended when the idea touches an\n"
+    "existing codebase; skip freely for small ideas — not a mandatory first stage):\n"
+    f"  {SCOPE_STAGE['prompt']}  [devague {SCOPE_STAGE['move']}]\n"
+    f"  {SCOPE_STAGE['loop']}\n\n"
     "Guided stages (the recommended sequence — drive them with the moves):\n"
     + "\n".join(
         f"  {i:>2}. {name:<13} {prompt}  [{move}]"
         for i, (name, prompt, move) in enumerate(STAGES, 1)
     )
+    + "\n\n"
+    + INSTRUCTION_FLAGS_NOTE
     + "\n\nMoves:\n"
     + "\n".join(f"  {name:<11} {desc}" for name, desc in MOVES.items())
     + "\n\ndevague is NOT:\n"
@@ -363,6 +417,8 @@ def cmd_learn(args: argparse.Namespace) -> int:
                         for i, (name, prompt, move) in enumerate(STAGES, 1)
                     ],
                     "moves": list(MOVES),
+                    "scope_stage": SCOPE_STAGE,
+                    "instruction_flags": INSTRUCTION_FLAGS_NOTE,
                     "not_a": list(NOT_A),
                     "operating_rules": list(OPERATING_RULES),
                     "guidance_doc": GUIDANCE_DOC_URL,

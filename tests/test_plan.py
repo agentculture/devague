@@ -76,10 +76,42 @@ def test_plan_carries_schema_version() -> None:
     assert from_dict(to_dict(p)).schema_version == PLAN_SCHEMA_VERSION
 
 
+def test_plan_schema_version_bumped_to_2_for_instruction_field() -> None:
+    # #53 t2: the instruction field bumps the persisted plan shape exactly once.
+    assert PLAN_SCHEMA_VERSION == 2
+
+
 def test_legacy_plan_without_schema_version_loads() -> None:
     # A pre-0.7.0 plan has no schema_version key — it must still load.
     p = from_dict({"slug": "s", "title": "t", "frame_slug": "s", "tasks": []})
     assert p.schema_version == PLAN_SCHEMA_VERSION
+
+
+def test_task_instruction_defaults_empty() -> None:
+    p = _plan()
+    t = p.add_task("x")
+    assert t.instruction == ""
+
+
+def test_task_instruction_roundtrips_verbatim() -> None:
+    p = _plan()
+    t = p.add_task("x")
+    t.instruction = "run pytest -k foo then check the diff"
+    restored = from_dict(to_dict(p))
+    assert restored.find_task("t1").instruction == "run pytest -k foo then check the diff"
+
+
+def test_legacy_v1_task_dict_without_instruction_loads_with_empty_default() -> None:
+    # A schema_version-1 plan's task dicts predate the instruction field entirely.
+    legacy = {
+        "slug": "s",
+        "title": "t",
+        "frame_slug": "s",
+        "schema_version": 1,
+        "tasks": [{"id": "t1", "summary": "x"}],
+    }
+    p = from_dict(legacy)
+    assert p.find_task("t1").instruction == ""
 
 
 def test_dataclasses_validate_enums() -> None:
@@ -117,6 +149,7 @@ def test_roundtrip_preserves_nested_fields() -> None:
     p.add_acceptance(t, "works")
     p.add_dep(t, "t9")
     p.add_cover(t, "h2")
+    t.instruction = "verify against acceptance criteria before merge"
     p.add_risk("scope?", "unknown_blocking", task_id="t1")
     p.targets.append(targets_from_frame(_seed_frame())[0])
     restored = from_dict(to_dict(p))

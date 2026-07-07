@@ -17,12 +17,18 @@ see [`llm-guidance.md`](llm-guidance.md) (also surfaced in `devague learn`).
 
 ## Versioning
 
-Every frame carries an integer `schema_version` (currently `1`). It is written
+Every frame carries an integer `schema_version` (currently `2`). It is written
 on save and checked on load: a frame whose `schema_version` is newer than this
 devague supports is rejected, fail-closed, with an actionable error. A 0.4.0
 frame predates the field and loads as the current schema, so existing frames
 keep working.
 
+> **v2 (#53 t1).** Bumped to add `Frame.scope_entries` and an `instruction`
+> field on `Claim` and `HonestyCondition` — see *ScopeEntry* under Entities and
+> the *Instructions* section below. A v1 frame predates both: it loads with no
+> scope entries and every `instruction` defaulted to `""` (empty means "no
+> instruction," never fabricated to fill the gap).
+>
 > **Migration note.** Before this contract, devague (0.4.0) shipped no committed
 > contract document and `converge --json` emitted `{passed, missing}`. This
 > contract supersedes that with the structured convergence result below; the old
@@ -41,6 +47,7 @@ A feature-framing workspace.
 - `created`, `updated` — ISO-8601 UTC timestamps, stamped on save.
 - `claims` — list of Claim.
 - `open_vagueness` — list of Vagueness.
+- `scope_entries` — list of ScopeEntry (v2, #53 t1; see below).
 
 ### Claim
 
@@ -54,6 +61,8 @@ A discrete statement that may become part of the spec.
 - `honesty_conditions` — list of HonestyCondition.
 - `hard_questions` — list of HardQuestion.
 - `links` — related claim ids.
+- `instruction` — optional verbatim text: how to verify or implement this
+  claim; `""` means none (v2, #53 t1). See *Instructions* below.
 
 ### HonestyCondition
 
@@ -62,6 +71,8 @@ What must be true for a claim to be honest.
 - `id` — `h1`, `h2`, …
 - `text` — the condition.
 - `status` — `proposed` | `confirmed` | `rejected`.
+- `instruction` — optional verbatim text: how to verify this condition holds;
+  `""` means none (v2, #53 t1). See *Instructions* below.
 
 ### HardQuestion
 
@@ -80,6 +91,26 @@ First-class open vagueness — parked uncertainty, not a markdown afterthought.
 - `text` — the unknown.
 - `kind` — see Vagueness kinds.
 - `claim_id` — optional owning claim.
+
+### ScopeEntry
+
+A recorded scope-exploration finding — the durable record of the optional
+pre-frame leg (the `/scope` skill, #53). Lives on the frame as
+`Frame.scope_entries` (v2, #53 t1).
+
+- `id` — `s1`, `s2`, …
+- `surface` — what was explored (a file, a subsystem, a doc — the operating
+  agent's read-only survey, never devague's own code).
+- `finding` — what was learned about that surface.
+- `seeds` — claim ids this finding seeded (typically `boundary` / `non_goal` /
+  `assumption` claims that cite what was actually explored); an unknown claim
+  id is refused at construction, the same fail-closed rule as everywhere else.
+
+The domain model (`Frame.add_scope_entry`) and its round-trip through
+`schema_version` 2 ship in #53 task t1, and the CLI move that records one —
+`devague scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]`, plus
+`scope --list [--json]` to read them back — ships in #53 task t3. An unknown
+seed claim id is refused with a hint and nothing is persisted.
 
 ## Vocabulary
 
@@ -119,6 +150,35 @@ information is lost and no rename is needed:
 issue's `unknown_non_blocking` is `unknown_nonblocking`; `intentionally_out_of_scope`
 is `out_of_scope`. Only `unknown_blocking` holds back convergence.
 
+## Instructions
+
+`Claim`, `HonestyCondition`, and (on the plan side) `Task` each carry an
+optional `instruction` field: verbatim operator/user-authored text on how to
+verify or implement that item. The default is `""` — empty means "no
+instruction," never fabricated or defaulted to prose. Instructions are meant to
+flow end to end: captured on a claim or honesty condition, carried onto the
+plan tasks that cover it, rendered verbatim in exports, and quoted verbatim
+into a workforce subagent's brief — no operator paraphrasing at any hop (#53).
+
+Setting or changing an instruction is content, not metadata: **adding or
+changing the instruction on an already-`confirmed` claim, honesty condition, or
+task flips its status back to `proposed`.** The user re-confirms it, exactly
+like any other proposed content — this is deliberate, not a bug, and keeps the
+anti-fabrication guarantee intact even for a field that arrives after the
+initial confirm.
+
+The CLI surface that sets instructions ships in this increment:
+
+- frame side: `capture --instruction "<text>"` (at creation) and
+  `interrogate <c*|h*> --instruction "<text>"` (on an existing claim or honesty
+  condition) — #53 task t4;
+- plan side: `plan task --instruction "<text>"` (at creation) and the
+  `plan instruct <tN> "<text>"` move (on an existing task) — #53 task t5.
+
+`devague review` lists each item's instruction alongside it (t4), so the human
+review loop sees instructions the same way it sees proposed claims and honesty
+conditions.
+
 ## Convergence result
 
 `converge` returns a structured verdict (not prose-only advice). The frame CLI
@@ -135,6 +195,26 @@ A frame converges when there are confirmed `announcement` / `audience` /
 `success_signal`, a confirmed honesty condition on every spec-affecting claim,
 and no unresolved blocking vagueness or blocking hard question. `export` is gated
 on `ready_for_spec`.
+
+### Structural sharpness warnings (soft rollout)
+
+Two more deterministic warnings tighten the frame gate without changing what
+blocks convergence — shipped in `convergence.py` by #53 task t7, each rule's
+exact predicate and false-positive story documented in that module's docstring:
+
+- a confirmed spec-affecting claim carries no `instruction`;
+- the confirmed `success_signal` claims contain no measurability token
+  (a numeral, `%`, or a comparator — a deterministic structural heuristic,
+  never LLM judgment on the claim text).
+
+The plan gate carries the symmetric warning in `plan_convergence.py` (#53 task
+t8): a confirmed task carries no `instruction`.
+
+All three land as **warnings only** in this increment: they surface in
+`warnings[]` alongside the existing unconfirmed-`assumption` warning, but never
+add a blocker, so frames and plans that already converge keep converging
+unchanged. A later increment may decide whether any of them graduates to a
+blocker.
 
 ## Moves
 
@@ -168,6 +248,11 @@ explicit user `confirm` before they affect convergence. Nothing auto-confirms,
 `converge` never mutates a claim's status, and no fixed prompt sequence is
 imposed — the CLI stays a move-driven state tracker.
 
+The same guarantee extends to instructions once t4/t5 land: setting or
+changing one on an already-confirmed item demotes it back to `proposed` (see
+*Instructions* above) — content changes route through the user exactly like
+new proposals.
+
 ## Worked example
 
 `docs/examples/contract-example.json` is a real, converged frame exercising the
@@ -180,8 +265,10 @@ it round-trips losslessly and converges, so this document's model stays honest.
 
 The plan engine (`devague plan …`) is the structural peer: a Plan holds coverage
 targets derived from a converged frame, Tasks (`origin`/`status` like claims,
-plus `deps`, `covers`, `acceptance_criteria`), and PlanRisks. It reuses the same
-structured convergence result, serialized under `ready_for_plan`. See
+plus `deps`, `covers`, `acceptance_criteria`, and an optional `instruction` —
+verbatim text on how to implement/verify the task, `""` means none, v2, #53 t2;
+see *Instructions* above), and PlanRisks. It reuses the same structured
+convergence result, serialized under `ready_for_plan`. See
 `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
 
 `plan waves` emits the plan's dependency graph as deterministic, machine-readable
@@ -196,7 +283,7 @@ codexd, …) decides how — or whether — to execute it. Devague does not spaw
 subagents, manage worktrees, mark tasks done, or choose a backend.
 
 Plans carry the same persistence contract as frames. Every plan has an integer
-`schema_version` (currently `1`, `PLAN_SCHEMA_VERSION`), written on save and
+`schema_version` (currently `2`, `PLAN_SCHEMA_VERSION`), written on save and
 checked on load: `plan_store.load` **fails closed** with a clean `DevagueError`
 (exit code 1, upgrade hint) when a plan declares a `schema_version` newer than
 this devague supports. A pre-0.7.0 plan with no `schema_version` key loads
@@ -211,3 +298,6 @@ slug (so a tampered file can't silently redirect a later `save`), and parse
 `schema_version` strictly via the shared `frame.parse_schema_version` — a
 non-integer value is rejected rather than coerced. These guards are symmetric
 across the frame and plan persistence twins.
+
+> **v2 (#53 t2).** `PLAN_SCHEMA_VERSION` bumped to add `Task.instruction`. A v1
+> plan predates it and loads with every task's `instruction` defaulted to `""`.

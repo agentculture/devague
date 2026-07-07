@@ -55,17 +55,42 @@ of the method: no wizard.)
      `non_goal` claim;
    - **genuinely unknown** — can't tell without a decision → becomes a `park`
      (open vagueness) or a `question` (pending user decision).
-4. **Seed the frame with provenance.** When `/think` starts, capture the
-   findings as claims whose text **cites the surface explored** — "the CLI
-   stays deterministic per issue 20; scope exploration is agent-side"
-   beats "we won't overreach". Provenance, not generic disclaimers: a reviewer
-   should be able to trace every boundary claim back to something you read.
+4. **Record findings on the frame, with provenance.** Start the frame with
+   `devague new "<announcement>" --title "<short>"` (this is also `/think`'s
+   first move) — scope entries live on the frame, so it must exist first.
+   Record each explored surface as a first-class finding:
+   `` `devague scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]` ``
+   — text that **cites the surface explored** ("the CLI stays deterministic
+   per issue 20; scope exploration is agent-side" beats "we won't overreach").
+   Capture the claim it seeded first (`capture --kind ...`), then pass its id
+   to `--seeds` — an unknown seed id is refused with a hint. Provenance, not
+   generic disclaimers: a reviewer should be able to trace every boundary claim
+   back to something you read.
 
 ## How findings land (the shipped surface)
 
-There is no `devague scope` CLI verb yet — findings land through the existing
-`devague` moves (this skill invokes the CLI directly and stays self-contained;
-if `devague` isn't on your PATH: `uv tool install devague`):
+This skill invokes the CLI directly and stays self-contained (if `devague`
+isn't on your PATH: `uv tool install devague`).
+
+The **primary** landing surface is the deterministic `devague scope` move,
+shipped in task t3 of the committed sharper-end-to-end-method plan
+(`docs/plans/2026-07-01-devague-ships-a-sharper-end-to-end-method-a-guided.md`,
+devague#53). It records an explored surface + finding as first-class frame
+state (`Frame.scope_entries` / `ScopeEntry`: `id` (`sN`), `surface`, `finding`,
+`seeds`) — deterministic recording only, no LLM calls, no subprocess, no
+filesystem exploration inside the CLI. Like `capture`, it needs a frame to
+already exist, so run `devague new` first:
+
+| Move | What it does |
+|------|--------------|
+| `devague scope "<surface>" --finding "<text>"` | Record a finding on the current frame. |
+| `devague scope "<surface>" --finding "<text>" --seeds <claim-id> [<claim-id> ...]` | Record a finding, linking it to the claim id(s) it went on to seed. An unknown seed id is refused with a hint (`run 'devague show' to see valid claim ids`). |
+| `devague scope --list [--json]` | Read every recorded entry back. |
+
+Boundary / non-goal / in-scope claims still land the same way they always
+did, through the normal frame moves — `devague scope` documents *what surface
+you explored and what you learned*, `capture` records *the claim that
+followed*:
 
 | Finding | Move |
 |---------|------|
@@ -73,13 +98,6 @@ if `devague` isn't on your PATH: `uv tool install devague`):
 | out of scope (must not change) | `capture --kind boundary` / `--kind non_goal` |
 | genuinely unknown, needs a user decision | `question "<text>"` (later `question --resolve <qid> --decision "<text>"`) |
 | genuinely unknown, not decidable now | `park "<text>" --kind unknown_blocking\|unknown_nonblocking` |
-
-A deterministic **`devague scope` move** — recording explored surfaces and
-findings as first-class frame state with provenance links — is **planned, not
-shipped**: it is task t3 of the committed sharper-end-to-end-method plan
-(`docs/plans/2026-07-01-devague-ships-a-sharper-end-to-end-method-a-guided.md`,
-devague#53). Do not run `devague scope` until it exists; this skill documents
-the surface as built.
 
 ## Hard rules (do not violate)
 
@@ -104,23 +122,38 @@ git ls-files devague/ | head -30       # the CLI package map
 # read: devague/frame.py (claim model), devague/render/spec_md.py (renderer),
 #       docs/spec-contract.md (schema contract), .claude/skills/think/SKILL.md
 
-# 3–4. hand off to /think and seed with provenance
+# 3. start the frame (also /think's first move — scope entries live on it)
 devague new "devague exports carry per-item instructions" --title "per-item instructions"
+
+# 4. capture each finding as a claim, then record the scope entry that seeded it
 devague capture --origin llm --kind requirement "claims gain an optional instruction field — devague/frame.py claim model + docs/spec-contract.md schema both need a bump"
+devague scope "devague/frame.py" --finding "claim model needs an optional instruction field per docs/spec-contract.md's schema contract" --seeds c2
+
 devague capture --origin llm --kind boundary "render/spec_md.py renders instructions verbatim; absent instructions render nothing — the renderer never fabricates filler"
+devague scope "render/spec_md.py" --finding "renderer must render instructions verbatim; absent instructions render nothing — never fabricate filler" --seeds c3
+
 devague capture --origin llm --kind non_goal "no LLM calls land inside the CLI (issue 20) — instruction text is authored by the operator/user, never generated in-CLI"
+devague scope "issue 20 (no LLM calls in-CLI)" --finding "instruction text is authored by the operator/user, never generated in-CLI" --seeds c4
+
 devague question "do instructions attach to frame claims, plan tasks, or both?"
+devague scope --list   # read every recorded finding back, with its seeded claim ids
 ```
 
 Every claim above names the file or issue that was actually read — that is the
-provenance bar.
+provenance bar. Note the order: `--seeds` needs the claim id to already exist,
+so `capture` runs first and the matching `scope` call cites it back.
 
 ## After scoping — hand off to /think
 
-Scope exploration produces no artifact of its own (until the planned CLI move
-lands, the findings *are* the seeded claims). When the survey is done, start
-the frame with `/think` and capture the findings as the frame's opening claims.
-The user confirms LLM-proposed ones there, as always.
+The recorded scope entries and the claims captured alongside them both live on
+the same frame — there is nothing separate to export. `devague scope --list`
+is the durable, citable record of what was explored; a converged frame's
+exported spec-md also renders a `## Scope exploration` section from the same
+entries (surface, finding, and seeded claim ids), so the provenance survives
+into the buildable artifact (#53 t6). When the survey is done, continue with
+`/think`'s remaining moves (`interrogate`, `confirm`/`reject`, `converge`,
+`export`) to take the frame the rest of the way. The user confirms
+LLM-proposed claims there, as always.
 
 ## Provenance
 

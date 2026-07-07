@@ -2,58 +2,102 @@
 
 from __future__ import annotations
 
-from devague.frame import Frame
+from devague.frame import Claim, Frame, HonestyCondition
 
 
-def _texts(frame: Frame, kind: str) -> list[str]:
-    return [c.text for c in frame.claims if c.kind == kind and c.status == "confirmed"]
+def _claims(frame: Frame, kind: str) -> list[Claim]:
+    return [c for c in frame.claims if c.kind == kind and c.status == "confirmed"]
 
 
-def _section(heading: str, texts: list[str]) -> list[str]:
-    """A standard ``## heading`` + bullet-list block, or nothing when empty."""
+def _instruction_lines(instruction: str, indent: str = "  ") -> list[str]:
+    """A nested ``- instruction: <verbatim text>`` bullet under an item, or nothing
+    when the item carries no instruction — never fabricated filler (#53 t1/t6,
+    c10/h3).
+    """
+    return [f"{indent}- instruction: {instruction}"] if instruction else []
+
+
+def _claim_bullets(claims: list[Claim], prefix: str = "") -> list[str]:
+    out: list[str] = []
+    for c in claims:
+        out.append(f"- {prefix}{c.text}")
+        out += _instruction_lines(c.instruction)
+    return out
+
+
+def _text_section(heading: str, texts: list[str]) -> list[str]:
+    """A standard ``## heading`` + plain bullet-list block, or nothing when empty.
+
+    For text-only items with no instruction field (e.g. open vagueness).
+    """
     if not texts:
         return []
     return [f"## {heading}", "", *[f"- {t}" for t in texts], ""]
 
 
+def _claim_section(heading: str, claims: list[Claim]) -> list[str]:
+    """A ``## heading`` + bullet-list block of claims, each with its own nested
+    instruction bullet when it carries one, or nothing when empty.
+    """
+    if not claims:
+        return []
+    return [f"## {heading}", "", *_claim_bullets(claims), ""]
+
+
 def _before_after(frame: Frame) -> list[str]:
-    befores = _texts(frame, "before_state")
-    afters = _texts(frame, "after_state")
+    befores = _claims(frame, "before_state")
+    afters = _claims(frame, "after_state")
     if not (befores or afters):
         return []
     lines = ["## Before → After", ""]
-    lines += [f"- Before: {t}" for t in befores]
-    lines += [f"- After: {t}" for t in afters]
+    lines += _claim_bullets(befores, prefix="Before: ")
+    lines += _claim_bullets(afters, prefix="After: ")
     return lines + [""]
 
 
 def _requirements_block(frame: Frame) -> list[str]:
     """Requirement claims (confirmed) with their confirmed honesty conditions nested."""
-    reqs = [c for c in frame.claims if c.kind == "requirement" and c.status == "confirmed"]
+    reqs = _claims(frame, "requirement")
     if not reqs:
         return []
     out = ["## Requirements", ""]
     for c in reqs:
         out.append(f"- {c.text}")
-        out += [f"  - honesty: {h.text}" for h in c.honesty_conditions if h.status == "confirmed"]
+        out += _instruction_lines(c.instruction)
+        for h in c.honesty_conditions:
+            if h.status != "confirmed":
+                continue
+            out.append(f"  - honesty: {h.text}")
+            out += _instruction_lines(h.instruction, indent="    ")
     return out + [""]
 
 
-def _other_honesty(frame: Frame) -> list[str]:
+def _other_honesty(frame: Frame) -> list[HonestyCondition]:
     """Confirmed honesty conditions on **confirmed** non-requirement claims.
 
     The parent claim must be confirmed too: spec-md renders only confirmed claims
-    (see ``_texts``), so emitting honesty for a proposed/rejected claim would
+    (see ``_claims``), so emitting honesty for a proposed/rejected claim would
     leave an orphan bullet with no parent — inconsistent with the confirmed-only
     export contract.
     """
     return [
-        h.text
+        h
         for c in frame.claims
         if c.kind != "requirement" and c.status == "confirmed"
         for h in c.honesty_conditions
         if h.status == "confirmed"
     ]
+
+
+def _honesty_section(heading: str, honesties: list[HonestyCondition]) -> list[str]:
+    """Like ``_claim_section`` but for a flat list of honesty conditions."""
+    if not honesties:
+        return []
+    out = [f"## {heading}", ""]
+    for h in honesties:
+        out.append(f"- {h.text}")
+        out += _instruction_lines(h.instruction)
+    return out + [""]
 
 
 def _hard_questions(frame: Frame) -> list[str]:
@@ -66,22 +110,42 @@ def _follow_up(frame: Frame) -> list[str]:
     return [v.text for v in frame.open_vagueness if v.kind in ("follow_up", "out_of_scope")]
 
 
+def _scope_section(frame: Frame) -> list[str]:
+    """Scope-exploration provenance: each recorded surface + finding, with the
+    claim ids it seeded — citing what was actually explored, not a generic
+    disclaimer (#53 t1/t6, c8/h12/h2). Empty ``scope_entries`` renders nothing.
+    """
+    if not frame.scope_entries:
+        return []
+    out = ["## Scope exploration", ""]
+    for e in frame.scope_entries:
+        out.append(f"- `{e.id}` — `{e.surface}`: {e.finding}")
+        if e.seeds:
+            out.append(f"  - seeds: {', '.join(f'`{s}`' for s in e.seeds)}")
+    return out + [""]
+
+
 def render_spec(frame: Frame) -> str:
     out: list[str] = [f"# {frame.title}", ""]
-    ann = _texts(frame, "announcement")
-    if ann:
-        out += ["> " + ann[0], ""]
-    out += _section("Audience", _texts(frame, "audience"))
+    ann_claims = _claims(frame, "announcement")
+    if ann_claims:
+        ann = ann_claims[0]
+        out.append("> " + ann.text)
+        if ann.instruction:
+            out.append(f"> instruction: {ann.instruction}")
+        out.append("")
+    out += _claim_section("Audience", _claims(frame, "audience"))
     out += _before_after(frame)
-    out += _section("Why it matters", _texts(frame, "why_it_matters"))
+    out += _claim_section("Why it matters", _claims(frame, "why_it_matters"))
     out += _requirements_block(frame)
-    out += _section("Honesty conditions", _other_honesty(frame))
-    out += _section("Success signals", _texts(frame, "success_signal"))
-    out += _section("Scope / boundaries", _texts(frame, "boundary"))
-    out += _section("Non-goals", _texts(frame, "non_goal"))
-    out += _section("Assumptions", _texts(frame, "assumption"))
-    out += _section("Decisions", _texts(frame, "decision"))
+    out += _honesty_section("Honesty conditions", _other_honesty(frame))
+    out += _claim_section("Success signals", _claims(frame, "success_signal"))
+    out += _claim_section("Scope / boundaries", _claims(frame, "boundary"))
+    out += _claim_section("Non-goals", _claims(frame, "non_goal"))
+    out += _claim_section("Assumptions", _claims(frame, "assumption"))
+    out += _scope_section(frame)
+    out += _claim_section("Decisions", _claims(frame, "decision"))
     out += _hard_questions(frame)
-    out += _section("Open questions", _texts(frame, "open_question"))
-    out += _section("Open / follow-up", _follow_up(frame))
+    out += _claim_section("Open questions", _claims(frame, "open_question"))
+    out += _text_section("Open / follow-up", _follow_up(frame))
     return "\n".join(out).rstrip() + "\n"
