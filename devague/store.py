@@ -115,6 +115,11 @@ def unique_slug(base: str) -> str:
 
 def save(frame: Frame) -> Path:
     FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+    # Stamp the version this binary actually writes: a frame loaded under an older
+    # label then mutated with newer fields must not be rewritten under that older
+    # label, or the fail-closed load gate (schema_version > SCHEMA_VERSION) is
+    # defeated and an old binary silently drops the newer payload (data loss).
+    frame.schema_version = SCHEMA_VERSION
     frame.updated = _now()
     if not frame.created:
         frame.created = frame.updated

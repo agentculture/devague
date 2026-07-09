@@ -33,6 +33,11 @@ def path_for(slug: str) -> Path:
 
 def save(plan: Plan) -> Path:
     PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    # Stamp the version this binary actually writes: a plan loaded under an older
+    # label then mutated with newer fields must not be rewritten under that older
+    # label, or the fail-closed load gate (schema_version > PLAN_SCHEMA_VERSION)
+    # is defeated and an old binary silently drops the newer payload (data loss).
+    plan.schema_version = PLAN_SCHEMA_VERSION
     plan.updated = _now()
     if not plan.created:
         plan.created = plan.updated
