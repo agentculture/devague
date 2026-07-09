@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-07-09
+
+Skills-only release. The devague CLI is unchanged — no new verbs, no new CLI
+docs.
+
+### Added
+
+- **New fifth origin skill `summarize-delivery`** — the delivery-side closure
+  leg that runs after `/assign-to-workforce`. It turns an execution run into a
+  committed accountability artifact: planned vs actual delivery, mid-work
+  decisions, plan drift, evidence-backed delivery claims with confidence
+  levels, and remaining work. Method-only in v1 — `SKILL.md` plus an
+  eight-section template; no entry-point script and no new CLI verb. Runs on
+  complete, partial, and failed runs; never overclaims (a delivery claim
+  without evidence is marked `unverified`).
+- **Registered as the fifth origin skill** in `docs/skill-sources.md`
+  (alongside `scope` / `think` / `spec-to-plan` / `assign-to-workforce`) —
+  authored here, re-broadcast by `guildmaster`, never re-vendored back.
+- **First dogfood delivery artifact**:
+  `docs/deliveries/2026-07-09-sharper-end-to-end-method.md` — the first real
+  delivery summary, produced with the shipped template, covering the #53
+  sharper-end-to-end-method run (all 14 plan tasks accounted for, three
+  classified plan-drift entries, one delivery claim honestly marked
+  `unverified`).
+
+### Changed
+
+- Flow docs now name the five-leg flow — `scope` → `think` → `spec-to-plan` →
+  `assign-to-workforce` → `summarize-delivery` — in `CLAUDE.md`, `README.md`,
+  and `docs/skills.md`, plus a new "after the final PR" handoff section in
+  `.claude/skills/assign-to-workforce/SKILL.md` that points to
+  `/summarize-delivery`.
+
 ## [0.16.0] - 2026-07-07
 
 ### Added
