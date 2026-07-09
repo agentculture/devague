@@ -78,8 +78,12 @@ committed.
 
 ## Driving it from an agent
 
-Inside AgentCulture, an assistant drives this CLI through two operator skills —
-**`/think`** (idea→spec) and **`/spec-to-plan`** (spec→plan) — which add a
-portable wrapper and a `status` next-move helper over the convergence gate. The
-CLI is the deterministic affordance; the agent decides the next move. See
-`CLAUDE.md` for that workflow and `docs/superpowers/specs/` for the design docs.
+Inside AgentCulture, an assistant drives this CLI through a family of operator
+skills that cover the flow end to end, in order: **`/scope`** (idea→explored
+scope, the optional opening leg), **`/think`** (idea→spec), **`/spec-to-plan`**
+(spec→plan), **`/assign-to-workforce`** (plan→parallel implementation), and
+**`/summarize-delivery`** (execution→a committed accountability artifact). The
+CLI-driving pair — `/think` and `/spec-to-plan` — add a portable wrapper and a
+`status` next-move helper over the convergence gate; the CLI is the
+deterministic affordance and the agent decides the next move. See `CLAUDE.md`
+for that workflow and `docs/superpowers/specs/` for the design docs.
