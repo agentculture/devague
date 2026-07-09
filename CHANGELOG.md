@@ -7,8 +7,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.17.0] - 2026-07-09
 
-Skills-only release. The devague CLI is unchanged — no new verbs, no new CLI
-docs.
+Skills release plus one correctness fix. No new CLI verbs and no new CLI docs;
+the only code change is a data-loss fix in the frame/plan stores (see *Fixed*).
 
 ### Added
 
@@ -37,6 +37,19 @@ docs.
   and `docs/skills.md`, plus a new "after the final PR" handoff section in
   `.claude/skills/assign-to-workforce/SKILL.md` that points to
   `/summarize-delivery`.
+
+### Fixed
+
+- **`save()` now stamps the current `schema_version` (upgrade-on-write)** —
+  `devague/store.py` and `devague/plan_store.py` re-emitted the
+  `schema_version` loaded from disk instead of the one the running binary
+  writes. A frame created under schema v1 and later mutated by a v2 binary was
+  saved still labelled v1 while carrying v2-only payload (`scope_entries`,
+  per-item `instruction`). An older binary then passed the fail-closed load gate
+  (`schema_version > SCHEMA_VERSION`), loaded the file, silently dropped the
+  unknown fields, and rewrote it — data loss. Both stores now stamp the current
+  version on write, so an older binary correctly *refuses* the file instead.
+  Found by Qodo on PR #63; regression tests added for both stores.
 
 ## [0.16.0] - 2026-07-07
 
