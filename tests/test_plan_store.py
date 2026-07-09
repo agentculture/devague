@@ -136,3 +136,17 @@ def test_load_rejects_slug_mismatch(tmp_path, monkeypatch) -> None:
     p.write_text(json.dumps(raw), encoding="utf-8")
     with pytest.raises(ValueError, match="slug mismatch"):
         plan_store.load("demo")
+
+
+def test_save_upgrades_stale_schema_version_on_write(tmp_path, monkeypatch) -> None:
+    # A plan loaded under an older label then mutated must be rewritten under the
+    # version this binary writes, or the fail-closed load gate is defeated and an
+    # old binary silently drops the newer payload (data loss). save() stamps the
+    # current PLAN_SCHEMA_VERSION rather than re-emitting the loaded one.
+    monkeypatch.chdir(tmp_path)
+    p = _plan()
+    p.schema_version = 1
+    plan_store.save(p)
+    assert plan_store.load("demo").schema_version == PLAN_SCHEMA_VERSION
+    raw = json.loads(plan_store.path_for("demo").read_text(encoding="utf-8"))
+    assert raw["schema_version"] == 2
