@@ -143,6 +143,7 @@ A skill drives the deterministic CLI and adds no business logic of its own:
 | `think` | idea → spec (working backwards) | the flat `devague <move>` verbs |
 | `spec-to-plan` | spec → plan (working forwards) | the `devague plan <move>` group |
 | `assign-to-workforce` | plan → parallel implementation | reads `devague plan waves` (read-only) |
+| `summarize-delivery` | execution → accountability artifact (the delivery-side closure leg) | method-only; reads plan / git / PR / test evidence (read-only) |
 
 ### `scope` — idea → explored scope (method-only)
 
@@ -204,6 +205,22 @@ from `plan show --json` / the exported plan-md — including the per-task
 - Source:
   [`.claude/skills/assign-to-workforce/`](https://github.com/agentculture/devague/blob/main/.claude/skills/assign-to-workforce/SKILL.md)
   (`SKILL.md` + `scripts/assign-to-workforce.sh`).
+
+### `summarize-delivery` — execution run → accountability artifact
+
+The delivery-side closure leg: after `/assign-to-workforce` executes a plan —
+complete, partial, or **failed** — record what actually shipped as a committed
+accountability artifact at `docs/deliveries/<created-date>-<slug>.md`. It
+separates planned work from actual delivery, captures mid-work decisions and
+plan drift, and states every delivery claim with a confidence level and evidence
+pointers — a claim without evidence is marked `unverified`, never asserted as
+done. Method-only in v1 (a `SKILL.md` + an eight-section template; no
+entry-point script and no new CLI verb — the deterministic CLI surface is
+unchanged, #20). New in 0.17.0.
+
+- Source:
+  [`.claude/skills/summarize-delivery/`](https://github.com/agentculture/devague/blob/main/.claude/skills/summarize-delivery/SKILL.md)
+  (`SKILL.md` + an eight-section delivery-summary template).
 
 ## See also
 
