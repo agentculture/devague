@@ -12,6 +12,7 @@ from typing import Optional
 
 from devague.frame import Frame
 from devague.plan import Plan, Task
+from devague.render._md_safety import autolink_urls, heading_safe
 
 
 def _topo_order(tasks: list[Task]) -> list[Task]:
@@ -58,15 +59,15 @@ def _task_lines(task: Task) -> list[str]:
         # t9), mirroring t6's nested ``- instruction:`` bullet in spec_md.py /
         # frame_md.py. A task is a heading rather than a claim bullet, so the
         # instruction renders as the first body bullet, immediately under it.
-        body.append(f"- instruction: {task.instruction}")
+        body.append(f"- instruction: {autolink_urls(task.instruction)}")
     if task.deps:
         body.append(f"- depends on: {', '.join(task.deps)}")
     if task.covers:
         body.append(f"- covers: {', '.join(task.covers)}")
     if task.acceptance_criteria:
         body.append("- acceptance:")
-        body.extend(f"  - {a}" for a in task.acceptance_criteria)
-    lines = [f"### {task.id} — {task.summary}{mark}"]
+        body.extend(f"  - {autolink_urls(a)}" for a in task.acceptance_criteria)
+    lines = [f"### {task.id} — {heading_safe(task.summary)}{mark}"]
     if body:
         # Blank line between the heading and its list (MD022/MD032).
         lines += ["", *body]
@@ -76,14 +77,14 @@ def _task_lines(task: Task) -> list[str]:
 
 def render_plan(plan: Plan, frame: Optional[Frame]) -> str:
     out = [
-        f"# Build Plan — {plan.title}",
+        f"# Build Plan — {heading_safe(plan.title)}",
         "",
         f"slug: `{plan.slug}` · status: `{plan.status}` · from frame: `{plan.frame_slug}`",
         "",
     ]
     ann = _announcement(frame)
     if ann:
-        out += ["> " + ann, ""]
+        out += ["> " + autolink_urls(ann), ""]
 
     tasks = [t for t in plan.tasks if t.status != "rejected"]
     if tasks:
@@ -95,7 +96,7 @@ def render_plan(plan: Plan, frame: Optional[Frame]) -> str:
         out += ["## Risks", ""]
         for r in plan.risks:
             suffix = f" (task {r.task_id})" if r.task_id else ""
-            out.append(f"- [{r.kind}] {r.text}{suffix}")
+            out.append(f"- [{r.kind}] {autolink_urls(r.text)}{suffix}")
         out.append("")
 
     return "\n".join(out).rstrip() + "\n"
