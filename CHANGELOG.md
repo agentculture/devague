@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-07-10
+
+### Fixed
+
+- **`devague export` / `devague plan export` now emit markdownlint-safe markdown (#64).** Both renderers interpolate free-form claim/task/honesty prose straight into headings, blockquotes, and bullets, which tripped markdownlint's MD026 (no-trailing-punctuation) whenever a heading came from a sentence (the announcement, a task summary) and MD034 (no-bare-urls) whenever prose carried a bare `http(s)://` URL. Downstream repos (league-of-agents-platform) were hand-fixing every export before committing it. New shared helper `devague/render/_md_safety.py`: `heading_safe()` strips trailing punctuation from the `#`/`###` line only (blockquote/body copy keeps the sentence verbatim); `autolink_urls()` wraps a bare URL in `<...>` unless it is already inside `<>`, already the destination of a `[text](url)` link, or inside a code span. Both rules are pinned empirically against markdownlint-cli2 v0.21.0 (markdownlint v0.40.0). Rendering only — Frame/Plan JSON keeps the original text verbatim. New `tests/test_md_safety.py` (unit), hostile-input cases added to `tests/test_render.py` / `tests/test_render_plan.py`, and `tests/test_export_markdownlint_integration.py` (drives the real CLI end to end and shells out to `markdownlint-cli2`, skipping cleanly when it is not on PATH). Closes #64.
+
 ## [0.17.0] - 2026-07-09
 
 Skills release plus one correctness fix. No new CLI verbs and no new CLI docs;
