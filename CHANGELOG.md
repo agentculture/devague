@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-07-13
+
+### Changed
+
+- **Relicensed devague from MIT to Apache-2.0.** `LICENSE` now carries the full
+  Apache License 2.0 text (`Copyright 2026 AgentCulture`); `pyproject.toml`
+  updates `license = "Apache-2.0"` and the OSI classifier to
+  `License :: OSI Approved :: Apache Software License`; `CLAUDE.md` records the
+  new family license. The vendored skills under `.claude/skills/` are untouched
+  — they keep their upstream guildmaster **MIT** license, and
+  `docs/skill-sources.md` now notes that devague and its vendored skills no
+  longer share a license.
+
 ## [0.17.1] - 2026-07-10
 
 ### Fixed

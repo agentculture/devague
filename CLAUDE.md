@@ -226,7 +226,7 @@ directly into those workflows.
 
 ## Ecosystem context
 
-devague belongs to the **AgentCulture** family (MIT, `Copyright (c) 2026
+devague belongs to the **AgentCulture** family (Apache-2.0, `Copyright 2026
 AgentCulture`); the GitHub remote is `origin/main` and lives under
 `github.com/agentculture/devague`. Its closest structural analogs in this
 workspace are the small Python CLI agents `agtag`, `appsec`, `seer-cli`, and
