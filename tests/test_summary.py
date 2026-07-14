@@ -11,10 +11,18 @@ Covers the render module directly (``render_summary`` / ``render_pr_summary`` /
    placeholder; two renders are byte-identical; state is untouched
 3. ``--pr`` emits the condensed PR-body skeleton (stdout-only tested);
    markdownlint-safe output
+4. a broken delivery ledger is translated into an actionable
+   :class:`DevagueError` instead of falling through as "unexpected" (Q5); a
+   raw ``|`` or newline in a deviation's ``reason`` cannot corrupt the Drift
+   From Plan table (Q2); ``cmd_summary`` has a single return path
+   (SonarCloud S3516) and the "no tasks" literal is a single shared constant
+   (SonarCloud S1192)
 """
 
 from __future__ import annotations
 
+import ast
+import inspect
 import json
 import re
 import shutil
@@ -25,7 +33,8 @@ import pytest
 
 from devague import delivery_store, plan_store, store
 from devague.cli import main
-from devague.delivery import Delivery
+from devague.cli._commands import summary as summary_cmd
+from devague.delivery import DELIVERY_SCHEMA_VERSION, Delivery
 from devague.plan import Plan
 from devague.render import summary_md
 from tests.test_render import assert_markdownlint_clean
@@ -169,6 +178,19 @@ def test_empty_plan_shows_no_tasks_placeholder_text() -> None:
     assert "(no tasks recorded on this plan)" in out
 
 
+def test_no_tasks_placeholder_is_a_single_shared_constant() -> None:
+    # SonarCloud python:S1192 — "(no tasks recorded on this plan)" was
+    # duplicated 3x (Planned Work / Actual Delivery / --pr wave-task-map);
+    # one module-level constant must back every occurrence.
+    assert summary_md.NO_TASKS_PLACEHOLDER == "(no tasks recorded on this plan)"
+    plan = Plan(slug="empty", title="Empty Plan", frame_slug="empty")
+    delivery = Delivery(plan_slug=plan.slug)
+    summary_out = summary_md.render_summary(plan, None, delivery)
+    pr_out = summary_md.render_pr_summary(plan, None, delivery)
+    assert summary_out.count(summary_md.NO_TASKS_PLACEHOLDER) == 2  # Planned Work + Actual Delivery
+    assert summary_md.NO_TASKS_PLACEHOLDER in pr_out  # --pr wave/task map
+
+
 # ── deviation records: drift + mid-work ──────────────────────────────────────
 def test_approved_deviation_appears_in_drift_and_mid_work() -> None:
     plan, frame = _bare_plan_and_frame()
@@ -225,6 +247,35 @@ def test_no_deviations_recorded_yet_empty_state() -> None:
     plan, frame = _bare_plan_and_frame()
     out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
     assert "(no deviations recorded yet)" in out
+
+
+# ── drift table safety: a raw '|'/newline in `reason` cannot break the table (Q2) ──
+
+
+def test_drift_lines_escapes_pipe_in_reason_to_protect_table_structure() -> None:
+    plan, frame = _bare_plan_and_frame()
+    delivery = Delivery(plan_slug=plan.slug)
+    delivery.add_deviation("swap", "t1", "blocked | upstream | vendor", origin="user")
+    out = summary_md.render_summary(plan, frame, delivery)
+    drift = out.split("## Drift From Plan")[1].split("## Evidence")[0]
+    row = next(ln for ln in drift.splitlines() if ln.startswith("| `t1`"))
+    # the raw pipes from the reason were escaped, not left as live separators
+    assert "\\|" in row
+    # splitting on an *unescaped* pipe must still yield exactly 5 fields:
+    # leading '', 3 columns, trailing ''
+    cells = re.split(r"(?<!\\)\|", row)
+    assert len(cells) == 5
+
+
+def test_drift_lines_flattens_newline_in_reason() -> None:
+    plan, frame = _bare_plan_and_frame()
+    delivery = Delivery(plan_slug=plan.slug)
+    delivery.add_deviation("swap", "t1", "line one\nline two", origin="user")
+    out = summary_md.render_summary(plan, frame, delivery)
+    drift = out.split("## Drift From Plan")[1].split("## Evidence")[0]
+    row = next(ln for ln in drift.splitlines() if ln.startswith("| `t1`"))
+    assert "\n" not in row
+    assert "line one line two" in row
 
 
 # ── markdown safety ───────────────────────────────────────────────────────────
@@ -294,6 +345,20 @@ def test_render_pr_summary_renders_title_announcement_waves_and_pointer() -> Non
 
 
 # ── CLI: text / json / --pr / degrade / no plan ──────────────────────────────
+def test_cmd_summary_has_a_single_return_statement() -> None:
+    # SonarCloud python:S3516 ("Refactor this method to not always return the
+    # same value"): cmd_summary had two separate `return 0` branches (--pr and
+    # non---pr), each always returning the literal 0. `_dispatch` treats a
+    # `None` return as success too, so the fix folds the branches down to one
+    # return path instead of duplicating the literal.
+    src = inspect.getsource(summary_cmd.cmd_summary)
+    tree = ast.parse(src)
+    func = tree.body[0]
+    assert isinstance(func, ast.FunctionDef)
+    returns = [n for n in ast.walk(func) if isinstance(n, ast.Return)]
+    assert len(returns) <= 1
+
+
 def test_cli_summary_text_mode_prints_all_sections(tmp_path, monkeypatch, capsys) -> None:
     _plan_with_two_tasks(monkeypatch, tmp_path, capsys)
     rc = main(["summary"])
@@ -357,6 +422,43 @@ def test_cli_summary_plan_flag_selects_named_plan(tmp_path, monkeypatch, capsys)
     rc = main(["summary", "--plan", slug])
     assert rc == 0
     assert "first task" in capsys.readouterr().out
+
+
+# ── broken delivery ledger errors are translated, not "unexpected" (Q5) ──────
+
+
+def test_cli_summary_delivery_schema_too_new_errors_with_hint(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    slug = _plan_with_two_tasks(monkeypatch, tmp_path, capsys)
+    delivery_store.save(Delivery(plan_slug=slug))
+    p = delivery_store.path_for(slug)
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = DELIVERY_SCHEMA_VERSION + 99
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    capsys.readouterr()
+    rc = main(["summary"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "upgrade devague" in err
+    assert "hint:" in err
+    assert "unexpected" not in err
+
+
+def test_cli_summary_delivery_malformed_json_errors_with_hint(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    slug = _plan_with_two_tasks(monkeypatch, tmp_path, capsys)
+    p = delivery_store.path_for(slug)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{not valid json", encoding="utf-8")
+    capsys.readouterr()
+    rc = main(["summary"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "malformed" in err
+    assert "repair or remove" in err
+    assert "unexpected" not in err
 
 
 # ── deviation records quoted end-to-end via the real CLI + delivery store ────

@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import argparse
 
-from devague import delivery_store, store
+from devague import store
+from devague.cli._deliveries import resolve_delivery
 from devague.cli._output import emit_result
 from devague.cli._plans import resolve_plan
 from devague.frame import Frame
@@ -35,17 +36,19 @@ def _load_source_frame(frame_slug: str) -> Frame | None:
 def cmd_summary(args: argparse.Namespace) -> int:
     plan: Plan = resolve_plan(args.plan)
     frame = _load_source_frame(plan.frame_slug)
-    delivery = delivery_store.load_or_new(plan.slug)
+    delivery = resolve_delivery(plan.slug)
     json_mode = getattr(args, "json", False)
 
-    if args.pr:
-        if json_mode:
-            emit_result(summary_md.pr_data(plan, frame, delivery), json_mode=True)
-        else:
-            emit_result(summary_md.render_pr_summary(plan, frame, delivery), json_mode=False)
-        return 0
-
-    if json_mode:
+    # A single return path (SonarCloud python:S3516 — a function with several
+    # `return 0` branches always returning the same literal value): select
+    # which payload to emit, then emit and return once. `_dispatch` treats a
+    # `None` return as success (exit 0) exactly like an explicit `return 0`,
+    # so the CLI contract is unchanged.
+    if args.pr and json_mode:
+        emit_result(summary_md.pr_data(plan, frame, delivery), json_mode=True)
+    elif args.pr:
+        emit_result(summary_md.render_pr_summary(plan, frame, delivery), json_mode=False)
+    elif json_mode:
         emit_result(summary_md.summary_data(plan, frame, delivery), json_mode=True)
     else:
         emit_result(summary_md.render_summary(plan, frame, delivery), json_mode=False)

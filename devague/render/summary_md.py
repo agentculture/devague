@@ -36,10 +36,29 @@ from devague.render._md_safety import autolink_urls, heading_safe
 
 RUN_STATUS_PLACEHOLDER = "<complete | partial | failed>"
 
+# SonarCloud python:S1192 — this literal was duplicated across three render
+# paths (Planned Work / Actual Delivery / the --pr wave-task-map); one
+# constant backs all of them now.
+NO_TASKS_PLACEHOLDER = "(no tasks recorded on this plan)"
+
 # Kept local (not imported from devague.cli._paths) so this render module has no
 # dependency on the CLI layer — the same layering plan_md.py/spec_md.py already
 # keep. Mirrors cli/_paths.py's UNDATED_PREFIX sentinel and date-validity check.
 _UNDATED_PREFIX = "0000-00-00"
+
+
+def _escape_table_cell(text: str) -> str:
+    """Make ``text`` safe to interpolate into a single GFM markdown-table cell.
+
+    A raw ``|`` inside a cell is parsed as an extra column separator, silently
+    corrupting the row's column count; a raw newline breaks the row onto a
+    second line GFM does not treat as part of the same row. Both are
+    neutralised — the pipe is escaped (``\\|``, rendered as a literal ``|``),
+    and any newline is flattened to a space — so free-form prose interpolated
+    into a table cell (a deviation's ``reason`` in :func:`_drift_lines`) can
+    never break the table it renders into (#72 review, Q2).
+    """
+    return text.replace("|", "\\|").replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
 
 
 def _date_prefix(created: str) -> str:
@@ -100,7 +119,7 @@ def _intent_lines(plan: Plan, frame: Optional[Frame]) -> list[str]:
 def _planned_work_lines(plan: Plan) -> list[str]:
     lines = ["## Planned Work", ""]
     if not plan.tasks:
-        lines.append("(no tasks recorded on this plan)")
+        lines.append(NO_TASKS_PLACEHOLDER)
         lines.append("")
         return lines
     for t in plan.tasks:
@@ -113,7 +132,7 @@ def _planned_work_lines(plan: Plan) -> list[str]:
 def _actual_delivery_lines(plan: Plan) -> list[str]:
     lines = ["## Actual Delivery", ""]
     if not plan.tasks:
-        lines.append("(no tasks recorded on this plan)")
+        lines.append(NO_TASKS_PLACEHOLDER)
         lines.append("")
         return lines
     lines.append("| Plan task | Status | What actually landed |")
@@ -155,9 +174,13 @@ def _drift_lines(delivery: Delivery) -> list[str]:
     lines.append("|-----------|------------------------|-----------------|")
     for d in approved:
         classification = f"`{d.classification}`" if d.classification else "`<fill: classification>`"
-        lines.append(
-            f"| `{d.task_ref}` (`{d.id}`) | {autolink_urls(d.reason)} | {classification} |"
-        )
+        # d.task_ref/d.id are backticked refs; d.reason is free-form prose --
+        # _escape_table_cell keeps a raw '|' or newline in it from corrupting
+        # the row (#72 review, Q2).
+        reason = _escape_table_cell(autolink_urls(d.reason))
+        task_ref = _escape_table_cell(d.task_ref)
+        did = _escape_table_cell(d.id)
+        lines.append(f"| `{task_ref}` (`{did}`) | {reason} | {classification} |")
     lines.append("")
     return lines
 
@@ -271,7 +294,7 @@ def _wave_task_map_lines(plan: Plan) -> list[str]:
     lines = ["## Wave / Task Map", ""]
     waves = dependency_waves(plan.tasks)
     if not waves:
-        lines.append("(no tasks recorded on this plan)")
+        lines.append(NO_TASKS_PLACEHOLDER)
         lines.append("")
         return lines
     for i, wave in enumerate(waves):
