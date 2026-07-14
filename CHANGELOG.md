@@ -77,6 +77,8 @@ and does mid-run.
   `deviate` → `summarize-delivery` — and the audience each leg serves:
   operators (the main agent driving the CLI) and the humans who own the
   go/no-go and final-PR gates.
+- `devague learn skills` now teaches authoring all six origin skills,
+  marking scope/deviate/summarize-delivery method-only.
 
 ### Fixed
 
