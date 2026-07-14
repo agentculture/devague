@@ -46,7 +46,7 @@ Quoted verbatim from the `devague summary` skeleton:
 | `t6` | delivered | trailing End state section quoting `devague plan deliverables` verbatim, with graceful degradation hint on older devague; commit `436d323` |
 | `t7` | delivered | `.claude/skills/deviate/SKILL.md` (sixth origin skill) + `docs/skill-sources.md` registration; commit `6934479` |
 | `t8` | delivered | summarize-delivery starts from the `devague summary` skeleton, quotes approved deviations by `dN` id, three-tier baseline ladder; commit `003d0c6` |
-| `t9` | partial | `culture.yaml` declares `backend: claude` (commit `bee2158`); the live `agex pr open` verification (acceptance criterion 2, plan risk `r1`) happens at PR-open time, immediately after this artifact is committed |
+| `t9` | delivered | `culture.yaml` declares `backend: claude` (commit `bee2158`); live verification passed — PR `#72` was opened via `agex pr open` with the reverted backend in place (criterion 2, risk `r1`) |
 | `t10` | delivered | #67 closed with the 0.17.2 repro transcript; #62 closed citing 0.17.0/#63 and the dogfood artifact; both comments signed (operator task, no code) |
 | `t11` | delivered | version 0.18.0, full CHANGELOG entry, six-leg-flow docs (`CLAUDE.md`, `README.md`, `docs/skills.md`), coverage + boundary audits; commit `8e729e3` |
 
@@ -79,7 +79,7 @@ Quoted verbatim from the `devague summary` skeleton:
 | Plan item | Reason for divergence | Classification |
 |-----------|-----------------------|----------------|
 | `t1` (`d1` — proposed, awaiting user confirmation) | cutting an edge or amending criteria mutates existing list fields — no persisted shape change, so the frame assumption c14 (conditional on a plan-JSON shape change) did not apply; deviation records live in their own store per resolved q3 | acceptable (per the record; pending) |
-| `t9` | acceptance criterion 2 (live `agex pr open` before the release PR merges) is sequenced after this artifact by design — plan risk `r1` named the release PR itself as the test vehicle | needs-follow-up |
+| `t9` | acceptance criterion 2 (live `agex pr open`) was sequenced after this artifact's first commit by design (risk `r1`); resolved in-run — PR `#72` opened via `agex pr open`, requiring a `git stash -u` workaround for an unrelated agex bug (filed upstream as devex issue 92) | acceptable |
 
 No other task drifted: `t2`–`t8`, `t10`, `t11` delivered against their
 acceptance criteria as confirmed.
@@ -116,15 +116,11 @@ acceptance criteria as confirmed.
 | human-approved deviations are first-class, append-only records | high | commit `6b06ec7` · `tests/test_deviate.py` (44 tests) · live record `d1` produced during this run |
 | `devague summary` renders the eight-section skeleton with no overclaim | high | commit `1bcc8d0` · `tests/test_summary.py` (30 tests) · this artifact's own baseline |
 | the six-leg flow is documented end to end | high | commits `6934479`, `003d0c6`, `8e729e3` · files `.claude/skills/deviate/SKILL.md`, `docs/skill-sources.md`, `CLAUDE.md` |
-| the cicd lane works with `backend: claude` from this repo | unverified | pending the live `agex pr open` at gate 3 — not claimed done until the PR exists |
+| the cicd lane works with `backend: claude` from this repo | high | PR `#72` opened via `agex pr open` (signed, Qodo review posted) with `backend: claude` in `culture.yaml` |
 | 0.18.0 publishes cleanly to PyPI | unverified | publish workflow runs post-merge — not claimed done |
 
 ## Remaining Work / Follow-up
 
-- `t9` — complete acceptance criterion 2: open the release PR via
-  `agex pr open` (the live verification, risk `r1`) and record the result in
-  the PR body; then upgrade the corresponding claim above with the PR number
-  as evidence. Owner: operator, immediately after this commit.
 - `d1` — user decision pending: `devague deviate --confirm d1` (or
   `--reject d1`). Owner: human.
 - Issues #66, #68, #69, #70 close on PR merge (close-keywords in the PR body).
@@ -136,3 +132,6 @@ acceptance criteria as confirmed.
   `baseline:` line renders `devague plan (<slug>)` rather than the SKILL.md
   tier vocabulary (`devague summary skeleton`) — align the renderer's label
   with the skill's three-tier names. Candidate issue for 0.18.x.
+- Upstream: devex issue 92 (`agex pr open` misreads gh's untracked-files
+  warning as failure with a misleading network hint) — filed during this run;
+  the `git stash -u` workaround stands until it lands. Owner: devex.
