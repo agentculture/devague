@@ -12,7 +12,10 @@
 # is expected to edit it to a real model token (and harness, when it matters)
 # before approving. The actual fan-out (worktree creation, spawning, TDD-gated
 # merges) is performed by the operator/main agent once the human approves the
-# split plan.
+# split plan. Output ends with an End state section (devague#70 t6) — the
+# verbatim output of `devague plan deliverables` — so the human can see what
+# the plan actually produces before saying go; on an older devague lacking
+# that verb the section degrades to a one-line hint instead of failing.
 #
 # The devague CLI is non-orchestrating (#20): `devague plan waves` describes
 # the dependency graph; it does not spawn agents, manage worktrees, or pick
@@ -71,8 +74,10 @@ Commands:
                instruction/acceptance-count markers, verbatim from the
                payload) + a four-column Wave/Task/Model/Task-summary table
                (Model defaults to `sonnet`; edit it before approving) +
-               go/no-go. Present this to the human before any fan-out; do
-               not proceed without approval.
+               go/no-go, ending with an End state section — the verbatim
+               output of `devague plan deliverables` (degrades to a one-line
+               hint on an older devague lacking that verb). Present this to
+               the human before any fan-out; do not proceed without approval.
   waves        Forward `devague plan waves` (and any extra flags) verbatim.
                On a converged plan exits 0 and lists the dependency waves.
 
@@ -222,6 +227,28 @@ print("  3. Await all tasks in the wave; then TDD-gate each merge (tests before 
 print("  4. Advance to the next wave.")
 print("  5. Open the final PR (human gate 3) after all waves merge and tests pass.")
 PY
+
+    # ── End state: quote `devague plan deliverables` verbatim (#70 t6) ───────
+    # Never composed freehand — it is the single synthesized "what do we have
+    # in the end?" view (confirmed after-state claims, terminal tasks, and
+    # surviving open items). Forward the same --plan args used for waves.
+    # Degrades gracefully on an older devague that predates the verb: print
+    # one hint line naming the minimum version and keep exiting 0 — this
+    # section must never fail the script.
+    local deliverables_out deliverables_rc
+    set +e
+    deliverables_out="$("${DEVAGUE[@]}" plan deliverables "${extra_args[@]}" 2>/dev/null)"
+    deliverables_rc=$?
+    set -e
+
+    echo
+    if [ "$deliverables_rc" -eq 0 ]; then
+        echo 'End state (from `devague plan deliverables`):'
+        echo
+        printf '%s\n' "$deliverables_out"
+    else
+        echo 'hint: End state view requires devague >= 0.18.0 (devague plan deliverables)'
+    fi
 }
 
 main() {
