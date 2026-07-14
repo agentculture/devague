@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] - 2026-07-15
+
+The execution seam and deviate — devague#53's follow-on plan
+(execution-seam-and-deviate, tasks t1–t11), implemented by a
+devague-orchestrated workforce fan-out. Adds a sixth origin skill and closes
+the loop between the confirmed plan and what the workforce actually produces
+and does mid-run.
+
+### Added
+
+- **`devague plan deliverables [--json]`** — a read-only "end state" view over
+  a plan: the confirmed announcement / after-state / success-signal claims
+  verbatim from the plan's live source frame, every terminal task (an active
+  task no other active task depends on) with its acceptance criteria, and the
+  surviving open items (parked/pending). Never refuses — shows a
+  not-converged banner instead of gating — because previewing the end state is
+  exactly what's useful before convergence (#70, esd t2).
+- **`devague deviate`** — first-class, append-only deviation records in a new
+  delivery store, `.devague/deliveries/<plan-slug>.json`
+  (`DELIVERY_SCHEMA_VERSION` 1, fail-closed load, upgrade-on-write like the
+  frame/plan stores). `--origin llm` lands `proposed`; only the user
+  `--confirm`/`--reject`s a proposed record — the same anti-fabrication rule as
+  claims and tasks. `devague deviate --list [--json]` reads records back by
+  `dN` id (esd t3).
+- **New sixth origin skill `/deviate`** (`.claude/skills/deviate/SKILL.md`) —
+  the execution-time leg: stop an in-flight `/assign-to-workforce` run the
+  moment execution must diverge from the confirmed plan, get explicit human
+  approval, and record the divergence via `devague deviate` before resuming —
+  never fold a deviation silently into drift after the fact. Registered in
+  `docs/skill-sources.md` alongside the other five origin skills (esd t7).
+- **`devague summary [--pr] [--json]`** — a render-only, eight-section
+  delivery-summary skeleton assembled from state alone (the plan, its live
+  source frame, and the delivery/deviation store) — no fabricated content,
+  no-overclaim placeholders throughout. `--pr` swaps in a condensed
+  PR-body-shaped skeleton for pasting straight into a pull request description
+  (esd t4).
+- **`assign-to-workforce` split-plan renders a four-column table** — Wave |
+  Task | Model | Task summary — with real, editable model tokens (e.g.
+  `haiku`, `sonnet`) in the Model column and 72-character task-summary
+  truncation for a scannable table, plus has-instruction and
+  acceptance-criteria-count markers on the wave listing so the human sees at a
+  glance which tasks carry working instructions (#69, esd t5).
+- **`assign-to-workforce` split-plan gains a trailing End state section** that
+  quotes `devague plan deliverables` verbatim — so the human go/no-go decision
+  sees what the plan actually produces, not just its task map — degrading
+  gracefully to a one-line version hint on a `devague` too old to have the verb
+  (#70, esd t6).
+- **`summarize-delivery` consumes deviation records and the summary
+  skeleton** — the delivery-side closure leg now starts from
+  `devague summary`'s skeleton and quotes every approved deviation by its `dN`
+  id as recorded ground truth for Drift From Plan and Mid-work Decisions,
+  instead of reconstructing execution-time drift from memory (esd t8).
+
+### Changed
+
+- **`devague plan depend <tN> --on <tM> --remove`** removes exactly one
+  dependency edge; a new **`devague plan amend`** move edits a task's summary
+  and/or replaces or removes acceptance criteria by index (#68, esd t1).
+  Amending or demoting a CONFIRMED task (`amend`, `depend --remove`, and the
+  existing `instruct`) flips it back to `proposed` for re-confirmation, and
+  every demoting move now echoes that flip to stdout so the operator doesn't
+  miss it silently (#67 hardening, esd t1). No `PLAN_SCHEMA_VERSION` bump was
+  needed — edge removal and amendment mutate existing fields rather than
+  adding new ones; recorded as deviation `d1` in this release's own delivery
+  store.
+- `culture.yaml` reverts the `backend` field to `claude`, the mesh standard,
+  now that the upstream `agex-cli#46` blocker is closed (#66, esd t9).
+- Docs (`CLAUDE.md`, `README.md`, `docs/skills.md`) now name the **six-leg
+  flow** — `scope` → `think` → `spec-to-plan` → `assign-to-workforce` →
+  `deviate` → `summarize-delivery` — and the audience each leg serves:
+  operators (the main agent driving the CLI) and the humans who own the
+  go/no-go and final-PR gates.
+
+### Fixed
+
+- Issues **#62** and **#67** closed with cited evidence (no code change in
+  either case — evidence posted directly on the tracking issues).
+
 ## [0.17.2] - 2026-07-07
 
 ### Changed
