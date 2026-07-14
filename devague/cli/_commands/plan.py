@@ -41,7 +41,14 @@ PLAN_MOVES = {
     "task": "Add a task; optionally --accept / --dep / --covers / --instruction inline.",
     "instruct": "Add/update a task's working instruction (may flip confirmed -> proposed).",
     "accept": "Add an acceptance criterion to a task.",
-    "depend": "Record that a task depends on another (--on).",
+    "amend": (
+        "Edit a task's summary and/or replace/remove acceptance criteria by index "
+        "(may flip confirmed -> proposed; refuses on a rejected task)."
+    ),
+    "depend": (
+        "Record that a task depends on another (--on); --remove cuts one edge "
+        "(may flip confirmed -> proposed)."
+    ),
     "cover": "Mark a task as covering a coverage target (c*/h*).",
     "confirm": "Confirm a task (user-only — no fabricated rigor).",
     "reject": "Reject a task.",
@@ -111,6 +118,35 @@ def _require_target(plan: Plan, target_id: str) -> None:
             f"unknown coverage target: {target_id}",
             "run 'devague plan show' to see targets (c*/h*)",
         )
+
+
+# ── the re-confirm rule (#53 t5, sharpened in #53-esd t1) ────────────────────
+# A demoting change — ``instruct``, ``amend``, ``depend --remove`` — alters something
+# the user already confirmed, so it must go back through the user: setting/changing it
+# on a CONFIRMED task flips the task back to 'proposed'. A task that is already
+# 'proposed' or 'rejected' is unaffected by this rule; only its field(s) change.
+_FLIP_SUFFIX = " (confirmed -> proposed; re-confirm)"
+
+
+def _demote_if_confirmed(task) -> bool:
+    flipped = task.status == "confirmed"
+    if flipped:
+        task.status = "proposed"
+    return flipped
+
+
+def _flip_suffix(flipped: bool) -> str:
+    """The stdout-visible flip note (#53-esd t1, issue #67 hardening): a harness that
+    reads only stdout must still see the confirmed -> proposed demotion, not just the
+    stderr diagnostic."""
+    return _FLIP_SUFFIX if flipped else ""
+
+
+def _flip_diagnostic(task_id: str, what_changed: str) -> None:
+    emit_diagnostic(
+        f"note: {task_id} was confirmed; {what_changed} flips it back to 'proposed' — "
+        f"re-confirm it (devague plan confirm {task_id})"
+    )
 
 
 # ── moves ───────────────────────────────────────────────────────────────────
@@ -192,9 +228,7 @@ def cmd_plan_instruct(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     task = _require_task(plan, args.id)
     task.instruction = args.text
-    flipped = task.status == "confirmed"
-    if flipped:
-        task.status = "proposed"
+    flipped = _demote_if_confirmed(task)
     plan_store.save(plan)
     if getattr(args, "json", False):
         emit_result(
@@ -207,13 +241,9 @@ def cmd_plan_instruct(args: argparse.Namespace) -> int:
             json_mode=True,
         )
     else:
-        emit_result(f"{task.id}: instruction set", json_mode=False)
+        emit_result(f"{task.id}: instruction set{_flip_suffix(flipped)}", json_mode=False)
     if flipped:
-        emit_diagnostic(
-            f"note: {task.id}'s instruction changed on a confirmed task — "
-            "flipped back to 'proposed'; re-confirm it (devague plan confirm "
-            f"{task.id})"
-        )
+        _flip_diagnostic(task.id, "changing its instruction")
     return 0
 
 
@@ -229,15 +259,109 @@ def cmd_plan_accept(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_plan_amend(args: argparse.Namespace) -> int:
+    """``amend`` — edit a task's summary and/or replace/remove acceptance criteria
+    by index (#53-esd t1, issue #68's task-recreation escape hatch).
+
+    Scoped to summary + acceptance criteria only — deps/covers/instruction each
+    already have their own move (``depend``/``cover``/``instruct``). Re-confirm rule:
+    amending a CONFIRMED task flips it back to 'proposed' (same rule as ``instruct``
+    and ``depend --remove``). Design decision (deliberately stricter than
+    ``instruct``): amend REFUSES outright on a REJECTED task — silently letting a
+    rejected task's declared work keep changing would make 'rejected' meaningless;
+    the honest move is a new task, not a resurrection through the back door.
+    """
+    plan = resolve_plan(args.plan)
+    task = _require_task(plan, args.id)
+    if task.status == "rejected":
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"{task.id} is rejected; amend refuses to edit a rejected task",
+            "add a new task instead — a rejected task's content should not change",
+        )
+    if args.summary is None and not args.accept_replace and not args.accept_remove:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "nothing to amend",
+            'pass --summary "<text>", --accept-replace <n> "<text>", ' "and/or --accept-remove <n>",
+        )
+    try:
+        accept_replace = [(int(n), text) for n, text in (args.accept_replace or [])]
+        accept_remove = [int(n) for n in (args.accept_remove or [])]
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"acceptance criterion index must be an integer: {exc}",
+            'e.g. --accept-replace 1 "new text" / --accept-remove 2',
+        ) from exc
+    try:
+        plan.amend_task(
+            task, summary=args.summary, accept_replace=accept_replace, accept_remove=accept_remove
+        )
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current criteria"
+        ) from exc
+    flipped = _demote_if_confirmed(task)
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(
+            {
+                "id": task.id,
+                "summary": task.summary,
+                "acceptance_criteria": list(task.acceptance_criteria),
+                "status": task.status,
+                "flipped": flipped,
+            },
+            json_mode=True,
+        )
+    else:
+        emit_result(f"{task.id}: amended{_flip_suffix(flipped)}", json_mode=False)
+    if flipped:
+        _flip_diagnostic(task.id, "amending it")
+    return 0
+
+
 def cmd_plan_depend(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     task = _require_task(plan, args.id)
+    if args.remove:
+        return _cmd_plan_depend_remove(args, plan, task)
     plan.add_dep(task, args.on)
     plan_store.save(plan)
     if getattr(args, "json", False):
         emit_result({"id": task.id, "deps": task.deps}, json_mode=True)
     else:
         emit_result(f"{task.id} depends on {args.on}", json_mode=False)
+    return 0
+
+
+def _cmd_plan_depend_remove(args: argparse.Namespace, plan: Plan, task) -> int:
+    """``depend <tN> --on <tM> --remove`` — cut exactly one edge (#53-esd t1, issue #68).
+
+    Everything else on the task (summary, acceptance criteria, covers, instruction)
+    stays untouched; only ``deps`` and — if the task was confirmed — ``status`` change.
+    """
+    removed = plan.remove_dep(task, args.on)
+    if not removed:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"{task.id} does not depend on {args.on}",
+            "run 'devague plan show' to see its current deps",
+        )
+    flipped = _demote_if_confirmed(task)
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(
+            {"id": task.id, "deps": task.deps, "status": task.status, "flipped": flipped},
+            json_mode=True,
+        )
+    else:
+        emit_result(
+            f"{task.id} no longer depends on {args.on}{_flip_suffix(flipped)}", json_mode=False
+        )
+    if flipped:
+        _flip_diagnostic(task.id, f"removing its dependency on {args.on}")
     return 0
 
 
@@ -527,9 +651,33 @@ def register(sub: argparse._SubParsersAction) -> None:
     _plan_opt(pa)
     pa.set_defaults(func=cmd_plan_accept)
 
-    pd = psub.add_parser("depend", help="Record that a task depends on another.")
+    pam = psub.add_parser(
+        "amend", help="Edit a task's summary and/or replace/remove acceptance criteria by index."
+    )
+    pam.add_argument("id", help=_TASK_ID_HELP)
+    pam.add_argument("--summary", help="Replace the task summary verbatim.")
+    pam.add_argument(
+        "--accept-replace",
+        nargs=2,
+        action="append",
+        metavar=("N", "TEXT"),
+        help="Replace the Nth (1-indexed) acceptance criterion with TEXT (repeatable).",
+    )
+    pam.add_argument(
+        "--accept-remove",
+        action="append",
+        metavar="N",
+        help="Remove the Nth (1-indexed) acceptance criterion (repeatable).",
+    )
+    _plan_opt(pam)
+    pam.set_defaults(func=cmd_plan_amend)
+
+    pd = psub.add_parser("depend", help="Record that a task depends on another (or --remove).")
     pd.add_argument("id", help="The dependent task id.")
     pd.add_argument("--on", required=True, help="The task id it depends on.")
+    pd.add_argument(
+        "--remove", action="store_true", help="Remove this dependency edge instead of adding it."
+    )
     _plan_opt(pd)
     pd.set_defaults(func=cmd_plan_depend)
 
