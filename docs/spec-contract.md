@@ -455,11 +455,6 @@ or hand-edited delivery file (an embedded `plan_slug` that disagrees with the
 requested slug, or a `schema_version` that is not an integer); a delivery
 whose `schema_version` is too new.
 
-> **Coordination note.** The `--task` / `--affects` resolution checks and the
-> `--confirm` / `--reject` exclusivity and transition checks above are a
-> validation tightening landing alongside this contract update (PR #72); they
-> are the contract this document holds `devague deviate` to going forward.
-
 ### `summary`
 
 `devague summary` renders the eight-section delivery-summary skeleton the
