@@ -52,10 +52,10 @@ Quoted verbatim from the `devague summary` skeleton:
 
 ## Mid-work Decisions
 
-- pending approval (not yet a decision): `d1` — no PLAN_SCHEMA_VERSION bump
-  shipped with `depend --remove` and `amend` (task `t1`, proposed,
-  classification `acceptable` on the record) — **awaiting user
-  confirm/reject** via `devague deviate --confirm d1`.
+- `d1` — no PLAN_SCHEMA_VERSION bump shipped with `depend --remove` and
+  `amend` (task `t1`, classification `acceptable`) — recorded during the run
+  as llm-origin `proposed`, **approved by the user** at the final gate via
+  `devague deviate --confirm d1`.
 - Mid-run, the human owner refined the split-plan Model-column contract
   ("should be the model, and if matters, harness — haiku, sonnet, opus, fable,
   colleague, codex"); forwarded verbatim to the `t5` agent and applied as a
@@ -78,7 +78,7 @@ Quoted verbatim from the `devague summary` skeleton:
 
 | Plan item | Reason for divergence | Classification |
 |-----------|-----------------------|----------------|
-| `t1` (`d1` — proposed, awaiting user confirmation) | cutting an edge or amending criteria mutates existing list fields — no persisted shape change, so the frame assumption c14 (conditional on a plan-JSON shape change) did not apply; deviation records live in their own store per resolved q3 | acceptable (per the record; pending) |
+| `t1` (`d1`, approved) | cutting an edge or amending criteria mutates existing list fields — no persisted shape change, so the frame assumption c14 (conditional on a plan-JSON shape change) did not apply; deviation records live in their own store per resolved q3 | acceptable |
 | `t9` | acceptance criterion 2 (live `agex pr open`) was sequenced after this artifact's first commit by design (risk `r1`); resolved in-run — PR `#72` opened via `agex pr open`, requiring a `git stash -u` workaround for an unrelated agex bug (filed upstream as devex issue 92) | acceptable |
 
 No other task drifted: `t2`–`t8`, `t10`, `t11` delivered against their
@@ -103,7 +103,7 @@ acceptance criteria as confirmed.
   (comment 4974139790), [#62](https://github.com/agentculture/devague/issues/62)
   closed (comment 4974140038)
 - deviation store: `.devague/deliveries/execution-seam-and-deviate.json`
-  (record `d1`, status `proposed`)
+  (record `d1`, status `approved`)
 
 ## Delivery Claims
 
@@ -121,8 +121,6 @@ acceptance criteria as confirmed.
 
 ## Remaining Work / Follow-up
 
-- `d1` — user decision pending: `devague deviate --confirm d1` (or
-  `--reject d1`). Owner: human.
 - Issues #66, #68, #69, #70 close on PR merge (close-keywords in the PR body).
   Owner: human at gate 3.
 - guildmaster re-broadcast: four origin skills changed here (`deviate` new;

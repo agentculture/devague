@@ -2,7 +2,7 @@
   "plan_slug": "execution-seam-and-deviate",
   "schema_version": 1,
   "created": "2026-07-14T21:34:58Z",
-  "updated": "2026-07-14T21:34:58Z",
+  "updated": "2026-07-14T22:19:30Z",
   "deviations": [
     {
       "id": "d1",
@@ -13,7 +13,7 @@
         "c14"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable"
     }
   ]
