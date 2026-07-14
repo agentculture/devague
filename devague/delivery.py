@@ -100,6 +100,20 @@ class Delivery:
         return next((d for d in self.deviations if d.id == did), None)
 
     def set_status(self, did: str, status: str) -> bool:
+        """Set ``did``'s status, failing closed on a typo'd/unknown status.
+
+        Validates ``status`` against :data:`DEVIATION_STATUSES` **before**
+        touching the record — an invalid string never mutates anything and
+        never gets persisted (a bad status value would otherwise brick the
+        ledger on the next fail-closed load, mirroring
+        :class:`DeviationRecord`'s own ``__post_init__`` guard). Transition
+        legality (e.g. "only a proposed record may be confirmed/rejected") is
+        the CLI layer's job (:mod:`devague.cli._commands.deviate`), which can
+        report the record's *current* status in its refusal hint; this method
+        only guards against garbage status values.
+        """
+        if status not in DEVIATION_STATUSES:
+            raise ValueError(f"unknown deviation status: {status!r}")
         rec = self.find_deviation(did)
         if rec is not None:
             rec.status = status

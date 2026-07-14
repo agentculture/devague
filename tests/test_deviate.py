@@ -11,6 +11,11 @@ move itself (:mod:`devague.cli._commands.deviate`). Acceptance criteria:
    approved; user-origin records auto-approve; a record without a reason is
    refused with a hint
 3. the plan JSON is byte-identical before and after every deviate operation
+4. ``--task``/``--affects`` refs are validated for referential integrity
+   (PR #72 review, Q2); ``--confirm``/``--reject``/positional-record/``--list``
+   conflicts are refused rather than silently resolved by precedence (Q3);
+   an invalid or dishonest status transition is refused (Q4); a broken
+   delivery ledger is translated into an actionable error (Q5)
 """
 
 from __future__ import annotations
@@ -19,7 +24,7 @@ import json
 
 import pytest
 
-from devague import delivery_store, plan_store
+from devague import delivery_store, plan_store, store
 from devague.cli import main
 from devague.delivery import (
     CLASSIFICATIONS,
@@ -29,7 +34,8 @@ from devague.delivery import (
     from_dict,
     to_dict,
 )
-from devague.plan import Plan
+from devague.frame import Frame
+from devague.plan import Plan, targets_from_frame
 
 
 def _plan(slug: str = "demo") -> Plan:
@@ -41,6 +47,28 @@ def _plan(slug: str = "demo") -> Plan:
 def _seed_plan(monkeypatch, tmp_path, slug: str = "demo") -> Plan:
     monkeypatch.chdir(tmp_path)
     plan = _plan(slug)
+    plan_store.save(plan)
+    return plan
+
+
+def _seed_plan_with_frame(monkeypatch, tmp_path, slug: str = "demo") -> Plan:
+    """Seed a plan whose live source frame has TWO confirmed claims: c1 (an
+    ``announcement`` — spec-affecting, so it lands in the plan's coverage
+    targets) and c2 (an ``assumption`` — confirmed, but NOT spec-affecting, so
+    it is NOT a coverage target). This mirrors the committed evidence ledger
+    ``.devague/deliveries/execution-seam-and-deviate.json``, whose record d1
+    affects ``["c14"]`` — c14 there is exactly this shape: a confirmed frame
+    claim that never became a plan coverage target (the CRITICAL regression
+    guard for Q2's ``--affects`` validation).
+    """
+    monkeypatch.chdir(tmp_path)
+    frame = Frame(slug=slug, title="Demo Frame")
+    frame.add_claim("announcement", "ship the thing", origin="user")  # c1 -> coverage target
+    frame.add_claim("assumption", "background assumption", origin="user")  # c2 -> not a target
+    store.save(frame)
+    plan = Plan(slug=slug, title="Demo Plan", frame_slug=slug)
+    plan.targets = targets_from_frame(frame)
+    plan.add_task("first task")  # t1
     plan_store.save(plan)
     return plan
 
@@ -118,6 +146,17 @@ def test_set_status_transitions_and_reports_unknown() -> None:
     assert d.set_status("d1", "rejected") is True
     assert d.find_deviation("d1").status == "rejected"
     assert d.set_status("dX", "approved") is False
+
+
+def test_set_status_rejects_unknown_status_without_mutating() -> None:
+    # Q4: set_status must fail closed on a typo'd/unknown status *before*
+    # mutating the record -- an invalid status must never brick the ledger on
+    # the next fail-closed load.
+    d = _delivery()
+    before = d.find_deviation("d1").status
+    with pytest.raises(ValueError):
+        d.set_status("d1", "not-a-status")
+    assert d.find_deviation("d1").status == before
 
 
 def test_classification_kinds_include_expected_values() -> None:
@@ -269,6 +308,18 @@ def test_load_legacy_delivery_without_schema_version(tmp_path, monkeypatch) -> N
     assert delivery_store.load("demo").schema_version == DELIVERY_SCHEMA_VERSION
 
 
+def test_set_status_invalid_value_never_persists(tmp_path, monkeypatch) -> None:
+    # Q4: an invalid status raises before any mutation, so a caller that
+    # (correctly) saves only after set_status succeeds never persists it.
+    monkeypatch.chdir(tmp_path)
+    delivery_store.save(_delivery())
+    d = delivery_store.load("demo")
+    with pytest.raises(ValueError):
+        d.set_status("d1", "bogus")
+    reloaded = delivery_store.load("demo")
+    assert reloaded.deviations[0].status == "approved"
+
+
 # ── CLI: recording ───────────────────────────────────────────────────────────
 
 
@@ -302,7 +353,11 @@ def test_deviate_llm_origin_lands_proposed_end_to_end(tmp_path, monkeypatch) -> 
 
 
 def test_deviate_affects_repeatable(tmp_path, monkeypatch) -> None:
-    _seed_plan(monkeypatch, tmp_path)
+    # --affects is repeatable; each ref must independently resolve (Q2), so
+    # this uses two real plan task ids rather than fabricated ones.
+    plan = _seed_plan(monkeypatch, tmp_path)
+    plan.add_task("second task")  # t2
+    plan_store.save(plan)
     rc = main(
         [
             "deviate",
@@ -312,13 +367,13 @@ def test_deviate_affects_repeatable(tmp_path, monkeypatch) -> None:
             "--reason",
             "why",
             "--affects",
-            "t2",
+            "t1",
             "--affects",
-            "c3",
+            "t2",
         ]
     )
     assert rc == 0
-    assert delivery_store.load("demo").deviations[0].affects == ["t2", "c3"]
+    assert delivery_store.load("demo").deviations[0].affects == ["t1", "t2"]
 
 
 def test_deviate_classification_flag(tmp_path, monkeypatch) -> None:
@@ -376,6 +431,117 @@ def test_deviate_json_shape_on_record(tmp_path, monkeypatch, capsys) -> None:
     }
 
 
+# ── CLI: --task / --affects referential integrity (Q2) ───────────────────────
+
+
+def test_deviate_unknown_task_ref_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    rc = main(["deviate", "swap", "--task", "t99", "--reason", "why"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "t99" in err
+    assert "devague plan show" in err
+    assert "hint:" in err
+    assert not delivery_store.path_for("demo").exists()
+
+
+def test_deviate_affects_unknown_id_shaped_ref_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    plan = _seed_plan_with_frame(monkeypatch, tmp_path)
+    rc = main(
+        [
+            "deviate",
+            "swap",
+            "--task",
+            "t1",
+            "--reason",
+            "why",
+            "--affects",
+            "c99",
+            "--plan",
+            plan.slug,
+        ]
+    )
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "c99" in err
+    assert "hint:" in err
+    assert not delivery_store.path_for(plan.slug).exists()
+
+
+def test_deviate_affects_accepts_plan_task_id(tmp_path, monkeypatch) -> None:
+    plan = _seed_plan_with_frame(monkeypatch, tmp_path)
+    rc = main(["deviate", "swap", "--task", "t1", "--reason", "why", "--affects", "t1"])
+    assert rc == 0
+    assert delivery_store.load(plan.slug).deviations[0].affects == ["t1"]
+
+
+def test_deviate_affects_accepts_plan_coverage_target_id(tmp_path, monkeypatch) -> None:
+    plan = _seed_plan_with_frame(monkeypatch, tmp_path)
+    assert plan.find_target("c1") is not None  # c1 (announcement) IS a coverage target
+    rc = main(["deviate", "swap", "--task", "t1", "--reason", "why", "--affects", "c1"])
+    assert rc == 0
+    assert delivery_store.load(plan.slug).deviations[0].affects == ["c1"]
+
+
+def test_deviate_affects_accepts_frame_claim_not_a_coverage_target(tmp_path, monkeypatch) -> None:
+    """CRITICAL regression guard (Q2): the committed real ledger
+    ``.devague/deliveries/execution-seam-and-deviate.json`` has record d1
+    with ``affects: ["c14"]``, where c14 is a confirmed frame *assumption*
+    claim that never became a plan coverage target. Validation must accept a
+    real frame claim id even when it isn't a coverage target -- only a ref
+    that resolves nowhere at all is refused.
+    """
+    plan = _seed_plan_with_frame(monkeypatch, tmp_path)
+    assert plan.find_target("c2") is None  # c2 (assumption) is confirmed, NOT a target
+    rc = main(["deviate", "swap", "--task", "t1", "--reason", "why", "--affects", "c2"])
+    assert rc == 0
+    assert delivery_store.load(plan.slug).deviations[0].affects == ["c2"]
+
+
+def test_deviate_affects_accepts_frame_honesty_condition_id(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    frame = Frame(slug="demo", title="Demo Frame")
+    c = frame.add_claim("announcement", "ship it", origin="user")
+    frame.add_honesty(c, "must hold", origin="user")  # h1, confirmed (origin=user)
+    store.save(frame)
+    plan = Plan(slug="demo", title="Demo Plan", frame_slug="demo")
+    plan.targets = targets_from_frame(frame)
+    plan.add_task("first task")
+    plan_store.save(plan)
+    rc = main(["deviate", "swap", "--task", "t1", "--reason", "why", "--affects", "h1"])
+    assert rc == 0
+    assert delivery_store.load("demo").deviations[0].affects == ["h1"]
+
+
+def test_deviate_affects_allows_non_id_shaped_free_text(tmp_path, monkeypatch) -> None:
+    plan = _seed_plan_with_frame(monkeypatch, tmp_path)
+    rc = main(
+        [
+            "deviate",
+            "swap",
+            "--task",
+            "t1",
+            "--reason",
+            "why",
+            "--affects",
+            "the auth subsystem",
+        ]
+    )
+    assert rc == 0
+    assert delivery_store.load(plan.slug).deviations[0].affects == ["the auth subsystem"]
+
+
+def test_deviate_affects_frame_missing_degrades_to_plan_ids_only(tmp_path, monkeypatch) -> None:
+    plan = _seed_plan_with_frame(monkeypatch, tmp_path)
+    store.path_for(plan.slug).unlink()  # the source frame is now gone
+    # A plan-task id ref still resolves without the frame.
+    rc = main(["deviate", "swap", "--task", "t1", "--reason", "why", "--affects", "t1"])
+    assert rc == 0
+    # A frame-only id (c2) can no longer be validated once the frame is gone.
+    rc2 = main(["deviate", "swap2", "--task", "t1", "--reason", "why2", "--affects", "c2"])
+    assert rc2 == 1
+
+
 # ── CLI: confirm / reject (user-only) ────────────────────────────────────────
 
 
@@ -402,6 +568,104 @@ def test_deviate_confirm_unknown_id_errors(tmp_path, monkeypatch, capsys) -> Non
     assert rc == 1
     err = capsys.readouterr().err
     assert "no such deviation" in err
+    assert "hint:" in err
+
+
+# ── CLI: honest transitions only (Q4) ─────────────────────────────────────────
+
+
+def test_deviate_confirm_already_approved_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    main(["deviate", "swap", "--task", "t1", "--reason", "why"])  # user origin -> approved
+    capsys.readouterr()
+    rc = main(["deviate", "--confirm", "d1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "already approved" in err
+    assert "hint:" in err
+    assert delivery_store.load("demo").deviations[0].status == "approved"
+
+
+def test_deviate_reject_already_rejected_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    main(["deviate", "swap", "--task", "t1", "--reason", "why", "--origin", "llm"])
+    main(["deviate", "--reject", "d1"])
+    capsys.readouterr()
+    rc = main(["deviate", "--reject", "d1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "already rejected" in err
+    assert delivery_store.load("demo").deviations[0].status == "rejected"
+
+
+def test_deviate_double_confirm_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    main(["deviate", "swap", "--task", "t1", "--reason", "why", "--origin", "llm"])
+    main(["deviate", "--confirm", "d1"])
+    capsys.readouterr()
+    rc = main(["deviate", "--confirm", "d1"])
+    assert rc == 1
+    assert "already approved" in capsys.readouterr().err
+
+
+def test_deviate_reject_after_approve_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    # An approved record cannot be flipped to rejected either -- only a
+    # *proposed* record may be resolved at all.
+    _seed_plan(monkeypatch, tmp_path)
+    main(["deviate", "swap", "--task", "t1", "--reason", "why"])  # auto-approved
+    capsys.readouterr()
+    rc = main(["deviate", "--reject", "d1"])
+    assert rc == 1
+    assert "already approved" in capsys.readouterr().err
+
+
+# ── CLI: conflicting flags are refused, never silently resolved (Q3) ─────────
+
+
+def test_deviate_confirm_and_reject_are_mutually_exclusive(tmp_path, monkeypatch) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["deviate", "--confirm", "d1", "--reject", "d1"])
+    assert exc.value.code == 1
+
+
+def test_deviate_confirm_and_list_are_mutually_exclusive(tmp_path, monkeypatch) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["deviate", "--confirm", "d1", "--list"])
+    assert exc.value.code == 1
+
+
+def test_deviate_reject_and_list_are_mutually_exclusive(tmp_path, monkeypatch) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["deviate", "--reject", "d1", "--list"])
+    assert exc.value.code == 1
+
+
+def test_deviate_confirm_with_positional_what_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    rc = main(["deviate", "swap", "--confirm", "d1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "cannot combine --confirm/--reject" in err
+    assert "hint:" in err
+
+
+def test_deviate_reject_with_positional_what_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    rc = main(["deviate", "swap", "--reject", "d1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "cannot combine --confirm/--reject" in err
+
+
+def test_deviate_list_with_positional_what_is_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    rc = main(["deviate", "swap", "--list"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "cannot combine --list" in err
     assert "hint:" in err
 
 
@@ -501,3 +765,65 @@ def test_deviate_deterministic_no_subprocess_or_llm(tmp_path, monkeypatch) -> No
     monkeypatch.setattr(subprocess, "run", _guard)
     main(["deviate", "no subprocess used", "--task", "t1", "--reason", "why"])
     assert called["n"] == 0
+
+
+# ── CLI: broken delivery ledger errors are translated (Q5) ───────────────────
+
+
+def test_deviate_delivery_schema_too_new_errors_with_hint(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    delivery_store.save(_delivery())
+    p = delivery_store.path_for("demo")
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = DELIVERY_SCHEMA_VERSION + 99
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    capsys.readouterr()
+    rc = main(["deviate", "--list"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "upgrade devague" in err
+    assert "hint:" in err
+
+
+def test_deviate_delivery_malformed_json_errors_with_hint(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    p = delivery_store.path_for("demo")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{not valid json", encoding="utf-8")
+    capsys.readouterr()
+    rc = main(["deviate", "--list"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "malformed" in err
+    assert "repair or remove" in err
+    assert "hint:" in err
+
+
+def test_deviate_delivery_slug_mismatch_errors_with_hint(tmp_path, monkeypatch, capsys) -> None:
+    _seed_plan(monkeypatch, tmp_path)
+    delivery_store.save(_delivery())
+    p = delivery_store.path_for("demo")
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["plan_slug"] = "other"
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    capsys.readouterr()
+    rc = main(["deviate", "--list"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "malformed" in err
+    assert "hint:" in err
+
+
+def test_deviate_record_also_translates_broken_delivery_ledger(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    # Q5's resolve_delivery() is wired into _record too, not just _list/confirm.
+    _seed_plan(monkeypatch, tmp_path)
+    p = delivery_store.path_for("demo")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("{not valid json", encoding="utf-8")
+    capsys.readouterr()
+    rc = main(["deviate", "swap", "--task", "t1", "--reason", "why"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "malformed" in err
