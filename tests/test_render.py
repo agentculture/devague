@@ -168,3 +168,67 @@ def test_spec_md_omits_honesty_for_unconfirmed_claims() -> None:
 def test_unknown_format_raises() -> None:
     with pytest.raises(DevagueError):
         render.render(_frame(), "nope")
+
+
+# ── #64: markdownlint-safe rendering (MD026 trailing-punctuation headings, ────
+# MD034 bare URLs) ─────────────────────────────────────────────────────────────
+
+
+def _hostile_frame() -> Frame:
+    """A frame whose announcement ends in '.' and whose claims/honesty carry a
+    bare URL — the exact shape league-of-agents-platform hit in #64.
+    """
+    f = Frame(slug="hostile", title="League of Agents is live at https://league-of-agents.ai.")
+    ann = f.add_claim(
+        "announcement",
+        "League of Agents is live at https://league-of-agents.ai.",
+        origin="user",
+    )
+    f.add_honesty(ann, "check http://status.example.com for uptime.", origin="user")
+    f.add_claim("audience", "players who visit https://league-of-agents.ai", origin="user")
+    f.add_vagueness("follow up at https://example.com/todo", "follow_up")
+    return f
+
+
+def test_spec_md_title_heading_strips_trailing_period() -> None:
+    out = render.render(_hostile_frame(), "spec-md")
+    assert out.startswith("# League of Agents is live at <https://league-of-agents.ai>\n")
+    assert not out.split("\n", 1)[0].rstrip().endswith(".")
+
+
+def test_spec_md_blockquote_keeps_sentence_verbatim_but_wraps_url() -> None:
+    # The issue is explicit: blockquote copy keeps the sentence verbatim (period
+    # included) — only the URL gets wrapped, only the *heading* loses punctuation.
+    out = render.render(_hostile_frame(), "spec-md")
+    assert "> League of Agents is live at <https://league-of-agents.ai>." in out
+
+
+def test_spec_md_wraps_bare_url_in_honesty_condition() -> None:
+    out = render.render(_hostile_frame(), "spec-md")
+    assert "- check <http://status.example.com> for uptime." in out
+
+
+def test_spec_md_wraps_bare_url_in_claim_bullet() -> None:
+    out = render.render(_hostile_frame(), "spec-md")
+    assert "- players who visit <https://league-of-agents.ai>" in out
+
+
+def test_spec_md_wraps_bare_url_in_follow_up_text() -> None:
+    out = render.render(_hostile_frame(), "spec-md")
+    assert "- follow up at <https://example.com/todo>" in out
+
+
+def test_spec_md_hostile_input_is_markdownlint_clean() -> None:
+    # The hand-rolled MD022/MD032/MD036 check still holds on hostile input too.
+    assert_markdownlint_clean(render.render(_hostile_frame(), "spec-md"))
+
+
+def test_spec_md_does_not_mutate_frame_claim_text() -> None:
+    # #64 acceptance: "Frame JSON keeps original claim text; only rendered
+    # markdown is adjusted." Rendering must never write back into the Frame.
+    frame = _hostile_frame()
+    before = [c.text for c in frame.claims]
+    render.render(frame, "spec-md")
+    after = [c.text for c in frame.claims]
+    assert before == after
+    assert frame.title == "League of Agents is live at https://league-of-agents.ai."

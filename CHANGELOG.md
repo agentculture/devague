@@ -5,11 +5,63 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.0] - 2026-07-07
+## [0.17.2] - 2026-07-07
 
 ### Changed
 
 - Changed the project license from MIT to Apache-2.0, added a retained MIT notice for vendored inbound skills, and updated package metadata and documentation references accordingly.
+
+## [0.17.1] - 2026-07-10
+
+### Fixed
+
+- **`devague export` / `devague plan export` now emit markdownlint-safe markdown (#64).** Both renderers interpolate free-form claim/task/honesty prose straight into headings, blockquotes, and bullets, which tripped markdownlint's MD026 (no-trailing-punctuation) whenever a heading came from a sentence (the announcement, a task summary) and MD034 (no-bare-urls) whenever prose carried a bare `http(s)://` URL. Downstream repos (league-of-agents-platform) were hand-fixing every export before committing it. New shared helper `devague/render/_md_safety.py`: `heading_safe()` strips trailing punctuation from the `#`/`###` line only (blockquote/body copy keeps the sentence verbatim); `autolink_urls()` wraps a bare URL in `<...>` unless it is already inside `<>`, already the destination of a `[text](url)` link, or inside a code span. Both rules are pinned empirically against markdownlint-cli2 v0.21.0 (markdownlint v0.40.0). Rendering only — Frame/Plan JSON keeps the original text verbatim. New `tests/test_md_safety.py` (unit), hostile-input cases added to `tests/test_render.py` / `tests/test_render_plan.py`, and `tests/test_export_markdownlint_integration.py` (drives the real CLI end to end and shells out to `markdownlint-cli2`, skipping cleanly when it is not on PATH). Closes #64.
+
+## [0.17.0] - 2026-07-09
+
+Skills release plus one correctness fix. No new CLI verbs and no new CLI docs;
+the only code change is a data-loss fix in the frame/plan stores (see *Fixed*).
+
+### Added
+
+- **New fifth origin skill `summarize-delivery`** — the delivery-side closure
+  leg that runs after `/assign-to-workforce`. It turns an execution run into a
+  committed accountability artifact: planned vs actual delivery, mid-work
+  decisions, plan drift, evidence-backed delivery claims with confidence
+  levels, and remaining work. Method-only in v1 — `SKILL.md` plus an
+  eight-section template; no entry-point script and no new CLI verb. Runs on
+  complete, partial, and failed runs; never overclaims (a delivery claim
+  without evidence is marked `unverified`).
+- **Registered as the fifth origin skill** in `docs/skill-sources.md`
+  (alongside `scope` / `think` / `spec-to-plan` / `assign-to-workforce`) —
+  authored here, re-broadcast by `guildmaster`, never re-vendored back.
+- **First dogfood delivery artifact**:
+  `docs/deliveries/2026-07-09-sharper-end-to-end-method.md` — the first real
+  delivery summary, produced with the shipped template, covering the #53
+  sharper-end-to-end-method run (all 14 plan tasks accounted for, three
+  classified plan-drift entries, one delivery claim honestly marked
+  `unverified`).
+
+### Changed
+
+- Flow docs now name the five-leg flow — `scope` → `think` → `spec-to-plan` →
+  `assign-to-workforce` → `summarize-delivery` — in `CLAUDE.md`, `README.md`,
+  and `docs/skills.md`, plus a new "after the final PR" handoff section in
+  `.claude/skills/assign-to-workforce/SKILL.md` that points to
+  `/summarize-delivery`.
+
+### Fixed
+
+- **`save()` now stamps the current `schema_version` (upgrade-on-write)** —
+  `devague/store.py` and `devague/plan_store.py` re-emitted the
+  `schema_version` loaded from disk instead of the one the running binary
+  writes. A frame created under schema v1 and later mutated by a v2 binary was
+  saved still labelled v1 while carrying v2-only payload (`scope_entries`,
+  per-item `instruction`). An older binary then passed the fail-closed load gate
+  (`schema_version > SCHEMA_VERSION`), loaded the file, silently dropped the
+  unknown fields, and rewrote it — data loss. Both stores now stamp the current
+  version on write, so an older binary correctly *refuses* the file instead.
+  Found by Qodo on PR #63; regression tests added for both stores.
 
 ## [0.16.0] - 2026-07-07
 

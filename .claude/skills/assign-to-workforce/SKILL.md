@@ -199,6 +199,29 @@ Once all waves are merged and the full test suite passes, the main agent opens
 a PR via the `cicd` skill (`agex pr open`). The human reviews and merges. This
 is the last and only remaining human gate.
 
+## After the final PR — summarize the delivery
+
+Once the final PR is **merged**, close the execution loop cleanly instead of
+stopping at a green merge:
+
+1. **Summarize the delivery.** Run the sibling **`/summarize-delivery`** skill —
+   the delivery-side closure leg. It turns the run into a committed
+   accountability artifact (`docs/deliveries/<created-date>-<slug>.md`) that
+   records planned-versus-actual delivery, the mid-work decisions the workforce
+   made, where execution drifted from the plan, evidence-backed delivery claims
+   (a claim without evidence stays `unverified`, never asserted as done), and
+   any remaining work. The `devague plan waves --json` payload you fanned out is
+   the planned-work baseline it compares actuals against.
+2. **It closes partial and failed runs too.** `/summarize-delivery` does not
+   require every wave to have merged — a run that shipped only some tasks, or
+   none, still produces a truthful artifact: the failure lands under drift and
+   remaining work, and no claim says done without evidence.
+
+This is the accountability wrap-up after the three gates, not a fourth gate —
+`/summarize-delivery` is method-only and read-only (#20): it summarizes the run,
+it does not orchestrate, gate merges, or mutate devague state. Don't stop at
+"PR merged" — the standing flow is **merge, then `/summarize-delivery`**.
+
 ## Hard rules (do not violate)
 
 These protect the human-gate contract and the TDD guarantee.

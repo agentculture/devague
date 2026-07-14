@@ -210,8 +210,9 @@ plan method: seed a plan from that converged frame and converge it on coverage,
 acceptance criteria, and an acyclic dependency order before exporting a plan.
 The operator skills cover the legs in flow order: **`/scope`** (idea→explored
 scope, the optional opening leg), **`/think`** (idea→spec), **`/spec-to-plan`**
-(spec→plan), and **`/assign-to-workforce`** (plan→parallel implementation); the
-product/CLI they drive is **`devague`**.
+(spec→plan), **`/assign-to-workforce`** (plan→parallel implementation), and
+**`/summarize-delivery`** (execution→a committed accountability artifact, the
+delivery-side closure leg); the product/CLI they drive is **`devague`**.
 
 This is a **state machine over claims, honesty conditions, open vagueness, and
 convergence** driven by LLM-chosen moves — not a linear wizard. The CLI is
@@ -237,8 +238,8 @@ steward→guildmaster cutover; `steward` is still a sibling but no longer
 broadcasts). Vendored skills are cited, not imported (cite-don't-import): copy
 from `../guildmaster/.claude/skills/<name>/` and track provenance in
 `docs/skill-sources.md`. The exception is devague's own `scope` / `think` /
-`spec-to-plan` / `assign-to-workforce` — devague is their origin, so guildmaster
-re-broadcasts them *from* here; never re-vendor them back.
+`spec-to-plan` / `assign-to-workforce` / `summarize-delivery` — devague is their
+origin, so guildmaster re-broadcasts them *from* here; never re-vendor them back.
 
 ## Stack expectations (when code lands)
 

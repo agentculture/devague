@@ -1,0 +1,298 @@
+{
+  "slug": "summarize-delivery-skill",
+  "title": "summarize-delivery skill",
+  "frame_slug": "summarize-delivery-skill",
+  "schema_version": 2,
+  "status": "exported",
+  "created": "2026-07-09T15:20:30Z",
+  "updated": "2026-07-09T15:23:34Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague closes the loop: after assign-to-workforce executes a plan, the new summarize-delivery skill turns the run into an accountability artifact - planned versus actual delivery, mid-work decisions, plan drift, evidence-backed delivery claims, and remaining work"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "running the skill after a real workforce run yields an artifact a human can audit without reading the execution transcript"
+    },
+    {
+      "id": "c2",
+      "kind": "after_state",
+      "text": "after an assign-to-workforce run - complete, partial, or failed - the operator produces a delivery summary that separates planned work from actual delivery, records mid-work decisions and plan drift, and states delivery claims with evidence and confidence, plus remaining work"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "the summary is producible from durable inputs (plan state, git history, PR links, test output) - it never depends on unrecorded memory of the run"
+    },
+    {
+      "id": "c3",
+      "kind": "before_state",
+      "text": "what we plan is not always what we deliver: agents make mid-work decisions, discover constraints, cut scope, and make delivery claims that were never in the plan - and the flow has no wrap-up leg to record any of it"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "the gap is real: no existing skill or doc in the kit defines a wrap-up step (verified against .claude/skills/ and docs/skills.md)"
+    },
+    {
+      "id": "c4",
+      "kind": "why_it_matters",
+      "text": "the plan becomes a contract, not a fiction: the summary records where execution obeyed the contract, where it changed, and what is actually safe to claim as delivered"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "every delivery claim in the artifact traces back to a plan task or an explicit drift entry - the plan-versus-actual comparison is mechanical"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "invocable after assigned work is completed or partially completed"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "the skill has no completion precondition: a run that merged zero waves is still a valid input"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "distinguishes planned work from actual delivery"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "the Planned Work section quotes the plan verbatim (task ids and summaries), so drift is detected against the contract the user confirmed, not a paraphrase"
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "explicitly captures mid-work decisions and plan drift, classifying each drift as acceptable, risky, or needs-follow-up"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "drift entries are exhaustive relative to the plan: any plan task whose delivery differs appears as a drift entry, never silently normalized"
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "produces delivery claims with a confidence level (high/medium/low) and evidence pointers - commits, files, PRs, issues, tests, logs, docs - where available"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "each evidence pointer resolves: the commit exists, the file is at the path, the PR or issue number is real, the test node ran"
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "avoids overclaiming: a delivery claim without evidence is marked unverified, never asserted as done"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "the unverified marker survives into the committed artifact - no downstream step upgrades confidence without new evidence"
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "usable when work is incomplete, failed, or partially delivered - failure is reported faithfully, not smoothed over"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "a failed run produces a truthful artifact: the failure appears under drift and remaining work with its cause, and no delivery claim says done"
+    },
+    {
+      "id": "c13",
+      "kind": "audience",
+      "text": "the operator (main agent) closing a workforce run, the human owner at the final PR gate, and any later reader who needs to know what actually shipped without replaying the execution transcript"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "the artifact is committed and self-contained, so the final-PR reviewer can use it as the review map"
+    },
+    {
+      "id": "c14",
+      "kind": "boundary",
+      "text": "delivery-side closure only: the skill summarizes and cross-references after execution - it does not orchestrate work, gate merges (assign-to-workforce owns the TDD gate), mark plan tasks done, or mutate devague state; reads of plan and frame state are read-only (issue 20)"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "a summarize-delivery run leaves .devague/ state byte-identical"
+    },
+    {
+      "id": "c15",
+      "kind": "success_signal",
+      "text": "in an exported delivery summary, 100% of plan tasks are accounted for (delivered, partial, dropped, or blocked) and every delivery claim carries a confidence level plus at least 1 evidence pointer or an explicit unverified marker"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "both counts are checkable by inspection of the artifact alone, with no hidden context"
+    },
+    {
+      "id": "c16",
+      "kind": "requirement",
+      "text": "the artifact follows the eight-section shape from the proposal: Intent, Planned Work, Actual Delivery, Mid-work Decisions, Drift From Plan, Evidence, Delivery Claims, and Remaining Work / Follow-up"
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "the shipped template carries all eight sections and stays writable for partial and failed runs"
+    },
+    {
+      "id": "c17",
+      "kind": "requirement",
+      "text": "summarize-delivery is registered as the fifth origin skill in docs/skill-sources.md (origin devague; guildmaster re-broadcasts to the mesh; never re-vendored back)"
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "the skill-sources.md row lands in the same PR as the skill, so provenance never lags the kit"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "author .claude/skills/summarize-delivery/SKILL.md - the method-only skill with the eight-section delivery-summary template and the no-overclaiming hard rules",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "SKILL.md exists at .claude/skills/summarize-delivery/SKILL.md with frontmatter name summarize-delivery, a trigger-phrase description, and type: command",
+        "the template carries all eight sections in order: Intent, Planned Work, Actual Delivery, Mid-work Decisions, Drift From Plan, Evidence, Delivery Claims, Remaining Work / Follow-up - and a worked example shows a partial or failed run with every section still writable",
+        "hard rules state: a claim without evidence is marked unverified (never done); partial and failed runs are valid inputs; verification is read-only (tests, lint, git log); no devague state mutation - the only devague moves documented are the read-only plan show, plan waves, scope --list, show, status",
+        "each delivery-claim template row carries claim, confidence (high, medium, low, or unverified), and evidence fields with resolvable pointers (commit SHA, file path, PR or issue number, test node id); each drift entry names the plan item, the reason, and exactly one of acceptable, risky, needs-follow-up",
+        "SKILL.md names the three readers (operator, final-PR human, later reader), documents the committed artifact path `docs/deliveries/<created-date>-<slug>.md`, and documents degrading to git and PR history when no devague plan state exists"
+      ],
+      "deps": [],
+      "covers": [
+        "c1",
+        "c2",
+        "c3",
+        "c4",
+        "c6",
+        "c7",
+        "c8",
+        "c9",
+        "c10",
+        "c11",
+        "c13",
+        "c14",
+        "c15",
+        "c16",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "h7",
+        "h9",
+        "h10",
+        "h11",
+        "h12",
+        "h14"
+      ],
+      "instruction": "model the file on .claude/skills/scope/SKILL.md (method-only precedent: no scripts dir, type: command, provenance section naming devague as origin and guildmaster as re-broadcaster) with the hard-rules voice of think/SKILL.md; source every section and rule from docs/specs/2026-07-09-summarize-delivery-skill.md; the Planned Work section must quote plan task ids and summaries verbatim from devague plan waves --json, mirroring the verbatim-brief rule in assign-to-workforce"
+    },
+    {
+      "id": "t2",
+      "summary": "register summarize-delivery as the fifth origin skill in docs/skill-sources.md",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the origin-skills table gains a summarize-delivery row: origin devague, downstream guildmaster then the mesh, re-vendor path, method-only note, new-in version",
+        "the surrounding prose is updated: the origin-skills intro and the vendoring-policy bullet enumerate all five origin skills including summarize-delivery",
+        "markdownlint-cli2 passes on docs/skill-sources.md"
+      ],
+      "deps": [],
+      "covers": [
+        "c17",
+        "h15"
+      ],
+      "instruction": "mirror the scope row added in 0.15.0 (same table columns); update both enumerations (scope, think, spec-to-plan, assign-to-workforce) to include summarize-delivery"
+    },
+    {
+      "id": "t3",
+      "summary": "update the flow docs: five-leg flow in CLAUDE.md, the assign-to-workforce handoff, and the README and docs/skills.md family mentions",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "CLAUDE.md project intent names the five-leg flow ending in summarize-delivery",
+        ".claude/skills/assign-to-workforce/SKILL.md gains an after-the-final-PR handoff section pointing to /summarize-delivery, mirroring how think hands off to /spec-to-plan",
+        "every other repo doc that enumerates the origin-skill family (README.md, docs/skills.md if they do) is updated consistently, and markdownlint-cli2 passes on every changed docs file"
+      ],
+      "deps": [],
+      "covers": [
+        "c1"
+      ],
+      "instruction": "grep -rn assign-to-workforce across CLAUDE.md README.md docs/ .claude/skills/ to find every family enumeration; verify the on-disk CLAUDE.md status narrative first - it may already reflect 0.16.0 (issue 53 t1-t14 shipped in PR 58) - and only touch flow wording, not the release narrative"
+    },
+    {
+      "id": "t4",
+      "summary": "dogfood: produce the first real delivery summary at docs/deliveries/ for the sharper-end-to-end-method run (issue 53, PRs 53, 54, 58)",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "docs/deliveries/2026-07-09-sharper-end-to-end-method.md exists, produced with the shipped template, all eight sections present",
+        "100% of the 2026-07-01 plan tasks (t1-t14) are accounted for as delivered, partial, dropped, or blocked, keyed by task id",
+        "every delivery claim row carries a confidence level plus at least 1 resolvable evidence pointer (commit SHA, file path, PR number, test node) or an explicit unverified marker",
+        "at least one drift entry with its classification, or an explicit no-drift statement backed by the task-by-task accounting",
+        "git status shows .devague/ untouched by producing the artifact, and markdownlint-cli2 passes on the artifact"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c2",
+        "c15",
+        "h1",
+        "h2",
+        "h6",
+        "h8",
+        "h9",
+        "h11",
+        "h12",
+        "h13"
+      ],
+      "instruction": "the planned-work baseline is docs/plans/2026-07-01-devague-ships-a-sharper-end-to-end-method-a-guided.md plus devague plan show --json and plan waves --json (read-only) for that plan; evidence sources: git log for commits 67a3eca (spec+plan, 0.14.1), 51669f7 (skills carry, 0.15.0), 92c60ca (t1-t14 implementation, 0.16.0), plus gh pr view 53 54 58; the 0.14.1 docs-only versus 0.16.0 implementation split is candidate drift material - verify before claiming"
+    },
+    {
+      "id": "t5",
+      "summary": "release hygiene: minor version bump with changelog, full test suite, and repo-wide markdown lint",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "pyproject.toml version is bumped minor over main and CHANGELOG.md gains a Keep-a-Changelog entry naming the summarize-delivery skill, the skill-sources registration, the flow-doc updates, and the dogfood delivery artifact",
+        "uv run pytest -n auto passes and markdownlint-cli2 repo-wide passes"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t3",
+        "t4"
+      ],
+      "covers": [],
+      "instruction": "use the vendored version-bump skill (scripts/bump.py minor); follow the 0.15.0 entry shape for a skills-only release - no CLI change means no new CLI docs"
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "the on-disk CLAUDE.md status narrative may lag the 0.16.0 (issue 53 t1-t14) implementation - t3 verifies on disk before editing and corrects only flow wording",
+      "kind": "unknown_nonblocking",
+      "task_id": null
+    },
+    {
+      "id": "r2",
+      "text": "guildmaster re-vendoring cadence for the new origin skill is outside this repo - the mesh copy lands whenever guildmaster next pulls",
+      "kind": "out_of_scope",
+      "task_id": null
+    }
+  ]
+}

@@ -76,3 +76,76 @@ def test_cycle_still_renders() -> None:
     p.add_dep(b, "t1")
     out = render_plan(p, None)  # cycle: must not raise, both tasks appear
     assert "### t1" in out and "### t2" in out
+
+
+# ── #64: markdownlint-safe rendering (MD026 trailing-punctuation headings, ────
+# MD034 bare URLs) ─────────────────────────────────────────────────────────────
+
+
+def _hostile_plan_and_frame() -> tuple[Plan, Frame]:
+    f = Frame(slug="hostile", title="Hostile plan frame")
+    f.add_claim(
+        "announcement",
+        "League of Agents is live at https://league-of-agents.ai.",
+        origin="user",
+    )
+    p = Plan(
+        slug="hostile",
+        title="Ship the beautiful, welcoming home page.",
+        frame_slug="hostile",
+    )
+    t1 = p.add_task("Point DNS at https://league-of-agents.ai.")
+    p.add_acceptance(t1, "site resolves at https://league-of-agents.ai.")
+    p.add_cover(t1, "c1")
+    p.add_risk(
+        "traffic spike risk, see http://status.league-of-agents.ai for load.",
+        "unknown_nonblocking",
+        task_id="t1",
+    )
+    return p, f
+
+
+def test_plan_md_title_heading_strips_trailing_period() -> None:
+    out = render_plan(*_hostile_plan_and_frame())
+    first_line = out.split("\n", 1)[0]
+    assert first_line == "# Build Plan — Ship the beautiful, welcoming home page"
+    assert not first_line.endswith(".")
+
+
+def test_plan_md_task_heading_strips_trailing_period_and_wraps_url() -> None:
+    out = render_plan(*_hostile_plan_and_frame())
+    assert "### t1 — Point DNS at <https://league-of-agents.ai>\n" in out
+    heading_line = next(ln for ln in out.split("\n") if ln.startswith("### t1"))
+    assert not heading_line.endswith(".")
+
+
+def test_plan_md_announcement_blockquote_keeps_period_but_wraps_url() -> None:
+    out = render_plan(*_hostile_plan_and_frame())
+    assert "> League of Agents is live at <https://league-of-agents.ai>." in out
+
+
+def test_plan_md_wraps_url_in_acceptance_criterion() -> None:
+    out = render_plan(*_hostile_plan_and_frame())
+    assert "  - site resolves at <https://league-of-agents.ai>." in out
+
+
+def test_plan_md_wraps_url_in_risk_text() -> None:
+    out = render_plan(*_hostile_plan_and_frame())
+    expected = (
+        "- [unknown_nonblocking] traffic spike risk, see "
+        "<http://status.league-of-agents.ai> for load. (task t1)"
+    )
+    assert expected in out
+
+
+def test_plan_md_hostile_input_is_markdownlint_clean() -> None:
+    assert_blanks_around_headings_and_lists(render_plan(*_hostile_plan_and_frame()))
+
+
+def test_plan_md_does_not_mutate_plan_or_task_text() -> None:
+    plan, frame = _hostile_plan_and_frame()
+    before_title = plan.title
+    before_summary = plan.tasks[0].summary
+    render_plan(plan, frame)
+    assert plan.title == before_title
+    assert plan.tasks[0].summary == before_summary

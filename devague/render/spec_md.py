@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from devague.frame import Claim, Frame, HonestyCondition
+from devague.render._md_safety import autolink_urls, heading_safe
 
 
 def _claims(frame: Frame, kind: str) -> list[Claim]:
@@ -14,13 +15,13 @@ def _instruction_lines(instruction: str, indent: str = "  ") -> list[str]:
     when the item carries no instruction — never fabricated filler (#53 t1/t6,
     c10/h3).
     """
-    return [f"{indent}- instruction: {instruction}"] if instruction else []
+    return [f"{indent}- instruction: {autolink_urls(instruction)}"] if instruction else []
 
 
 def _claim_bullets(claims: list[Claim], prefix: str = "") -> list[str]:
     out: list[str] = []
     for c in claims:
-        out.append(f"- {prefix}{c.text}")
+        out.append(f"- {prefix}{autolink_urls(c.text)}")
         out += _instruction_lines(c.instruction)
     return out
 
@@ -32,7 +33,7 @@ def _text_section(heading: str, texts: list[str]) -> list[str]:
     """
     if not texts:
         return []
-    return [f"## {heading}", "", *[f"- {t}" for t in texts], ""]
+    return [f"## {heading}", "", *[f"- {autolink_urls(t)}" for t in texts], ""]
 
 
 def _claim_section(heading: str, claims: list[Claim]) -> list[str]:
@@ -62,12 +63,12 @@ def _requirements_block(frame: Frame) -> list[str]:
         return []
     out = ["## Requirements", ""]
     for c in reqs:
-        out.append(f"- {c.text}")
+        out.append(f"- {autolink_urls(c.text)}")
         out += _instruction_lines(c.instruction)
         for h in c.honesty_conditions:
             if h.status != "confirmed":
                 continue
-            out.append(f"  - honesty: {h.text}")
+            out.append(f"  - honesty: {autolink_urls(h.text)}")
             out += _instruction_lines(h.instruction, indent="    ")
     return out + [""]
 
@@ -95,14 +96,14 @@ def _honesty_section(heading: str, honesties: list[HonestyCondition]) -> list[st
         return []
     out = [f"## {heading}", ""]
     for h in honesties:
-        out.append(f"- {h.text}")
+        out.append(f"- {autolink_urls(h.text)}")
         out += _instruction_lines(h.instruction)
     return out + [""]
 
 
 def _hard_questions(frame: Frame) -> list[str]:
     hqs = [q for c in frame.claims for q in c.hard_questions]
-    bullets = [f"- {q.text}" + (" (blocking)" if q.blocking else "") for q in hqs]
+    bullets = [f"- {autolink_urls(q.text)}" + (" (blocking)" if q.blocking else "") for q in hqs]
     return ["## Hard questions", "", *bullets, ""] if hqs else []
 
 
@@ -119,20 +120,20 @@ def _scope_section(frame: Frame) -> list[str]:
         return []
     out = ["## Scope exploration", ""]
     for e in frame.scope_entries:
-        out.append(f"- `{e.id}` — `{e.surface}`: {e.finding}")
+        out.append(f"- `{e.id}` — `{e.surface}`: {autolink_urls(e.finding)}")
         if e.seeds:
             out.append(f"  - seeds: {', '.join(f'`{s}`' for s in e.seeds)}")
     return out + [""]
 
 
 def render_spec(frame: Frame) -> str:
-    out: list[str] = [f"# {frame.title}", ""]
+    out: list[str] = [f"# {heading_safe(frame.title)}", ""]
     ann_claims = _claims(frame, "announcement")
     if ann_claims:
         ann = ann_claims[0]
-        out.append("> " + ann.text)
+        out.append("> " + autolink_urls(ann.text))
         if ann.instruction:
-            out.append(f"> instruction: {ann.instruction}")
+            out.append(f"> instruction: {autolink_urls(ann.instruction)}")
         out.append("")
     out += _claim_section("Audience", _claims(frame, "audience"))
     out += _before_after(frame)
