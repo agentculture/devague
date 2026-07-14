@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-07-07
+
+### Changed
+
+- Changed the project license from MIT to Apache-2.0, added a retained MIT notice for vendored inbound skills, and updated package metadata and documentation references accordingly.
+
 ## [0.17.1] - 2026-07-10
 
 ### Fixed

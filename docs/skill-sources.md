@@ -11,7 +11,7 @@ explicitly — these copies do not auto-update.
 
 **Upstream provenance.** All eight inbound skills come from
 [`agentculture/guildmaster`](https://github.com/agentculture/guildmaster),
-**MIT**-licensed (the same license as devague). The canonical kit (`cicd`,
+**MIT**-licensed; the retained MIT notice is in `LICENSES/MIT-guildmaster-skills.txt`. devague itself is Apache-2.0 licensed. The canonical kit (`cicd`,
 `communicate`, `version-bump`, `run-tests`, `sonarclaude`, `doc-test-alignment`)
 was first vendored from `steward` at commit
 [`21414a9`](https://github.com/agentculture/steward/commit/21414a9) (2026-05-22)
@@ -20,7 +20,7 @@ and re-synced from the guildmaster checkout at commit
 (2026-05-24, guildmaster 0.5.1); `agent-config` and `pypi-maintainer` were
 vendored fresh from the same guildmaster checkout. The table records each skill's
 re-vendor path, the vendoring date, and any local divergence; license (MIT) and
-upstream repo are shared across all rows.
+upstream repo are shared across all inbound rows.
 
 | Skill | Re-vendor from | Vendored | Runtime backing & notes |
 |-------|----------------|----------|-------------------------|
