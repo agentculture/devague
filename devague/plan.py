@@ -126,6 +126,19 @@ class Plan:
         if dep_id not in task.deps:
             task.deps.append(dep_id)
 
+    def remove_dep(self, task: Task, dep_id: str) -> bool:
+        """Cut a single dependency edge (#53-esd t1, issue #68's edge-removal escape hatch).
+
+        Returns whether ``dep_id`` was actually present. Everything else on the task —
+        summary, acceptance criteria, covers, instruction — is untouched; the caller
+        (the CLI ``depend --remove`` move) is responsible for the re-confirm rule when
+        the task was confirmed.
+        """
+        if dep_id in task.deps:
+            task.deps.remove(dep_id)
+            return True
+        return False
+
     def add_cover(self, task: Task, target_id: str) -> None:
         if target_id not in task.covers:
             task.covers.append(target_id)
@@ -144,6 +157,50 @@ class Plan:
 
     def find_target(self, target_id: str) -> Optional[CoverageTarget]:
         return next((tg for tg in self.targets if tg.id == target_id), None)
+
+    @staticmethod
+    def _validate_acceptance_index(task: Task, index: int) -> None:
+        if not 1 <= index <= len(task.acceptance_criteria):
+            raise ValueError(
+                f"acceptance criterion index out of range: {index} "
+                f"(task {task.id} has {len(task.acceptance_criteria)})"
+            )
+
+    def amend_task(
+        self,
+        task: Task,
+        *,
+        summary: Optional[str] = None,
+        accept_replace: Optional[list[tuple[int, str]]] = None,
+        accept_remove: Optional[list[int]] = None,
+    ) -> None:
+        """The ``amend`` transition (#53-esd t1, issue #68): edit a summary and/or
+        acceptance criteria in place.
+
+        Scoped deliberately narrow — deps, covers, and instruction are untouched here;
+        they each already have their own move (``depend``, ``cover``, ``instruct``).
+        ``accept_replace``/``accept_remove`` index criteria 1-based (matching how they
+        are listed to the user). Replacements are applied first, against the *current*
+        list; removals are then applied in descending index order within this call, so
+        several ``--accept-remove`` indices always refer to the pre-call list rather
+        than shifting under each other. Raises ``ValueError`` on an out-of-range index
+        — the caller (the CLI ``amend`` move) is responsible for the re-confirm rule
+        when the task was confirmed, and for refusing a rejected task outright.
+        """
+        accept_replace = list(accept_replace or [])
+        accept_remove = list(accept_remove or [])
+        # Validate every index against the pre-call list before mutating anything, so a
+        # single bad index in a multi-item batch never leaves a partial edit behind.
+        for index, _text in accept_replace:
+            self._validate_acceptance_index(task, index)
+        for index in accept_remove:
+            self._validate_acceptance_index(task, index)
+        if summary is not None:
+            task.summary = summary
+        for index, text in accept_replace:
+            task.acceptance_criteria[index - 1] = text
+        for index in sorted(set(accept_remove), reverse=True):
+            del task.acceptance_criteria[index - 1]
 
     def set_status(self, task_id: str, status: str) -> bool:
         task = self.find_task(task_id)
@@ -208,6 +265,27 @@ def dependency_waves(tasks: list[Task]) -> list[list[str]]:
     if remaining:  # cycle leftover — the caller should have blocked this
         waves.append([t.id for t in remaining])
     return waves
+
+
+def terminal_tasks(tasks: list[Task]) -> list[Task]:
+    """Active (non-rejected) tasks that no other active task depends on.
+
+    These are the leaves of the dependency graph — the tasks whose output nothing
+    downstream consumes — used by the read-only ``deliverables`` view (#70) to answer
+    "what exists once every task completes" without re-deriving the whole graph. A
+    task with no dependents is terminal even if it itself has deps of its own; a plan
+    with no tasks at all yields an empty (vacuously total) list. Order is stored
+    order (stable), not topological — the caller decides how to present them.
+
+    Only *active* tasks are consulted on both sides: a rejected task is never
+    terminal (it is not part of "what ships"), and a rejected task's ``deps`` entry
+    naming another task does not keep that other task off the terminal list — a
+    dependency edge only "uses up" a task's terminal status when another *active*
+    task still depends on it.
+    """
+    active = [t for t in tasks if t.status != "rejected"]
+    depended_on = {d for t in active for d in t.deps}
+    return [t for t in active if t.id not in depended_on]
 
 
 def to_dict(plan: Plan) -> dict:

@@ -1,0 +1,32 @@
+{
+  "plan_slug": "execution-seam-and-deviate",
+  "schema_version": 1,
+  "created": "2026-07-14T21:34:58Z",
+  "updated": "2026-07-14T22:47:00Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "no PLAN_SCHEMA_VERSION bump shipped with depend --remove and amend",
+      "task_ref": "t1",
+      "reason": "cutting an edge or amending criteria mutates existing list fields \u2014 no persisted shape change, so the frame assumption c14 (conditional on a plan-JSON shape change) did not apply; deviation records live in their own store per resolved q3",
+      "affects": [
+        "c14"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable"
+    },
+    {
+      "id": "d2",
+      "what": "devague learn skills teaches authoring all six origin skills, not the original three",
+      "task_ref": "t11",
+      "reason": "user directive at the final PR gate: the skill-authoring recipe still taught only think, spec-to-plan, and assign-to-workforce \u2014 an agent following it would rebuild a three-legged kit while the shipped flow has six legs",
+      "affects": [
+        "devague learn skills recipe"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable"
+    }
+  ]
+}

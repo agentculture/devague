@@ -20,13 +20,23 @@ type: command
 # summarize-delivery — turn a workforce run into an accountability artifact
 
 The skill is named **`summarize-delivery`**; it is the **delivery-side closure
-leg** of the devague method — the *fifth* leg, run *after* the sibling
-**`/assign-to-workforce`** skill has executed (or attempted to execute) a
-converged plan. Where `/assign-to-workforce` takes the plan to delivery, this
-skill *summarizes* that delivery: it separates what was **planned** from what
-was **actually delivered**, records the **mid-work decisions** and **plan
-drift** the execution produced, states **delivery claims** with evidence and
-confidence, and names the **remaining work**.
+leg** that closes the devague method's six-leg flow:
+
+```text
+scope -> think -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
+```
+
+It runs *after* the sibling **`/assign-to-workforce`** skill has executed (or
+attempted to execute) a converged plan — and after any **`/deviate`** records
+that run produced, since `/deviate` slots in **between**
+`/assign-to-workforce` and this skill, recording approved mid-run departures
+the moment they happen during the fan-out. Where `/assign-to-workforce` takes
+the plan to delivery, this skill *summarizes* that delivery: it separates
+what was **planned** from what was **actually delivered**, records the
+**mid-work decisions** and **plan drift** the execution produced — quoting
+`/deviate`'s approved `dN` records as the recorded ground truth wherever they
+cover an item — states **delivery claims** with evidence and confidence, and
+names the **remaining work**.
 
 The plan the user confirmed is a **contract, not a fiction**. Agents make
 mid-work decisions, hit constraints, cut scope, and produce delivery claims
@@ -70,16 +80,30 @@ directly (if `devague` isn't on your PATH: `uv tool install devague`).
 
 ## The method
 
-1. **Establish the planned-work baseline — verbatim.** Read the plan the run
-   executed. When the run was devague-driven, the baseline is the plan's tasks,
-   acceptance criteria, and waves, available read-only via
-   `` `devague plan show [--json]` `` and `` `devague plan waves --json` `` —
-   the same enriched payload `/assign-to-workforce` fans out, keyed by task id
-   with each task's `summary`, `instruction`, `acceptance_criteria`, and
-   `covers`. Quote task ids and summaries **verbatim** into the Planned Work
-   section — mirroring the verbatim-brief rule in `/assign-to-workforce`. Drift
-   is then measured against the contract the user confirmed, never against a
-   paraphrase.
+1. **Establish the planned-work baseline — verbatim, starting from the
+   skeleton.** Run `devague summary [--plan <slug>] [--json]` first. It
+   renders the eight-section template pre-filled, verbatim, from the plan's
+   tasks, the plan's live source frame, and the delivery (deviation) store —
+   with `<fill: ...>` placeholders standing in for everything
+   execution-dependent (run status, per-task delivery status, evidence,
+   delivery claims). Continue filling in that skeleton rather than retyping
+   it from scratch — fewer transcription errors, same verbatim-baseline rule.
+   **Fall back to hand-assembly** when `devague summary` isn't available at
+   all — the verb is missing (an older devague predates the command) or the
+   underlying state it needs can't be read (no current plan, or a delivery
+   record written by a newer devague) — by reconstructing the baseline
+   read-only via `` `devague plan show [--json]` `` and
+   `` `devague plan waves --json` ``, the same enriched payload
+   `/assign-to-workforce` fans out, keyed by task id with each task's
+   `summary`, `instruction`, `acceptance_criteria`, and `covers`. If no plan
+   state exists at all, degrade further still (see "Degrading when there is
+   no plan state"). **Whichever path was taken, say so in the artifact's
+   `baseline:` line** — one of `` `devague summary skeleton` ``,
+   `` `devague plan (hand-assembled)` ``, or
+   `` `git+PR history (no plan state)` ``. Quote task ids and summaries
+   **verbatim** into the Planned Work section either way — mirroring the
+   verbatim-brief rule in `/assign-to-workforce`. Drift is then measured
+   against the contract the user confirmed, never against a paraphrase.
 2. **Establish actual delivery.** Reconcile the baseline against what merged:
    the merged branches, commits, and PRs of the run. **Every** plan task must
    be accounted for as **delivered / partial / dropped / blocked**, keyed by
@@ -118,7 +142,7 @@ is still a valid input).
 # Delivery Summary — <plan title>
 
 plan: `<slug>` · run: `<complete | partial | failed>` · date: `<created-date>`
-baseline: `<devague plan | git+PR history (no plan state)>`
+baseline: `<devague summary skeleton | devague plan (hand-assembled) | git+PR history (no plan state)>`
 
 ## Intent
 
@@ -126,9 +150,10 @@ baseline: `<devague plan | git+PR history (no plan state)>`
 
 ## Planned Work
 
-<The plan's tasks, quoted VERBATIM from `devague plan waves --json` — task id
-and summary, never paraphrased. When no plan state exists, quote the git/PR
-baseline instead and SAY SO here.>
+<The plan's tasks, quoted VERBATIM from the `devague summary` skeleton (or,
+when hand-assembling, `devague plan waves --json`) — task id and summary,
+never paraphrased. When no plan state exists, quote the git/PR baseline
+instead and SAY SO here.>
 
 - `t1` — <task summary, verbatim>
 - `t2` — <task summary, verbatim>
@@ -148,21 +173,28 @@ delivered / partial / dropped / blocked.>
 ## Mid-work Decisions
 
 <Constraints discovered, scope cuts, and choices made during execution that
-were not in the plan. One per bullet.>
+were not in the plan. When a delivery store exists for this plan, quote each
+approved deviation by its `dN` id — the record is the decision, consumed here,
+not re-litigated. A decision no record covers is still captured directly. One
+per bullet.>
 
-- <decision> — <why it was made>
+- `d2` — <what deviated, from the record> — <the record's reason>
+- <decision not covered by any deviation record> — <why it was made>
 
 ## Drift From Plan
 
 <Every plan task whose delivery differs from its contract. Exhaustive relative
-to the plan. Each entry: the plan item, the reason, and exactly one of
-acceptable / risky / needs-follow-up. If nothing drifted, state "no drift"
-and back it with the task-by-task accounting above.>
+to the plan. When a delivery store exists, an entry covered by an approved
+deviation names the plan item as `` `tN` (`dN`) `` and inherits that record's
+reason and classification verbatim. Drift NOT covered by any record is still
+recorded here exhaustively, exactly as before — never silently normalized. If
+nothing drifted, state "no drift" and back it with the task-by-task accounting
+above.>
 
 | Plan item | Reason for divergence | Classification |
 |-----------|-----------------------|----------------|
-| `t2` | <what changed vs. the confirmed task> | needs-follow-up |
-| `t3` | <what changed vs. the confirmed task> | risky |
+| `t2` (`d2`) | <quoted from the `d2` record's reason> | needs-follow-up |
+| `t3` | <what changed vs. the confirmed task — no record covers this> | risky |
 
 ## Evidence
 
@@ -218,18 +250,34 @@ Every Drift From Plan entry names three things:
   `risky` (may cause a problem; flag it), or `needs-follow-up` (leaves work
   the plan assumed done).
 
+When a delivery store exists and an approved `devague deviate` record covers
+the item, cite it by its `dN` id and inherit its reason and classification
+verbatim — the record is the recorded ground truth, not something this skill
+re-derives. An item no record covers still gets an entry here, worked out the
+same way as before.
+
 ## Degrading when there is no plan state
 
 The summary is producible from **durable** inputs — plan state, git history, PR
-links, test output — and never depends on unrecorded memory of the run. When
-the run was devague-driven, the plan (tasks, acceptance criteria, waves) and
-the exported plan-md are the planned-work baseline.
+links, test output — and never depends on unrecorded memory of the run. There
+are three tiers, most to least mechanical, and the artifact's `baseline:` line
+names which one applied:
 
-**When no devague plan state exists, degrade to git history and PR history as
-the planned-work baseline — and SAY SO in the artifact** (in the `baseline:`
-line and the Planned Work section). The delivery summary is still a valid
-accountability artifact; it just names its baseline honestly instead of
-pretending a plan existed.
+1. **`devague summary` skeleton** — the plan (and, if any, its delivery
+   record) can both be read; the render is fully mechanical.
+   `baseline: devague summary skeleton`.
+2. **Hand-assembly** — `devague summary` isn't available (the verb is missing,
+   or the state it needs can't be read) but the plan itself can still be read:
+   reconstruct the baseline read-only via `devague plan show [--json]` and
+   `devague plan waves --json`. `baseline: devague plan (hand-assembled)`.
+3. **Git + PR history** — no devague plan state exists at all: degrade to git
+   history and PR history as the planned-work baseline.
+   `baseline: git+PR history (no plan state)`.
+
+**Whichever tier applied, SAY SO in the artifact** (in the `baseline:` line
+and the Planned Work section). The delivery summary is still a valid
+accountability artifact either way; it just names its baseline honestly
+instead of pretending a more mechanical path was used.
 
 ## The only devague moves this skill uses — all read-only
 
@@ -238,8 +286,10 @@ it documents is read-only:
 
 | Move | What it reads |
 |------|---------------|
-| `devague plan show [--json]` | The plan's tasks, acceptance criteria, dependencies. |
-| `devague plan waves --json` | The wave batches + per-task `summary` / `instruction` / `acceptance_criteria` / `covers`, keyed by id — the verbatim planned-work baseline. |
+| `devague summary [--pr] [--json]` | The eight-section delivery-summary skeleton (or condensed `--pr` skeleton), pre-filled verbatim from the plan's tasks, its live source frame, and the delivery (deviation) store — the primary planned-work baseline (Method step 1). |
+| `devague deviate --list [--json]` | Every recorded deviation, read back by `dN` id — the source Drift From Plan and Mid-work Decisions quote. Recording or confirming a deviation is `/deviate`'s job, never this skill's. |
+| `devague plan show [--json]` | The plan's tasks, acceptance criteria, dependencies — the hand-assembly fallback when `devague summary` (or the state it needs) is unavailable. |
+| `devague plan waves --json` | The wave batches + per-task `summary` / `instruction` / `acceptance_criteria` / `covers`, keyed by id — the hand-assembly fallback's verbatim planned-work baseline. |
 | `devague scope --list [--json]` | Recorded scope-exploration findings, if the frame carried any. |
 | `devague show [--json]` | A frame / plan rendered for reading. |
 | `devague status [--json]` | Where a frame stands (read-only next-move helper). |
@@ -264,8 +314,10 @@ These are the point of the method — a delivery summary must be trustworthy.
   `git log` to substantiate a claim before writing it. Verification **never**
   mutates code or state. A claim you cannot verify stays `unverified`.
 - **No devague state mutation.** The only devague moves this skill uses are the
-  read-only `plan show`, `plan waves`, `scope --list`, `show`, and `status`
-  (see the table above). Never run a mutating devague command, and never run
+  read-only `summary`, `deviate --list`, `plan show`, `plan waves`,
+  `scope --list`, `show`, and `status` (see the table above). `deviate --list`
+  is read-only — recording or confirming a deviation belongs to `/deviate`,
+  never this skill. Never run a mutating devague command, and never run
   `devague plan` inside a task worktree to "mark a task done" — that is
   `/assign-to-workforce`'s boundary too (#20).
 - **Account for 100 % of plan tasks.** Every plan task appears in Actual
@@ -273,20 +325,24 @@ These are the point of the method — a delivery summary must be trustworthy.
   Both the task count and the claim-evidence coverage are checkable by
   inspecting the artifact alone, with no hidden context.
 - **Quote the plan verbatim.** Planned Work quotes task ids and summaries
-  verbatim from `devague plan waves --json`. Drift is measured against the
-  confirmed contract, not a reworded version of it.
+  verbatim from the `devague summary` skeleton (or `devague plan waves --json`
+  when hand-assembling). Drift is measured against the confirmed contract, not
+  a reworded version of it.
 
 ## Worked example
 
-A **partial** run: three tasks were planned, two merged cleanly, and the third
-failed its post-merge TDD gate and was reverted. Every section is still
-writable — nothing about the failure makes the artifact unproducible.
+A **partial** run: three tasks were planned; `t1` merged cleanly, `t2` merged
+after an approved mid-run deviation, and `t3` failed its post-merge TDD gate
+and was reverted. Every section is still writable — nothing about the failure
+makes the artifact unproducible.
 
 ```bash
 # 1. Establish the planned-work baseline — read-only, quoted verbatim.
-devague plan waves --json      # -> {"plan": "widget-export", "waves": [...],
-                               #     "tasks": {"t1": {...}, "t2": {...}, "t3": {...}}}
-devague plan show              # human-readable plan for the Intent paragraph
+devague summary                # -> pre-filled eight-section skeleton, keyed by
+                               #     task id, `<fill: ...>` placeholders for
+                               #     everything execution-dependent
+devague deviate --list         # -> d1 (approved, acceptable): t2 dropped an
+                               #     assumed flag mid-run
 
 # 2. Establish actual delivery — read-only reconciliation.
 git log --oneline main~4..main   # what merged
@@ -300,7 +356,7 @@ The resulting `docs/deliveries/2026-07-09-widget-export.md`:
 # Delivery Summary — widget export
 
 plan: `widget-export` · run: `partial` · date: `2026-07-09`
-baseline: `devague plan (widget-export)`
+baseline: `devague summary skeleton`
 
 ## Intent
 
@@ -309,7 +365,7 @@ Ship the `widget export` command as three independent tasks fanned out by
 
 ## Planned Work
 
-Quoted verbatim from `devague plan waves --json`:
+Quoted verbatim from the `devague summary` skeleton:
 
 - `t1` — add the `export` verb to the CLI chassis
 - `t2` — implement the widget-md renderer
@@ -325,13 +381,18 @@ Quoted verbatim from `devague plan waves --json`:
 
 ## Mid-work Decisions
 
-- t2 renders an absent field as an empty line rather than filler — matches the
+- `d1` — dropped the `--verbose` flag from `t2`'s CLI surface — the plan
+  assumed it, but the renderer never needed a verbose mode (recorded via
+  `/deviate`, approved)
+- t2 also renders an absent field as an empty line rather than filler — no
+  deviation record covers this; captured here directly, matching the
   no-fabrication rule the plan assumed but did not spell out.
 
 ## Drift From Plan
 
 | Plan item | Reason for divergence | Classification |
 |-----------|-----------------------|----------------|
+| `t2` (`d1`) | dropped the `--verbose` flag — the plan assumed it, but the renderer never needed a verbose mode | acceptable |
 | `t3` | gate raised on an unconverged plan; reverted, not delivered | needs-follow-up |
 
 ## Evidence

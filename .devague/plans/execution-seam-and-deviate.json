@@ -1,0 +1,419 @@
+{
+  "slug": "execution-seam-and-deviate",
+  "title": "execution seam and deviate",
+  "frame_slug": "execution-seam-and-deviate",
+  "schema_version": 2,
+  "status": "exported",
+  "created": "2026-07-14T21:05:46Z",
+  "updated": "2026-07-14T21:09:16Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague closes the execution seam: a deliverables view answers what we have in the end at the go or no-go, the split plan renders the table humans actually approve, dependency edges can be removed without task recreation, and human-approved deviations become first-class records that connect the plan to the delivery summary"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "holds only if every leg the announcement names ships in the same release: deliverables view, four-column split-plan table, dependency-edge removal, the deviate move and skill, and the three evidence-based issue closures"
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "new read-only `devague plan deliverables` view (name pending q-decision) answers what exists once every task completes, synthesized only from existing state: the frames confirmed announcement, `after_state`, and `success_signal` claims, terminal tasks (tasks no active task depends on) with their acceptance criteria, and surviving parked vagueness; `--json` emits the same structured payload; no mutation, no LLM calls (issues 70 and 20)"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "verifiable by inspection and test: the deliverables code path performs zero store writes and zero subprocess or network calls; a test renders the view twice and the state files stay byte-identical"
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "the assign-to-workforce split-plan presentation gains an End state section sourced from the deliverables view, and the skill doc gains one line telling the operator to include it at the go or no-go (issue 70)"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "the End state section is produced by quoting the CLI deliverables output verbatim, never composed freehand by the operator; the skill doc names the exact move to run"
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "split-plan renders one markdown table with exactly the columns Wave, Task, Model, Task summary, ordered by wave then task id, real verbatim summaries (truncated when long), and an honest per-row model default instead of the constant cheaper/faster; the go or no-go prompt and the wave listing stay (issue 69)"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "the rendered table matches the issue 69 ask verbatim: header Wave, Task, Model, Task summary; rows ordered by wave then task id; asserted by a script-level test"
+    },
+    {
+      "id": "c5",
+      "kind": "requirement",
+      "text": "a dependency edge can be removed without recreating tasks; smallest shape is a remove flag on `devague plan depend` (final shape pending q-decision), and removing an edge on a confirmed task flips it to proposed with the same visible note the instruct move prints (issue 68)"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "after removing an edge the task keeps its summary, acceptance criteria, covers, and instruction unchanged, and converge no longer reports the removed edge; round-trip covered by a test"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "culture.yaml declares backend claude, the mesh standard; unblocked because agex-cli issue 46 is closed and devex 0.30.0 maps claude onto claude-code; the agex pr lane is re-verified after the edit (issue 66)"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "agex pr open succeeds from this repo with backend claude in culture.yaml, verified live before the PR carrying the change merges"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "new deterministic `devague deviate` move records a human-approved deviation from the confirmed plan at the moment it happens: the plan item it deviates from, the reason, what it affects, and the approval; llm-recorded deviations land proposed until the user confirms them, per the standing anti-fabrication contract"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "a deviate record without the explicit approval marker is refused; an llm-origin deviation lands proposed and never counts as approved until the user confirms it"
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "new sixth origin skill `/deviate`, the execution-time leg in the flow scope, think, spec-to-plan, assign-to-workforce, deviate, summarize: when execution must diverge from the plan it stops the run, gets explicit human approval, records the deviation via the CLI move, and adjusts the affected task briefs"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "the skill hard rules make the stop-and-get-approval step unskippable: no deviation is recorded that the human did not approve, mirroring the confirm-is-user-only contract"
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "the summarize-delivery skill consumes recorded deviations: its Drift From Plan and Mid-work Decisions sections quote deviation records verbatim instead of reconstructing drift from memory, making deviate records the connective tissue between the confirmed plan and the delivery summary"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "the summarize-delivery template names deviation record ids in its Drift From Plan rows, so every drift entry traces to a recorded, approved deviation whenever one exists"
+    },
+    {
+      "id": "c12",
+      "kind": "boundary",
+      "text": "the CLI stays deterministic and non-orchestrating (issue 20): deliverables and deviate record and describe state; they never spawn agents, mark tasks done, gate merges, or call an LLM"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "deliverables performs no mutation at all; deviate mutates only its own record; grepping the new code paths finds no agent spawning, no worktree management, no merge gating, and no LLM call"
+    },
+    {
+      "id": "c15",
+      "kind": "audience",
+      "text": "devague operators (the main agent driving the CLI) and the humans at the go or no-go and final-PR gates"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "matches the three-reader model already shipped in the summarize-delivery skill: the operator, the human at the gates, and the later reader who never watched the run"
+    },
+    {
+      "id": "c16",
+      "kind": "after_state",
+      "text": "after this ships: the go or no-go presents what exists once every task completes, sourced from state alone; deviations from the confirmed plan are recorded with reason, impact, and human approval, and the delivery summary quotes them instead of reconstructing drift from memory; a wrong dependency edge costs one move to fix instead of a task-recreation cascade; and issues 62, 66, and 67 are closed with cited evidence"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "every element of the after state is checkable from committed artifacts: the view output, the deviation records, a passing edge-removal test, and the issue timelines"
+    },
+    {
+      "id": "c17",
+      "kind": "why_it_matters",
+      "text": "the plan is a contract: without an end-state view the human approves a workforce without seeing the world after the work; without recorded deviations the delivery summary rebuilds drift from unrecorded memory; without edge removal an honest one-word correction costs an unbounded rewrite of dependent tasks"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "each pain it names traces to a filed issue: 70 for the missing end-state view, 62 plus the deviate gap for drift-from-memory, 68 for the recreation cascade"
+    },
+    {
+      "id": "c18",
+      "kind": "success_signal",
+      "text": "6 of 6 bundled issues end closed (3 by shipped code, 3 by cited evidence); the deliverables and deviate code paths ship with 0 LLM calls and 0 orchestration, verified by inspection; test coverage stays at or above 95%"
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "the numbers are measurable as written: six of six issues closed on the tracker, zero LLM calls verified by inspection, coverage read from the CI gate at or above 95 percent"
+    },
+    {
+      "id": "c24",
+      "kind": "requirement",
+      "text": "new `devague plan amend` move edits a task summary and replaces or removes acceptance criteria; amending a confirmed task flips it to proposed with the visible re-confirm note (issue 68, resolved q1)"
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "amend round-trips: the summary and criteria change exactly as asked, everything else on the task is untouched, and the flip note appears when the task was confirmed; covered by tests"
+    },
+    {
+      "id": "c25",
+      "kind": "requirement",
+      "text": "moves that demote a confirmed task (`instruct`, `amend`, `depend --remove`) name the confirmed-to-proposed flip on the stdout result line, not only on stderr and in JSON (issue 67 hardening, resolved q4)"
+    },
+    {
+      "id": "h16",
+      "kind": "honesty",
+      "text": "a harness reading only stdout still sees the flip: asserted by a test that captures stdout alone"
+    },
+    {
+      "id": "c27",
+      "kind": "requirement",
+      "text": "new deterministic `devague summary [--pr] [--json]` renders a wrap-up from existing state only: the eight-section delivery-summary skeleton pre-filled verbatim from the frame (announcement, after state), the plan (every task id and summary), and approved deviation records, with explicit fill-me placeholders for run status, per-task delivery status, evidence, and claims \u2014 nothing ever renders as done from state alone; `--pr` emits a condensed PR-body skeleton for the cicd lane; the summarize-delivery skill starts from this skeleton instead of hand-assembling the baseline (resolves q6)"
+    },
+    {
+      "id": "h17",
+      "kind": "honesty",
+      "text": "the skeleton is deterministic and fabrication-free: rendering twice yields identical output, every pre-filled line traces verbatim to frame, plan, or deviation state, no placeholder ever renders as a completed claim, and the PR mode is covered by a stdout-only test"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "plan-engine escape hatches and demotion visibility: `depend --remove`, new `amend` move, stdout flip echo",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "depend remove cuts exactly the named edge; the task keeps summary, acceptance criteria, covers, and instruction unchanged (round-trip test)",
+        "amend edits the summary and replaces or removes acceptance criteria by index without touching deps, covers, or instruction",
+        "each demoting move (`instruct`, `amend`, `depend --remove`) on a confirmed task flips it to proposed and names the flip in the stdout result line, asserted by a test that captures stdout alone",
+        "converge stops reporting a removed edge; `--json` payloads carry the flipped field"
+      ],
+      "deps": [],
+      "covers": [
+        "c5",
+        "h5",
+        "c24",
+        "h15",
+        "c25",
+        "h16"
+      ],
+      "instruction": "OWNS: devague/plan.py, devague/cli/_commands/plan.py, tests/test_plan_escape_hatches.py (new). Add Plan.remove_dep and an amend transition (summary edit; acceptance-criteria replace/remove by index). CLI: `depend <tN> --on <tM> --remove` cuts one edge; new `amend <tN> [--summary \"<text>\"] [--accept-replace <n> \"<text>\"] [--accept-remove <n>]`. Any demoting change (instruct, amend, depend remove) on a confirmed task flips it to proposed AND appends the flip to the stdout result line, e.g. `t1: instruction set (confirmed -> proposed; re-confirm)`; keep the stderr note and the flipped field in `--json`. TDD: write the stdout-only capture test first."
+    },
+    {
+      "id": "t2",
+      "summary": "read-only `devague plan deliverables` view with `--json` and not-converged banner",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "on a converged plan, prints the confirmed announcement, after_state, and success_signal claims verbatim, terminal tasks with their acceptance criteria, and surviving parked items",
+        "on an unconverged plan it renders with an explicit not-converged banner and converged false in `--json` \u2014 it never refuses",
+        "two consecutive renders leave .devague/ byte-identical (read-only proof)"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c2",
+        "h2"
+      ],
+      "instruction": "OWNS: devague/render/deliverables_md.py (new), devague/cli/_commands/plan.py (registration only), devague/plan.py (terminal-task helper), tests/test_plan_deliverables.py (new). Terminal tasks = active tasks no other active task depends on. Render from the live source frame: confirmed announcement / after_state / success_signal verbatim; terminal tasks with acceptance criteria; surviving frame parked vagueness plus non-blocking plan risks. Banner line when the plan has not converged; `--json` mirrors with a converged flag. Reuse the _md_safety helpers."
+    },
+    {
+      "id": "t3",
+      "summary": "delivery store and the `devague deviate` move",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a deviate record persists under `.devague/deliveries/<plan-slug>.json` with its own schema_version, fail-closed load, and upgrade-on-write",
+        "llm-origin deviations land proposed; only user confirm marks them approved; user-origin records auto-approve; a record without a reason is refused with a hint",
+        "the plan JSON is byte-identical before and after every deviate operation (test-asserted)"
+      ],
+      "deps": [],
+      "covers": [
+        "c7",
+        "h7",
+        "c12",
+        "h10"
+      ],
+      "instruction": "OWNS: devague/delivery.py (new), devague/delivery_store.py (new), devague/cli/_commands/deviate.py (new), devague/cli/__init__.py (registration), tests/test_deviate.py (new). Store mirrors plan_store incl. the 0.17.0 version-stamping fix. Record `dN`: plan item ref, reason, affects (repeatable), origin, status proposed/approved/rejected, optional classification acceptable/risky/needs-follow-up (feeds the drift entry contract). CLI: `devague deviate \"<what>\" --task <tN> --reason \"<text>\" [--affects <ref> ...] [--classification <kind>] [--origin llm]`; `--confirm <dN>` / `--reject <dN>` are user-only; `--list [--json]` reads back."
+    },
+    {
+      "id": "t4",
+      "summary": "render-only `devague summary` verb with `--pr` PR-body mode",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "renders all eight sections: Intent and Planned Work pre-filled verbatim from frame and plan; Actual Delivery one row per task with explicit fill placeholders; drift and mid-work sections quote approved deviation ids",
+        "no placeholder ever renders as a completed claim; the run status stays a placeholder; two renders are byte-identical and state is untouched",
+        "`--pr` emits the condensed PR-body skeleton, asserted by a stdout-only test; output is markdownlint-safe"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c27",
+        "h17"
+      ],
+      "instruction": "OWNS: devague/render/summary_md.py (new), devague/cli/_commands/summary.py (new), devague/cli/__init__.py (registration), tests/test_summary.py (new). Eight-section skeleton from state only: Intent quotes the frame announcement and after_state; Planned Work lists every task id and summary verbatim; Actual Delivery emits one row per task with `<fill: status>` and `<fill: what landed>` placeholders (backtick-safe); Mid-work Decisions and Drift From Plan pre-seed from approved deviation records by id; Evidence, Delivery Claims, Remaining Work stay placeholders; run status renders as the `<complete | partial | failed>` placeholder. `--pr` renders title, announcement, wave and task map, approved deviations, and a pointer to the docs/deliveries artifact. Reuse _md_safety."
+    },
+    {
+      "id": "t5",
+      "summary": "split-plan renders the four-column table with wave-listing markers",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "split-plan prints exactly one per-task table with header Wave, Task, Model, Task summary, rows ordered by wave then task id",
+        "the summary cell is the real task summary from the waves payload, truncated with an ellipsis when long \u2014 never a placeholder; the model cell defaults to sonnet per row",
+        "the wave listing shows has-instruction and acceptance-count markers; the go or no-go prompt stays; a pytest drives the script end to end against a fixture plan"
+      ],
+      "deps": [],
+      "covers": [
+        "c4",
+        "h4"
+      ],
+      "instruction": "OWNS: .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh, tests/test_assign_to_workforce_script.py (new). Reshape the per-task table to exactly Wave, Task, Model, Task summary; model default sonnet (presentation only \u2014 the CLI stays model-agnostic per issue 20); truncate summaries past 72 chars with an ellipsis. Move the has-instruction marker and acceptance-criteria count into the wave-batch listing lines. Keep the go or no-go prompt and the fan-out steps."
+    },
+    {
+      "id": "t6",
+      "summary": "split-plan End state section quoting `plan deliverables`",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "split-plan output ends with an End state section that is the verbatim output of `devague plan deliverables`",
+        "with an older devague lacking the verb, the section degrades to a one-line hint naming the minimum version instead of failing",
+        "SKILL.md tells the operator to present the deliverables view at the go or no-go"
+      ],
+      "deps": [
+        "t2",
+        "t5"
+      ],
+      "covers": [
+        "c3",
+        "h3"
+      ],
+      "instruction": "OWNS: .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh (End state addition), .claude/skills/assign-to-workforce/SKILL.md. After the table, print an End state section produced by running `devague plan deliverables` and quoting its output verbatim \u2014 never composed freehand. Degrade gracefully on older devague versions (portable mesh script). Extend the t5 script test."
+    },
+    {
+      "id": "t7",
+      "summary": "new sixth origin skill `/deviate`",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the skill file exists with type command frontmatter and the stop, approve, record, adjust, resume method",
+        "hard rules forbid recording an unapproved deviation and continuing past a refused approval",
+        "docs/skill-sources.md registers deviate as the sixth origin skill; markdownlint passes"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c8",
+        "h8"
+      ],
+      "instruction": "OWNS: .claude/skills/deviate/SKILL.md (new), docs/skill-sources.md. Model the doc on scope and summarize-delivery at their birth: method-first, `type: command` frontmatter (the culture-backend gotcha), origin devague, guildmaster re-broadcasts. Method: when execution must diverge from the confirmed plan, STOP the run; present what, why, and what it affects (tasks, coverage targets, acceptance criteria); get explicit human approval; record via `devague deviate` (llm origin lands proposed, the user confirms); adjust the affected task briefs; resume. Deviations are never silently folded into drift after the fact."
+    },
+    {
+      "id": "t8",
+      "summary": "summarize-delivery consumes deviation records and the summary skeleton",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the baseline step starts from the `devague summary` skeleton and degrades loudly to hand-assembly when the verb or store is absent",
+        "Drift From Plan and Mid-work Decisions quote approved deviation record ids when a delivery store exists",
+        "the read-only moves table lists `devague summary` and `devague deviate --list`; markdownlint passes"
+      ],
+      "deps": [
+        "t3",
+        "t4"
+      ],
+      "covers": [
+        "c9",
+        "h9"
+      ],
+      "instruction": "OWNS: .claude/skills/summarize-delivery/SKILL.md. Method step 1 becomes: start from the `devague summary` skeleton, falling back to hand-assembly from `plan show` / `plan waves --json` when the verb or store is absent \u2014 and say so in the baseline line. Drift and mid-work sections reference approved deviation records by `dN` id. Hard rules unchanged; the no-overclaim contract stays intact."
+    },
+    {
+      "id": "t9",
+      "summary": "culture.yaml backend reverts to claude with live agex verification",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "culture.yaml declares backend claude; no other file changes in this task",
+        "`agex pr open` succeeds live from this repo before the release PR merges, recorded in the PR body"
+      ],
+      "deps": [],
+      "covers": [
+        "c6",
+        "h6"
+      ],
+      "instruction": "OWNS: culture.yaml. One-line change: backend claude-code becomes claude (the mesh standard). devex 0.30.0 maps claude onto claude-code (agex-cli issue 46, closed), so the cicd lane keeps working. Verification is live: the release PR opened via `agex pr open` IS the test \u2014 record the result in the PR body. Leave .claude/skills/cicd/scripts/workflow.sh alone: its claude-code default is agex-internal vocabulary."
+    },
+    {
+      "id": "t10",
+      "summary": "close issues 62 and 67 with cited evidence",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "issue 67 is closed with the 0.17.2 repro transcript (stderr note plus flipped true in `--json`, shipped 0.16.0 commit 92c60ca) and a pointer to the stdout-echo hardening in this release",
+        "issue 62 is closed citing 0.17.0 (#63) and docs/deliveries/2026-07-09-sharper-end-to-end-method.md; both comments signed per convention"
+      ],
+      "deps": [],
+      "covers": [
+        "c17",
+        "h13"
+      ],
+      "instruction": "No repo files. Use gh issue comment + close (or the communicate skill). Sign as - devague (Claude). The 67 comment should paste the actual stdout/stderr split from the repro so the already-fixed claim is checkable."
+    },
+    {
+      "id": "t11",
+      "summary": "release closure: version bump, changelog, docs, coverage and boundary audit",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "version bumped to 0.18.0 with a CHANGELOG entry naming every leg of the release",
+        "CLAUDE.md and README name the six-leg flow and the new verbs; the audience (operators driving the CLI, humans at the go or no-go and final-PR gates) is named",
+        "`uv run pytest -n auto` is green with coverage at or above 95 percent",
+        "the boundary audit finds no subprocess, network, or LLM call in the deliverables, deviate, or summary code paths"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t3",
+        "t4",
+        "t5",
+        "t6",
+        "t7",
+        "t8",
+        "t9",
+        "t10"
+      ],
+      "covers": [
+        "c1",
+        "h1",
+        "c15",
+        "h11",
+        "c16",
+        "h12",
+        "c18",
+        "h14"
+      ],
+      "instruction": "OWNS: pyproject.toml, CHANGELOG.md, CLAUDE.md, README.md, docs/skills.md. Bump minor via /version-bump; the CHANGELOG entry names: deliverables view, four-column split plan plus End state, depend remove plus amend plus stdout flip echo, deviate move plus skill plus delivery store, summary verb plus `--pr`, culture.yaml revert, and the two evidence-based closures. Docs name the six-leg flow scope, think, spec-to-plan, assign-to-workforce, deviate, summarize-delivery."
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "the live agex pr verification can only run at PR-open time outside any task worktree \u2014 the release PR itself is the test vehicle",
+      "kind": "unknown_nonblocking",
+      "task_id": "t9"
+    },
+    {
+      "id": "r2",
+      "text": "the v1 deviate record shape beyond the specced fields (classification, timestamps) is fixed by instruction rather than spec \u2014 dogfooding may revise it in a follow-up",
+      "kind": "unknown_nonblocking",
+      "task_id": "t3"
+    }
+  ]
+}

@@ -4,6 +4,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**The execution seam and deviate (0.18.0, #53 esd t1–t11).** The flow gains a
+**sixth leg** — **`deviate`** — plus the read-only "end state" that closes the
+loop between a confirmed plan and what the workforce actually produces mid-run.
+New CLI surface: `devague plan deliverables [--json]` (a never-refusing preview
+of the plan's confirmed announcement/after-state/success-signal claims,
+terminal-task acceptance criteria, and surviving open items, #70);
+`devague plan depend <tN> --on <tM> --remove` and a new `devague plan amend`
+move (edit a task's summary and/or acceptance criteria by index, #68), both
+joining `instruct` in flipping a CONFIRMED task back to `proposed` and now
+echoing that flip to stdout on every demoting move (#67 hardening);
+`devague deviate` (`--list [--json]`, `--confirm`/`--reject`) recording
+first-class, append-only deviation records in a new delivery store,
+`.devague/deliveries/<plan-slug>.json`; and `devague summary [--pr] [--json]`,
+a render-only eight-section delivery-summary skeleton built from state alone.
+New sixth origin skill **`/deviate`** — stop an in-flight
+`/assign-to-workforce` run the moment execution must diverge from the
+confirmed plan, get explicit human approval, and record it via
+`devague deviate` before resuming; it uses the existing implementation-split-plan
+gate (gate 2), not a new fourth gate. `assign-to-workforce`'s split-plan now
+renders a four-column Wave/Task/Model/Task-summary table with real model
+tokens and a trailing End state section quoting `devague plan deliverables`
+verbatim (#69, #70); `summarize-delivery` now starts from the `devague summary`
+skeleton and quotes approved deviations by `dN` id instead of reconstructing
+drift from memory. `culture.yaml` reverts `backend` to `claude`, the mesh
+standard, now that `agex-cli#46` is closed (#66). Docs (this file, `README.md`,
+`docs/skills.md`) now name the **six-leg flow** — `scope` → `think` →
+`spec-to-plan` → `assign-to-workforce` → `deviate` → `summarize-delivery` — and
+the two audiences it serves: operators (the main agent driving the CLI) and
+the humans who own the go/no-go and final-PR gates.
+
 **Operator kit carries the sharper method + new `/scope` skill (0.15.0).** The
 sharper end-to-end method spec+plan merged in #53 (0.14.1: docs + state only);
 this release carries its *method-level* half into the operator skills. New
@@ -124,7 +154,10 @@ verbs). The workflow:
    conditions). Refuses an unconverged frame; refuses to clobber an existing plan.
 2. `devague plan task "<summary>" [--accept … --dep … --covers … --origin]` —
    add tasks; `--origin llm` lands `proposed` (user must `confirm`). Refine with
-   `accept` / `depend` / `cover`.
+   `accept` / `depend` (or `depend --remove` to cut an edge, #68) / `cover` /
+   `instruct` / `amend` (edit a task's summary and/or replace/remove acceptance
+   criteria by index, #68). Amending or demoting a CONFIRMED task flips it back
+   to `proposed` and echoes that flip to stdout (#67).
 3. `devague plan risk "<text>" --kind <kind>` — park a genuine unknown as a
    first-class plan risk instead of guessing.
 4. `devague plan converge` — re-evaluates the gate **against the live frame**
@@ -140,6 +173,13 @@ verbs). The workflow:
    orchestration** — Devague describes the graph; it does not spawn subagents,
    manage worktrees, mark tasks done, or pick a backend (#20). A cyclic or
    dangling graph is refused via the plan-convergence dependency blockers.
+7. `devague plan deliverables [--json]` — a read-only "end state" preview:
+   the plan's confirmed announcement/after-state/success-signal claims
+   verbatim from its live source frame, every terminal task (an active task no
+   other active task depends on) with its acceptance criteria, and the
+   surviving open items. Never refuses — shows a not-converged banner instead
+   of gating, since previewing the end state is useful before convergence
+   too (#70).
 
 Both `devague export` and `devague plan export` prefix the written file with the
 frame/plan creation date (`<YYYY-MM-DD>-<slug>.md`, #12), so re-exporting an
@@ -158,7 +198,9 @@ the devague CLI deterministic and non-orchestrating (#20).
 1. **Spec gate**: the exported frame/spec.
 2. **Implementation split plan gate**: the plan tasks map, per-task subagent +
    model assignment, and the go/no-go decision on assigning the plan to the
-   workforce.
+   workforce. A mid-run deviation (recorded via `devague deviate` and the
+   cited `/deviate` skill) is **not** a fourth standing gate — it is the human
+   owner of this gate approving an amendment to it in-flight.
 3. **Final PR gate**: human code review of the merged result.
 
 ### Worktree contention safety
@@ -188,14 +230,21 @@ skill and this convention, not in new CLI and not in a CI/CD runner.
   worktree (gated by TDD); owns the implementation split plan.
 - **Per-task subagents**: may be simpler or cheaper models; each builds a single
   task test-first within its worktree.
-- **Human**: owns the three gates (spec, implementation split plan, final PR).
+- **Human**: owns the three gates (spec, implementation split plan, final PR),
+  including approving mid-run deviations against gate 2 via `/deviate`.
 
-### Current gap
+### What consumes the scheduling metadata
 
-`devague plan waves [--json]` emits the scheduling metadata (`{plan, waves}`),
-but nothing downstream consumes it yet. The `assign-to-workforce` skill (cited
-from superpowers:subagent-driven-development) is what consumes waves and
-orchestrates the fan-out; its use is shared via `devague learn`.
+`devague plan waves [--json]` emits the scheduling metadata (`{plan, waves,
+tasks}`); the `assign-to-workforce` skill's `split-plan` subcommand is the
+consumer — it renders the implementation split plan (task map, per-task
+agent/model proposal, go/no-go) and a trailing End state section quoting
+`devague plan deliverables` verbatim (#70), then performs the fan-out itself.
+`devague deviate` and the cited `/deviate` skill are the consumer for
+mid-run departures from that plan; `devague summary` and `/summarize-delivery`
+are the consumer for what actually shipped once the run ends. Devague itself
+never orchestrates any of this (#20) — its use across all four is shared via
+`devague learn`.
 
 ## Project intent
 
@@ -208,11 +257,18 @@ and hard questions, parking unresolved uncertainty as first-class "open
 vagueness," and only exporting a buildable spec once the frame *converges*. The
 plan method: seed a plan from that converged frame and converge it on coverage,
 acceptance criteria, and an acyclic dependency order before exporting a plan.
-The operator skills cover the legs in flow order: **`/scope`** (idea→explored
-scope, the optional opening leg), **`/think`** (idea→spec), **`/spec-to-plan`**
-(spec→plan), **`/assign-to-workforce`** (plan→parallel implementation), and
+The operator skills cover the **six legs** in flow order: **`/scope`**
+(idea→explored scope, the optional opening leg), **`/think`** (idea→spec),
+**`/spec-to-plan`** (spec→plan), **`/assign-to-workforce`**
+(plan→parallel implementation), **`/deviate`** (the execution-time leg — stop
+an in-flight fan-out the moment it must diverge from the confirmed plan, get
+explicit human approval, and record the divergence before resuming), and
 **`/summarize-delivery`** (execution→a committed accountability artifact, the
-delivery-side closure leg); the product/CLI they drive is **`devague`**.
+delivery-side closure leg); the product/CLI they drive is **`devague`**. The
+skills are written for two audiences: **operators** — the main agent driving
+the deterministic CLI move by move — and the **humans** who own the go/no-go
+decision on the implementation split plan (gate 2, including any deviation
+against it) and the final PR review (gate 3).
 
 This is a **state machine over claims, honesty conditions, open vagueness, and
 convergence** driven by LLM-chosen moves — not a linear wizard. The CLI is
@@ -238,8 +294,9 @@ steward→guildmaster cutover; `steward` is still a sibling but no longer
 broadcasts). Vendored skills are cited, not imported (cite-don't-import): copy
 from `../guildmaster/.claude/skills/<name>/` and track provenance in
 `docs/skill-sources.md`. The exception is devague's own `scope` / `think` /
-`spec-to-plan` / `assign-to-workforce` / `summarize-delivery` — devague is their
-origin, so guildmaster re-broadcasts them *from* here; never re-vendor them back.
+`spec-to-plan` / `assign-to-workforce` / `deviate` / `summarize-delivery` —
+devague is their origin, so guildmaster re-broadcasts them *from* here; never
+re-vendor them back.
 
 ## Stack expectations (when code lands)
 
@@ -256,8 +313,13 @@ that unless the user asks otherwise. The established sibling shape is:
 - `devague/cli/_commands/` — one module per verb, each exposing `register()`.
   Frame verbs: `new`, `capture`, `interrogate`, `confirm`, `reject`, `park`,
   `converge`, `export`, `status`, `show`, `list`, `learn`, `explain` (`status`
-  shares `cli/_status.py` with the plan engine). The plan engine adds one module,
-  `_commands/plan.py`, registering the nested `plan` subcommand group.
+  shares `cli/_status.py` with the plan engine), plus two more flat verbs,
+  `deviate` (`--list`, `--confirm`, `--reject`) and `summary` (`--pr`), backed
+  by `devague/delivery.py` + `devague/delivery_store.py`. The plan engine adds
+  one module, `_commands/plan.py`, registering the nested `plan` subcommand
+  group — `new` / `task` / `instruct` / `accept` / `amend` / `depend` (plus
+  `--remove`) / `cover` / `confirm` / `reject` / `risk` / `converge` / `export`
+  / `waves` / `deliverables` / `status` / `show` / `list` / `learn` / `explain`.
 - Frame engine: `devague/frame.py`, `convergence.py`, `store.py`,
   `render/{spec_md,frame_md}.py`. Plan engine (its peer): `devague/plan.py`,
   `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`, `cli/_plans.py`.

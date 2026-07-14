@@ -53,14 +53,16 @@ carries every active task's summary, instruction, acceptance criteria, and
 covered targets keyed by task id — and renders the human-facing
 implementation split plan: task map (task id, wave, summary verbatim, whether
 an instruction is present, acceptance-criteria count), proposed per-task
-agent + model assignment, and the go/no-go question. The `waves` subcommand
-forwards to `devague plan waves` verbatim.
+agent + model assignment, the go/no-go question, and — last — an End state
+section that is the verbatim output of `devague plan deliverables` (#70),
+degrading to a one-line hint on a `devague` too old to have the verb. The
+`waves` subcommand forwards to `devague plan waves` verbatim.
 
 ### Usage
 
 | Subcommand | What it does |
 |------------|--------------|
-| `split-plan [--plan S]` | Read `devague plan waves --json` and print the implementation split plan — task map (summary/instruction/acceptance-criteria count, verbatim) with per-task agent + model proposal — ready for human go/no-go review. |
+| `split-plan [--plan S]` | Read `devague plan waves --json` and print the implementation split plan — task map (summary/instruction/acceptance-criteria count, verbatim) with per-task agent + model proposal, go/no-go, and a trailing End state section quoting `devague plan deliverables` verbatim (one-line hint on an older devague) — ready for human go/no-go review. |
 | `waves [--plan S] [--json]` | Forward to `devague plan waves [--json]`. Read-only; lists wave batches. On a converged plan exits 0 listing the waves. |
 | `help` | Print usage. |
 
@@ -92,6 +94,13 @@ The split plan contains:
    safe to delegate).
 3. **Go/no-go question** — explicit human decision: "Approve this split and
    assign the plan to the workforce, or edit it first?"
+4. **End state** — the verbatim output of `devague plan deliverables` (#70):
+   what the plan actually produces — confirmed after-state claims, terminal
+   tasks with acceptance criteria, and surviving open items. Present this to
+   the human alongside the go/no-go question, not just the task map — approving
+   a fan-out without seeing the world it produces is the gap this closes. On a
+   `devague` too old to have the verb, this degrades to a one-line hint naming
+   the minimum version instead of failing the split plan.
 
 The human may edit any row (agent type, model, scope) before approving. The
 plan is model-agnostic — devague does not pick a backend (#20).
@@ -252,6 +261,13 @@ The `split-plan` subcommand prints to **stdout** and exits 0 when a converged
 plan is found. On error (no plan, cyclic graph) it exits non-zero with a
 `hint:` line on stderr. The `waves` subcommand forwards the CLI's own output
 contract (stdout, `--json` for structured output, exit 0 on success).
+
+The trailing End state section (#70) never fails `split-plan`: on a `devague`
+new enough to have `plan deliverables`, it quotes that command's stdout
+verbatim under an `End state (from \`devague plan deliverables\`):` header; on
+an older `devague`, it prints exactly one hint line naming the minimum version
+(e.g. `hint: End state view requires devague >= 0.18.0 (devague plan
+deliverables)`) and `split-plan` still exits 0.
 
 ## Worked example
 

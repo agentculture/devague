@@ -4,11 +4,18 @@
 # The skill is named `assign-to-workforce`; it reads `devague plan waves --json`
 # — the enriched payload (devague#53 t9: {"plan", "waves", "tasks"}, the latter
 # keyed by task id with summary/instruction/acceptance_criteria/covers) — and
-# renders the implementation split plan: task map (summary, instruction
-# marker, acceptance-criteria count — all verbatim from the payload) +
-# per-task agent/model proposal + a go/no-go prompt for the human. The actual
-# fan-out (worktree creation, spawning, TDD-gated merges) is performed by the
-# operator/main agent once the human approves the split plan.
+# renders the implementation split plan: a wave listing (each task id carries
+# an `[instruction: yes|no, accept: N]` marker, verbatim from the payload) plus
+# a single four-column per-task table — Wave, Task, Model, Task summary (#69)
+# — and a go/no-go prompt for the human. The Model cell is a presentation-only
+# default (`sonnet`); the devague CLI stays model-agnostic (#20) and the human
+# is expected to edit it to a real model token (and harness, when it matters)
+# before approving. The actual fan-out (worktree creation, spawning, TDD-gated
+# merges) is performed by the operator/main agent once the human approves the
+# split plan. Output ends with an End state section (devague#70 t6) — the
+# verbatim output of `devague plan deliverables` — so the human can see what
+# the plan actually produces before saying go; on an older devague lacking
+# that verb the section degrades to a one-line hint instead of failing.
 #
 # The devague CLI is non-orchestrating (#20): `devague plan waves` describes
 # the dependency graph; it does not spawn agents, manage worktrees, or pick
@@ -63,11 +70,14 @@ Usage:
 
 Commands:
   split-plan   Read `devague plan waves --json` and render the human-facing
-               implementation split plan: task map (summary, instruction
-               marker, acceptance-criteria count — all verbatim from the
-               payload) + per-task agent/model proposal + go/no-go. Present
-               this to the human before any fan-out; do not proceed without
-               approval.
+               implementation split plan: a wave listing (with per-task
+               instruction/acceptance-count markers, verbatim from the
+               payload) + a four-column Wave/Task/Model/Task-summary table
+               (Model defaults to `sonnet`; edit it before approving) +
+               go/no-go, ending with an End state section — the verbatim
+               output of `devague plan deliverables` (degrades to a one-line
+               hint on an older devague lacking that verb). Present this to
+               the human before any fan-out; do not proceed without approval.
   waves        Forward `devague plan waves` (and any extra flags) verbatim.
                On a converged plan exits 0 and lists the dependency waves.
 
@@ -143,36 +153,49 @@ waves = data.get("waves") or []
 # contract, keyed by id — summary, instruction, acceptance criteria, covers.
 tasks_meta = data.get("tasks") or {}
 
+# Presentation-only default (issue #69): the devague CLI itself stays
+# model-agnostic (#20) — this is just what the table proposes before a human
+# edits it.
+DEFAULT_MODEL = "sonnet"
+MAX_SUMMARY_LEN = 72
+ELLIPSIS = "..."
+
+
+def marker(task_id):
+    """`[instruction: yes|no, accept: N]`, verbatim from the payload (#53 t13,
+    c12/h5) — no operator paraphrasing of the underlying summary/instruction."""
+    meta = tasks_meta.get(task_id) or {}
+    has_instruction = "yes" if meta.get("instruction") else "no"
+    accept_count = len(meta.get("acceptance_criteria") or [])
+    return f"{task_id} [instruction: {has_instruction}, accept: {accept_count}]"
+
+
+def truncate(summary):
+    if len(summary) > MAX_SUMMARY_LEN:
+        return summary[:MAX_SUMMARY_LEN] + ELLIPSIS
+    return summary
+
+
 print(f"Implementation split plan — plan: {plan_slug}")
 print()
 print("Dependency waves (from `devague plan waves`):")
 for i, wave in enumerate(waves, 1):
-    tasks = ", ".join(wave)
-    print(f"  Wave {i}: [{tasks}]")
+    markers = ", ".join(marker(task_id) for task_id in wave)
+    print(f"  Wave {i}: [{markers}]")
 
 print()
-print("Task assignments (proposed — edit before approving):")
+print("Task assignments (proposed — edit the Model column before approving):")
 print()
 
-headers = ("Task", "Wave", "Summary", "Instruction", "Accept.", "Agent type", "Model", "Scope note")
+headers = ("Wave", "Task", "Model", "Task summary")
 rows = []
 for i, wave in enumerate(waves, 1):
     for task_id in wave:
         meta = tasks_meta.get(task_id) or {}
-        # Verbatim from the payload — no operator paraphrasing (#53 t13, c12/h5).
+        # Verbatim from the payload — no operator paraphrasing (#53 t13, c12/h5) —
+        # never a placeholder unless the payload truly has no summary recorded.
         summary = meta.get("summary") or "(no summary recorded)"
-        has_instruction = "yes" if meta.get("instruction") else "no"
-        accept_count = str(len(meta.get("acceptance_criteria") or []))
-        rows.append((
-            task_id,
-            str(i),
-            summary,
-            has_instruction,
-            accept_count,
-            "subagent",
-            "cheaper/faster",
-            "TDD-scoped task; isolated worktree; tests gate merge",
-        ))
+        rows.append((str(i), task_id, DEFAULT_MODEL, truncate(summary)))
 
 col_widths = [max(len(h), max((len(r[j]) for r in rows), default=0))
               for j, h in enumerate(headers)]
@@ -187,8 +210,13 @@ for row in rows:
     print(row_str(row))
 
 print()
-print("Go/no-go: review the table above, edit agent type / model / scope as needed,")
-print("then confirm: \"Approved — assign to workforce\" or \"Edit first\".")
+print("Model column: edit each row to a real model token (e.g. haiku, sonnet,")
+print("opus, fable), optionally qualified with the harness when it matters")
+print("(e.g. colleague, codex) — the default above is a starting proposal, not")
+print("a recommendation.")
+print()
+print("Go/no-go: review the table above, edit the Model column as needed, then")
+print("confirm: \"Approved — assign to workforce\" or \"Edit first\".")
 print()
 print("Once approved, fan out wave by wave:")
 print("  1. Create one git worktree per task in the wave.")
@@ -199,6 +227,28 @@ print("  3. Await all tasks in the wave; then TDD-gate each merge (tests before 
 print("  4. Advance to the next wave.")
 print("  5. Open the final PR (human gate 3) after all waves merge and tests pass.")
 PY
+
+    # ── End state: quote `devague plan deliverables` verbatim (#70 t6) ───────
+    # Never composed freehand — it is the single synthesized "what do we have
+    # in the end?" view (confirmed after-state claims, terminal tasks, and
+    # surviving open items). Forward the same --plan args used for waves.
+    # Degrades gracefully on an older devague that predates the verb: print
+    # one hint line naming the minimum version and keep exiting 0 — this
+    # section must never fail the script.
+    local deliverables_out deliverables_rc
+    set +e
+    deliverables_out="$("${DEVAGUE[@]}" plan deliverables "${extra_args[@]}" 2>/dev/null)"
+    deliverables_rc=$?
+    set -e
+
+    echo
+    if [ "$deliverables_rc" -eq 0 ]; then
+        echo 'End state (from `devague plan deliverables`):'
+        echo
+        printf '%s\n' "$deliverables_out"
+    else
+        echo 'hint: End state view requires devague >= 0.18.0 (devague plan deliverables)'
+    fi
 }
 
 main() {
