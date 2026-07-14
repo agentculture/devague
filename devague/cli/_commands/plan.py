@@ -24,10 +24,17 @@ from devague.cli._plans import resolve_plan
 from devague.cli._status import StatusLabels, emit_empty, emit_status
 from devague.convergence import evaluate as evaluate_frame
 from devague.frame import Frame
-from devague.plan import RISK_KINDS, Plan, dependency_waves, targets_from_frame, to_dict
+from devague.plan import (
+    RISK_KINDS,
+    Plan,
+    dependency_waves,
+    targets_from_frame,
+    terminal_tasks,
+    to_dict,
+)
 from devague.plan_convergence import dependency_blockers
 from devague.plan_convergence import evaluate as evaluate_plan
-from devague.render import plan_md
+from devague.render import deliverables_md, plan_md
 
 PLANS_OUT_DIR = Path("docs/plans")
 
@@ -56,6 +63,10 @@ PLAN_MOVES = {
     "converge": "Check whether the plan can export, against the live frame.",
     "export": "Write the buildable plan — only once the plan converges.",
     "waves": "Emit deterministic dependency waves (scheduling metadata, not orchestration).",
+    "deliverables": (
+        "Read-only preview of what exists once every task completes "
+        "(renders even when not converged)."
+    ),
     "status": "Report where the plan stands + the recommended next move (read-only).",
     "show": "Render the plan.",
     "list": "List plans.",
@@ -101,6 +112,23 @@ def _live(plan: Plan):
             f"source frame '{frame.slug}' has regressed below convergence",
             f"re-converge the frame first: devague converge --frame {frame.slug}",
         )
+    return frame, targets_from_frame(frame)
+
+
+def _live_frame_and_targets(plan: Plan):
+    """Load the live source frame and re-derive targets — WITHOUT gating on the
+    frame's own convergence (unlike :func:`_live`).
+
+    ``deliverables`` is a read-only preview that must never refuse (#70, issue
+    #20): even a frame that has regressed below its own convergence gate still
+    has *some* confirmed announcement/after_state/success_signal claims worth
+    showing, so this deliberately skips the ``evaluate_frame`` check that
+    ``converge``/``export``/``status`` use to catch frame drift. A missing or
+    corrupt source frame still raises via :func:`_load_source_frame` — there is
+    no state to synthesize from at all, which is a different failure than "not
+    converged yet."
+    """
+    frame = _load_source_frame(plan.frame_slug)
     return frame, targets_from_frame(frame)
 
 
@@ -511,6 +539,64 @@ def cmd_plan_waves(args: argparse.Namespace) -> int:
     return 0
 
 
+def _confirmed_texts(frame: Frame, kind: str) -> list[str]:
+    return [c.text for c in frame.claims if c.kind == kind and c.status == "confirmed"]
+
+
+def _open_items_payload(frame: Frame, plan: Plan) -> list[dict]:
+    items = [
+        {"kind": v.kind, "text": v.text}
+        for v in frame.open_vagueness
+        if v.kind != "unknown_blocking"
+    ]
+    items += [{"kind": r.kind, "text": r.text} for r in plan.risks if r.kind != "unknown_blocking"]
+    return items
+
+
+def cmd_plan_deliverables(args: argparse.Namespace) -> int:
+    """The read-only "what do we have in the end?" view (issue #70).
+
+    Synthesizes from the live frame + plan state only — the frame's confirmed
+    ``announcement`` / ``after_state`` / ``success_signal`` claims (verbatim), the
+    plan's terminal tasks (active tasks no other active task depends on) with their
+    acceptance criteria, and surviving open items (the frame's non-blocking parked
+    vagueness plus the plan's non-blocking risks). Evaluates the plan gate read-only
+    — like ``status`` — but never persists the drafting/converged transition, and
+    unlike every gated move it never refuses on a not-converged plan: it renders an
+    explicit banner instead (#20). Never writes to ``.devague/`` at all.
+    """
+    plan = resolve_plan(args.plan)
+    frame, targets = _live_frame_and_targets(plan)
+    result = evaluate_plan(plan, targets=targets)
+    terminal = terminal_tasks(plan.tasks)
+    if getattr(args, "json", False):
+        emit_result(
+            {
+                "plan": plan.slug,
+                "converged": result.ready,
+                "announcement": _confirmed_texts(frame, "announcement"),
+                "after_state": _confirmed_texts(frame, "after_state"),
+                "success_signal": _confirmed_texts(frame, "success_signal"),
+                "terminal_tasks": [
+                    {
+                        "id": t.id,
+                        "summary": t.summary,
+                        "acceptance_criteria": list(t.acceptance_criteria),
+                    }
+                    for t in terminal
+                ],
+                "open_items": _open_items_payload(frame, plan),
+            },
+            json_mode=True,
+        )
+    else:
+        emit_result(
+            deliverables_md.render_deliverables(plan, frame, converged=result.ready),
+            json_mode=False,
+        )
+    return 0
+
+
 def cmd_plan_status(args: argparse.Namespace) -> int:
     """Where the plan stands + the recommended next move — read-only.
 
@@ -716,6 +802,12 @@ def register(sub: argparse._SubParsersAction) -> None:
     pwv = psub.add_parser("waves", help="Emit deterministic dependency waves (metadata only).")
     _plan_opt(pwv)
     pwv.set_defaults(func=cmd_plan_waves)
+
+    pdl = psub.add_parser(
+        "deliverables", help="Preview what exists once every task completes (read-only)."
+    )
+    _plan_opt(pdl)
+    pdl.set_defaults(func=cmd_plan_deliverables)
 
     pst = psub.add_parser("status", help="Where the plan stands + the recommended next move.")
     _plan_opt(pst)

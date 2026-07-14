@@ -267,6 +267,27 @@ def dependency_waves(tasks: list[Task]) -> list[list[str]]:
     return waves
 
 
+def terminal_tasks(tasks: list[Task]) -> list[Task]:
+    """Active (non-rejected) tasks that no other active task depends on.
+
+    These are the leaves of the dependency graph — the tasks whose output nothing
+    downstream consumes — used by the read-only ``deliverables`` view (#70) to answer
+    "what exists once every task completes" without re-deriving the whole graph. A
+    task with no dependents is terminal even if it itself has deps of its own; a plan
+    with no tasks at all yields an empty (vacuously total) list. Order is stored
+    order (stable), not topological — the caller decides how to present them.
+
+    Only *active* tasks are consulted on both sides: a rejected task is never
+    terminal (it is not part of "what ships"), and a rejected task's ``deps`` entry
+    naming another task does not keep that other task off the terminal list — a
+    dependency edge only "uses up" a task's terminal status when another *active*
+    task still depends on it.
+    """
+    active = [t for t in tasks if t.status != "rejected"]
+    depended_on = {d for t in active for d in t.deps}
+    return [t for t in active if t.id not in depended_on]
+
+
 def to_dict(plan: Plan) -> dict:
     return dataclasses.asdict(plan)
 
