@@ -56,6 +56,11 @@ Quoted verbatim from the `devague summary` skeleton:
   `amend` (task `t1`, classification `acceptable`) — recorded during the run
   as llm-origin `proposed`, **approved by the user** at the final gate via
   `devague deviate --confirm d1`.
+- `d2` — `devague learn skills` teaches authoring all six origin skills, not
+  the original three (task `t11`, classification `acceptable`) — user-directed
+  at the final PR gate (user origin, auto-approved); the recipe also stopped
+  emitting script URLs for the three method-only skills, which would have
+  been 404s.
 - Mid-run, the human owner refined the split-plan Model-column contract
   ("should be the model, and if matters, harness — haiku, sonnet, opus, fable,
   colleague, codex"); forwarded verbatim to the `t5` agent and applied as a
@@ -79,6 +84,7 @@ Quoted verbatim from the `devague summary` skeleton:
 | Plan item | Reason for divergence | Classification |
 |-----------|-----------------------|----------------|
 | `t1` (`d1`, approved) | cutting an edge or amending criteria mutates existing list fields — no persisted shape change, so the frame assumption c14 (conditional on a plan-JSON shape change) did not apply; deviation records live in their own store per resolved q3 | acceptable |
+| `t11` (`d2`, approved) | user directive at the final PR gate: the skill-authoring recipe still taught only think, spec-to-plan, and assign-to-workforce — an agent following it would rebuild a three-legged kit while the shipped flow has six legs | acceptable |
 | `t9` | acceptance criterion 2 (live `agex pr open`) was sequenced after this artifact's first commit by design (risk `r1`); resolved in-run — PR `#72` opened via `agex pr open`, requiring a `git stash -u` workaround for an unrelated agex bug (filed upstream as devex issue 92) | acceptable |
 
 No other task drifted: `t2`–`t8`, `t10`, `t11` delivered against their
@@ -86,10 +92,10 @@ acceptance criteria as confirmed.
 
 ## Evidence
 
-- tests: `uv run pytest -n auto` — **577 passed** (post-merge, full suite, all
-  four waves in)
-- coverage: `uv run pytest -n auto --cov=devague` — **97.85 %** (`TOTAL 2515
-  54 98%`; CI gate requires ≥ 95 %)
+- tests: `uv run pytest -n auto` — **614 passed** (final: all four waves +
+  gate-3 review fixes + the d2 learn extension; 577 at wave close)
+- coverage: `uv run pytest -n auto --cov=devague` — **98.02 %** (CI gate
+  requires ≥ 95 %)
 - lint: `uv run flake8 --config=.flake8 devague/ tests/` — clean;
   `markdownlint-cli2 "CHANGELOG.md" "README.md" "CLAUDE.md" "docs/skills.md"`
   — 0 errors
@@ -116,6 +122,7 @@ acceptance criteria as confirmed.
 | human-approved deviations are first-class, append-only records | high | commit `6b06ec7` · `tests/test_deviate.py` (44 tests) · live record `d1` produced during this run |
 | `devague summary` renders the eight-section skeleton with no overclaim | high | commit `1bcc8d0` · `tests/test_summary.py` (30 tests) · this artifact's own baseline |
 | the six-leg flow is documented end to end | high | commits `6934479`, `003d0c6`, `8e729e3` · files `.claude/skills/deviate/SKILL.md`, `docs/skill-sources.md`, `CLAUDE.md` |
+| `devague learn skills` teaches authoring all six origin skills (method-only ones without fabricated script URLs) | high | commit `18af032` · `tests/test_cli_learn.py` |
 | the cicd lane works with `backend: claude` from this repo | high | PR `#72` opened via `agex pr open` (signed, Qodo review posted) with `backend: claude` in `culture.yaml` |
 | 0.18.0 publishes cleanly to PyPI | unverified | publish workflow runs post-merge — not claimed done |
 

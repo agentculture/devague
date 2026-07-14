@@ -2,7 +2,7 @@
   "plan_slug": "execution-seam-and-deviate",
   "schema_version": 1,
   "created": "2026-07-14T21:34:58Z",
-  "updated": "2026-07-14T22:19:30Z",
+  "updated": "2026-07-14T22:47:00Z",
   "deviations": [
     {
       "id": "d1",
@@ -13,6 +13,18 @@
         "c14"
       ],
       "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable"
+    },
+    {
+      "id": "d2",
+      "what": "devague learn skills teaches authoring all six origin skills, not the original three",
+      "task_ref": "t11",
+      "reason": "user directive at the final PR gate: the skill-authoring recipe still taught only think, spec-to-plan, and assign-to-workforce \u2014 an agent following it would rebuild a three-legged kit while the shipped flow has six legs",
+      "affects": [
+        "devague learn skills recipe"
+      ],
+      "origin": "user",
       "status": "approved",
       "classification": "acceptable"
     }
