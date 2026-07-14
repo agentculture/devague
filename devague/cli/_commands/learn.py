@@ -209,7 +209,7 @@ _TEXT = (
 )
 
 
-# --- Authoring the three operator skills (devague#34) -----------------------
+# --- Authoring the six operator skills (devague#34, extended #53 esd) -------
 #
 # `devague learn` knows the operator skills exist but never taught an agent how
 # to *author* them. This section closes that gap: it is written as instructions
@@ -240,12 +240,16 @@ SKILLS_CONSENT = (
 SKILL_AUTHORING = {
     "layout": (
         "Each skill is one directory in your runtime's skills folder "
-        "(Claude Code: .claude/skills/<name>/):\n"
-        "  <skills>/<name>/SKILL.md           frontmatter + the operating doc\n"
-        "  <skills>/<name>/scripts/<name>.sh  portable CLI resolver (executable)"
+        "(Claude Code: .claude/skills/<name>/). Two shapes ship in this repo:\n"
+        "  CLI-driving (think, spec-to-plan, assign-to-workforce):\n"
+        "    <skills>/<name>/SKILL.md           frontmatter + the operating doc\n"
+        "    <skills>/<name>/scripts/<name>.sh  portable CLI resolver (executable)\n"
+        "  Method-only (scope, deviate, summarize-delivery):\n"
+        "    <skills>/<name>/SKILL.md           frontmatter + the operating doc — "
+        "no scripts/ directory; the skill invokes the devague CLI directly."
     ),
     "frontmatter": (
-        "SKILL.md opens with YAML frontmatter:\n"
+        "SKILL.md opens with YAML frontmatter (all six skills):\n"
         "  name: <name>\n"
         "  description: >\n"
         "    one paragraph — what it does, when to use it, and that it is\n"
@@ -254,12 +258,15 @@ SKILL_AUTHORING = {
         "                   # without it is SILENTLY SKIPPED. Harmless on claude-code."
     ),
     "resolver": (
-        "scripts/<name>.sh resolves the devague CLI portably and forwards every "
-        "move verbatim:\n"
+        "scripts/<name>.sh applies to the CLI-driving skills only (think, "
+        "spec-to-plan, assign-to-workforce) — it resolves the devague CLI "
+        "portably and forwards every move verbatim:\n"
         "  1. an installed 'devague' on PATH (the normal case);\n"
         "  2. else 'uv run devague' when inside a devague checkout;\n"
         "  3. else print the hint 'uv tool install devague' and exit non-zero.\n"
-        "Copy the exact script from the per-skill source below — don't hand-write it."
+        "Copy the exact script from the per-skill source below — don't hand-write it.\n"
+        "The method-only skills (scope, deviate, summarize-delivery) have no "
+        "scripts/ resolver at all — SKILL.md invokes the devague CLI directly."
     ),
     "contract": (
         "The skill drives the deterministic CLI and adds no logic of its own:\n"
@@ -270,8 +277,23 @@ SKILL_AUTHORING = {
     ),
 }
 
-# The three operator skills, in workflow order.
+# The six operator skills, in six-leg workflow order (devague#53 esd):
+#   scope -> think -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
+# `method_only` marks the three that ship a SKILL.md and NO scripts/<name>.sh
+# resolver (scope, deviate, summarize-delivery) — they invoke the devague CLI
+# directly rather than going through the portable resolver script.
 OPERATOR_SKILLS = (
+    {
+        "name": "scope",
+        "leg": "idea -> explored scope (the optional opening leg)",
+        "role": (
+            "Surveys what an idea touches — code, docs, skills, CI, sibling repos — "
+            "read-only, then records each finding with 'devague scope' and seeds the "
+            "coming frame's boundary/non_goal/assumption claims with provenance. "
+            "Optional-by-size and freely skippable for a small idea."
+        ),
+        "method_only": True,
+    },
     {
         "name": "think",
         "leg": "idea -> spec (working backwards)",
@@ -280,6 +302,7 @@ OPERATOR_SKILLS = (
             "and classify claims, interrogate them, park open vagueness, and export "
             "a spec only once the frame converges."
         ),
+        "method_only": False,
     },
     {
         "name": "spec-to-plan",
@@ -289,6 +312,7 @@ OPERATOR_SKILLS = (
             "cover every target with TDD-accepted tasks in an acyclic order, and "
             "export a plan only once it converges."
         ),
+        "method_only": False,
     },
     {
         "name": "assign-to-workforce",
@@ -298,20 +322,51 @@ OPERATOR_SKILLS = (
             "isolated git worktrees, with main-agent TDD-gated merges. Three human "
             "gates; devague never orchestrates (#20)."
         ),
+        "method_only": False,
+    },
+    {
+        "name": "deviate",
+        "leg": "execution-time: record human-approved departures from the confirmed plan",
+        "role": (
+            "Stops an in-flight assign-to-workforce run the moment execution must "
+            "diverge from the confirmed plan, gets explicit human approval for the "
+            "departure, and records it via 'devague deviate' before resuming. "
+            "llm-origin records land 'proposed' — the user confirms, same "
+            "anti-fabrication rule as claims and tasks."
+        ),
+        "method_only": True,
+    },
+    {
+        "name": "summarize-delivery",
+        "leg": "execution -> committed accountability artifact (the closure leg)",
+        "role": (
+            "Closes the loop after an assign-to-workforce run: turns what actually "
+            "happened into a committed accountability artifact — planned vs actual "
+            "delivery, mid-work decisions, plan drift, and remaining work. A "
+            "delivery claim without evidence stays 'unverified' — never asserted "
+            "as done."
+        ),
+        "method_only": True,
     },
 )
 
 _SKILL_NAMES = tuple(s["name"] for s in OPERATOR_SKILLS)
 
 
-def _skill_source(name: str) -> dict[str, str]:
-    """Canonical, always-resolvable source locations for one skill's files."""
-    return {
+def _skill_source(name: str, *, method_only: bool = False) -> dict[str, str]:
+    """Canonical, always-resolvable source locations for one skill's files.
+
+    Method-only skills (scope, deviate, summarize-delivery) ship no
+    scripts/<name>.sh — omit 'script_raw' rather than emit a URL that 404s.
+    """
+    src = {
         "browse": f"{_SKILLS_BROWSE}/{name}/SKILL.md",
         "skill_md_raw": f"{_SKILLS_RAW}/{name}/SKILL.md",
-        "script_raw": f"{_SKILLS_RAW}/{name}/scripts/{name}.sh",
         "repo_path": f".claude/skills/{name}/",
     }
+    if not method_only:
+        src["script_raw"] = f"{_SKILLS_RAW}/{name}/scripts/{name}.sh"
+    return src
 
 
 def _skills_payload(names: tuple[str, ...]) -> dict[str, object]:
@@ -320,7 +375,9 @@ def _skills_payload(names: tuple[str, ...]) -> dict[str, object]:
         "consent": list(SKILLS_CONSENT),
         "authoring": SKILL_AUTHORING,
         "operator_skills": [
-            {**s, **_skill_source(s["name"])} for s in OPERATOR_SKILLS if s["name"] in names
+            {**s, **_skill_source(s["name"], method_only=s.get("method_only", False))}
+            for s in OPERATOR_SKILLS
+            if s["name"] in names
         ],
         "doc_url": SKILLS_DOC_URL,
         "doc_repo_path": SKILLS_DOC_REPO_PATH,
@@ -333,8 +390,10 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         "Authoring your operator skills (create them with user consent)",
         "=============================================================",
         "",
-        "devague is driven by three operator skills. Recreate them in your own "
-        "runtime so you can drive devague the same way everywhere.",
+        "devague is driven by six operator skills — three CLI-driving (a "
+        "scripts/<name>.sh resolver) and three method-only (SKILL.md only, no "
+        "resolver script). Recreate them in your own runtime so you can drive "
+        "devague the same way everywhere.",
         "",
         "Consent — read before creating anything:",
     ]
@@ -350,22 +409,30 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         "",
         SKILL_AUTHORING["contract"],
         "",
-        "The three skills:",
+        "The six skills (six-leg workflow order):",
     ]
     for s in OPERATOR_SKILLS:
         if s["name"] not in names:
             continue
-        parts.append(f"  {s['name']}  [{s['leg']}]")
+        method_only = s.get("method_only", False)
+        label = " (method-only)" if method_only else ""
+        parts.append(f"  {s['name']}{label}  [{s['leg']}]")
         parts.append(f"    {s['role']}")
         if full:
-            src = _skill_source(s["name"])
+            src = _skill_source(s["name"], method_only=method_only)
             parts.append(f"    SKILL.md:  {src['skill_md_raw']}")
-            parts.append(f"    script:    {src['script_raw']}")
+            if method_only:
+                parts.append(
+                    "    script:    method-only — no scripts/ resolver; "
+                    "SKILL.md invokes the devague CLI directly"
+                )
+            else:
+                parts.append(f"    script:    {src['script_raw']}")
             parts.append(f"    browse:    {src['browse']}")
         parts.append("")
     if not full:
         parts.append(
-            "Run 'devague learn skills:all' for the source URLs of all three, or "
+            "Run 'devague learn skills:all' for the source URLs of all six, or "
             "'devague learn skills:<name>' for one."
         )
         parts.append("")

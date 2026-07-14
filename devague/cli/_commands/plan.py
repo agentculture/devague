@@ -661,9 +661,9 @@ def cmd_plan_learn(args: argparse.Namespace) -> int:
         "criteria, the dependency graph is acyclic, and no blocking risk remains.\n\n"
         "Moves:\n"
         + "\n".join(f"  {name:<9} {desc}" for name, desc in PLAN_MOVES.items())
-        + "\n\nTo author the operator skills (think / spec-to-plan / "
-        "assign-to-workforce) in\nyour own runtime, run 'devague learn skills' "
-        "(with user consent)."
+        + "\n\nTo author the six operator skills (scope / think / spec-to-plan / "
+        "assign-to-workforce /\ndeviate / summarize-delivery) in your own runtime, "
+        "run 'devague learn skills'\n(with user consent)."
     )
     if getattr(args, "json", False):
         emit_result(
