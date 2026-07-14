@@ -36,21 +36,22 @@ upstream repo are shared across all inbound rows.
 ## Origin skills (outbound)
 
 Not every skill here is inbound. The `scope`, `think`, `spec-to-plan`, `assign-to-workforce`,
-and `summarize-delivery` skills are **authored and maintained in this repo** —
-devague is their origin/upstream, not a downstream consumer. The devague agent
-dogfoods them to operate the devague CLI while improving the tool. The flow runs
-the *opposite* direction of the table above: `guildmaster` re-vendors them from
-here and re-broadcasts them to the mesh. (The skill names are `scope` / `think` /
-`spec-to-plan` / `assign-to-workforce` / `summarize-delivery`; the product/CLI they drive is `devague`.
-`think` was renamed from `devague` in 0.4.0 — when guildmaster re-vendors, it must
-relearn the new name.) Because devague is upstream, these are **not** re-vendored
+`deviate`, and `summarize-delivery` skills are **authored and maintained in
+this repo** — devague is their origin/upstream, not a downstream consumer. The
+devague agent dogfoods them to operate the devague CLI while improving the
+tool. The flow runs the *opposite* direction of the table above: `guildmaster`
+re-vendors them from here and re-broadcasts them to the mesh. (The skill names
+are `scope` / `think` / `spec-to-plan` / `assign-to-workforce` / `deviate` /
+`summarize-delivery`; the product/CLI they drive is `devague`. `think` was
+renamed from `devague` in 0.4.0 — when guildmaster re-vendors, it must relearn
+the new name.) Because devague is upstream, these are **not** re-vendored
 back from guildmaster's re-broadcast copies — doing so would be circular (see the
 issue #38 reply).
 
 As of 0.13.0 (#38) all origin skills carry `type: command` at the source, so
 guildmaster's re-broadcast copies (which had to add it on vendor for the
 culture/agex backend) match the source and need no patch. `scope` (new in
-0.15.0) shipped with it from day one.
+0.15.0) and `deviate` (new in 0.18.0) both shipped with it from day one.
 
 | Skill | Origin | Downstream | Notes |
 |-------|--------|------------|-------|
@@ -58,6 +59,7 @@ culture/agex backend) match the source and need no patch. `scope` (new in
 | `think` | **devague** (here: `.claude/skills/think/`) | `guildmaster`, then the AgentCulture mesh | Operator for the **idea→spec** leg of the deterministic devague CLI: portable resolution, driving the flat `devague <move>` verbs (`status` is now a first-class CLI verb, not embedded Python). Renamed from `devague` in 0.4.0. `guildmaster` re-vendors it from `../devague/.claude/skills/think/` and broadcasts it to the mesh. |
 | `spec-to-plan` | **devague** (here: `.claude/skills/spec-to-plan/`) | `guildmaster`, then the AgentCulture mesh | Operator for the **spec→plan** leg (`devague plan ...`): portable resolution over the plan convergence gate. New in 0.4.0. Re-vendor from `../devague/.claude/skills/spec-to-plan/`. |
 | `assign-to-workforce` | **devague** (here: `.claude/skills/assign-to-workforce/`) | `guildmaster`, then the AgentCulture mesh | Operator for the **implementation** leg (fan out `devague plan waves` to parallel agents in isolated git worktrees, with TDD-gated merges by the main agent). Three human gates only: spec / implementation split plan / final PR. The devague CLI remains non-orchestrating (#20) — this skill is the convention + helper, not new CLI behavior. New in 0.7.0. Re-vendor from `../devague/.claude/skills/assign-to-workforce/`. |
+| `deviate` | **devague** (here: `.claude/skills/deviate/`) | `guildmaster`, then the AgentCulture mesh | Operator for the **execution-time** leg: runs *during* an `/assign-to-workforce` fan-out, at the moment execution must diverge from the confirmed plan — stop the run, present what/why/what-it-affects, get explicit human approval, record via the deterministic `devague deviate` move (`--origin llm` lands proposed; only the user `--confirm`s), adjust the affected task briefs, resume. Not a fourth standing gate — the human owner of gate 2 (the implementation split plan) amending it mid-flight. Deviation records persist under `.devague/deliveries/<plan-slug>.json` (devague#53 esd t3) and are the connective tissue `/summarize-delivery` quotes by `dN` id instead of reconstructing drift from memory. New in 0.18.0 (devague#53 esd t7). Re-vendor from `../devague/.claude/skills/deviate/`. |
 | `summarize-delivery` | **devague** (here: `.claude/skills/summarize-delivery/`) | `guildmaster`, then the AgentCulture mesh | Operator for the **delivery-side closure** leg (runs after `/assign-to-workforce`). Method-only in v1 — `SKILL.md` + template; no entry-point script, no new CLI verb. New in 0.17.0. Re-vendor from `../devague/.claude/skills/summarize-delivery/`. |
 
 `cite, don't import` applies to both — downstream copies them, no
@@ -73,5 +75,5 @@ symlink/dependency. Written portable-first so they pass guildmaster's
 - **Diverge intentionally.** Record any divergence in the table above and
   in the downstream `SKILL.md` frontmatter `description`.
 - **Don't re-vendor devague-origin skills.** `scope` / `think` / `spec-to-plan` /
-  `assign-to-workforce` / `summarize-delivery` are authored here; pull fixes forward into this repo, not
-  back from guildmaster's re-broadcast copies.
+  `assign-to-workforce` / `deviate` / `summarize-delivery` are authored here; pull
+  fixes forward into this repo, not back from guildmaster's re-broadcast copies.
