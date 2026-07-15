@@ -209,7 +209,7 @@ _TEXT = (
 )
 
 
-# --- Authoring the six operator skills (devague#34, extended #53 esd) -------
+# --- Authoring the seven operator skills (devague#34, extended #53 esd, #73) -
 #
 # `devague learn` knows the operator skills exist but never taught an agent how
 # to *author* them. This section closes that gap: it is written as instructions
@@ -244,12 +244,12 @@ SKILL_AUTHORING = {
         "  CLI-driving (think, spec-to-plan, assign-to-workforce):\n"
         "    <skills>/<name>/SKILL.md           frontmatter + the operating doc\n"
         "    <skills>/<name>/scripts/<name>.sh  portable CLI resolver (executable)\n"
-        "  Method-only (scope, deviate, summarize-delivery):\n"
+        "  Method-only (scope, challenge, deviate, summarize-delivery):\n"
         "    <skills>/<name>/SKILL.md           frontmatter + the operating doc — "
         "no scripts/ directory; the skill invokes the devague CLI directly."
     ),
     "frontmatter": (
-        "SKILL.md opens with YAML frontmatter (all six skills):\n"
+        "SKILL.md opens with YAML frontmatter (all seven skills):\n"
         "  name: <name>\n"
         "  description: >\n"
         "    one paragraph — what it does, when to use it, and that it is\n"
@@ -265,8 +265,8 @@ SKILL_AUTHORING = {
         "  2. else 'uv run devague' when inside a devague checkout;\n"
         "  3. else print the hint 'uv tool install devague' and exit non-zero.\n"
         "Copy the exact script from the per-skill source below — don't hand-write it.\n"
-        "The method-only skills (scope, deviate, summarize-delivery) have no "
-        "scripts/ resolver at all — SKILL.md invokes the devague CLI directly."
+        "The method-only skills (scope, challenge, deviate, summarize-delivery) have "
+        "no scripts/ resolver at all — SKILL.md invokes the devague CLI directly."
     ),
     "contract": (
         "The skill drives the deterministic CLI and adds no logic of its own:\n"
@@ -277,11 +277,12 @@ SKILL_AUTHORING = {
     ),
 }
 
-# The six operator skills, in six-leg workflow order (devague#53 esd):
-#   scope -> think -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
-# `method_only` marks the three that ship a SKILL.md and NO scripts/<name>.sh
-# resolver (scope, deviate, summarize-delivery) — they invoke the devague CLI
-# directly rather than going through the portable resolver script.
+# The seven operator skills, in seven-leg workflow order (devague#73):
+#   scope -> think -> challenge -> spec-to-plan -> assign-to-workforce -> deviate
+#   -> summarize-delivery
+# `method_only` marks the four that ship a SKILL.md and NO scripts/<name>.sh
+# resolver (scope, challenge, deviate, summarize-delivery) — they invoke the
+# devague CLI directly rather than going through the portable resolver script.
 OPERATOR_SKILLS = (
     {
         "name": "scope",
@@ -303,6 +304,19 @@ OPERATOR_SKILLS = (
             "a spec only once the frame converges."
         ),
         "method_only": False,
+    },
+    {
+        "name": "challenge",
+        "leg": "spec (third leg): a risk-scaled blind-spot discovery pass",
+        "role": (
+            "Pressure-tests the converged, exported frame before 'devague plan new' "
+            "for blind spots a risk-scaled pass would catch. Findings route back "
+            "through existing deterministic moves (capture / interrogate / question / "
+            "park / scope entries / plan risk) and reopen-reconverge-re-export the "
+            "frame. On a clean pass it records examined surfaces plus residual "
+            "uncertainty — never claiming there are no unknown unknowns."
+        ),
+        "method_only": True,
     },
     {
         "name": "spec-to-plan",
@@ -390,8 +404,8 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         "Authoring your operator skills (create them with user consent)",
         "=============================================================",
         "",
-        "devague is driven by six operator skills — three CLI-driving (a "
-        "scripts/<name>.sh resolver) and three method-only (SKILL.md only, no "
+        "devague is driven by seven operator skills — three CLI-driving (a "
+        "scripts/<name>.sh resolver) and four method-only (SKILL.md only, no "
         "resolver script). Recreate them in your own runtime so you can drive "
         "devague the same way everywhere.",
         "",
@@ -409,7 +423,7 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         "",
         SKILL_AUTHORING["contract"],
         "",
-        "The six skills (six-leg workflow order):",
+        "The seven skills (seven-leg workflow order):",
     ]
     for s in OPERATOR_SKILLS:
         if s["name"] not in names:
@@ -432,7 +446,7 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         parts.append("")
     if not full:
         parts.append(
-            "Run 'devague learn skills:all' for the source URLs of all six, or "
+            "Run 'devague learn skills:all' for the source URLs of all seven, or "
             "'devague learn skills:<name>' for one."
         )
         parts.append("")

@@ -40,10 +40,11 @@ def test_learn_json_includes_assign_to_workforce_section(
     assert "assign_to_workforce" in payload or "assign-to-workforce" in str(payload).lower()
 
 
-# The six origin skills, in six-leg workflow order (devague#53 esd).
+# The seven origin skills, in seven-leg workflow order (devague#73).
 SKILL_NAMES = (
     "scope",
     "think",
+    "challenge",
     "spec-to-plan",
     "assign-to-workforce",
     "deviate",
@@ -53,7 +54,7 @@ SKILL_NAMES = (
 # Method-only skills ship a SKILL.md and NO scripts/<name>.sh resolver — they
 # invoke the devague CLI directly. The other three are CLI-driving and DO ship
 # a scripts/<name>.sh resolver.
-METHOD_ONLY_NAMES = ("scope", "deviate", "summarize-delivery")
+METHOD_ONLY_NAMES = ("scope", "challenge", "deviate", "summarize-delivery")
 CLI_DRIVING_NAMES = ("think", "spec-to-plan", "assign-to-workforce")
 
 
@@ -171,6 +172,7 @@ def test_learn_unknown_skill_errors(capsys: pytest.CaptureFixture[str]) -> None:
         "skills:all",
         "skills:think",
         "skills:scope",
+        "skills:challenge",
         "skills:deviate",
         "skills:summarize-delivery",
     ],
