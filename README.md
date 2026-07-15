@@ -79,19 +79,22 @@ committed.
 ## Driving it from an agent
 
 Inside AgentCulture, an assistant drives this CLI through a family of operator
-skills that cover the **six-leg flow** end to end, in order: **`/scope`**
+skills that cover the **seven-leg flow** end to end, in order: **`/scope`**
 (idea→explored scope, the optional opening leg), **`/think`** (idea→spec),
-**`/spec-to-plan`** (spec→plan), **`/assign-to-workforce`**
+**`/challenge`** (a risk-scaled blind-spot discovery pass between /think and
+/spec-to-plan), **`/spec-to-plan`** (spec→plan), **`/assign-to-workforce`**
 (plan→parallel implementation), **`/deviate`** (the execution-time leg — stop
 an in-flight fan-out the moment it must diverge from the confirmed plan, get
 explicit human approval via `devague deviate`, and resume), and
-**`/summarize-delivery`** (execution→a committed accountability artifact). The
-CLI-driving pair — `/think` and `/spec-to-plan` — add a portable wrapper and a
-`status` next-move helper over the convergence gate; the CLI is the
-deterministic affordance and the agent decides the next move.
+**`/summarize-delivery`** (execution→a committed accountability artifact).
+`/challenge` is method-only — no wrapper script, no new CLI verb; findings
+route through the same moves `/think` already uses. The CLI-driving pair —
+`/think` and `/spec-to-plan` — add a portable wrapper and a `status`
+next-move helper over the convergence gate; the CLI is the deterministic
+affordance and the agent decides the next move.
 
 These skills serve two audiences: **operators** — the main agent that drives
-the deterministic CLI move by move across all six legs — and the **humans**
+the deterministic CLI move by move across all seven legs — and the **humans**
 who own the three standing gates: the exported spec, the go/no-go on the
 implementation split plan (including any mid-run deviation approved against
 it via `/deviate`), and the final PR review. See `CLAUDE.md` for that workflow
