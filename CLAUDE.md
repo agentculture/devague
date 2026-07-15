@@ -4,6 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**The challenge skill lands — the seventh leg (0.19.0, #73).** New seventh
+origin skill **`/challenge`** (`.claude/skills/challenge/SKILL.md`) — a
+risk-scaled blind-spot discovery pass that runs after `/think` exports and
+before `devague plan new`, pressure-testing the converged, exported frame
+through structured lenses. Method-only: no script, no new CLI verb, no new
+engine (#20) — every finding routes back through the existing deterministic
+moves (`capture`, `interrogate`, `park`, …) as proposed-only content for the
+human to adjudicate, and a reopened frame reconverges and re-exports before
+the plan leg proceeds. A clean pass records the examined surfaces and
+residual uncertainty via existing moves (`devague scope` entries, `park`,
+`plan risk`) — never a claim that there are no unknown unknowns.
+`devague learn skills` now teaches all **seven** operator skills in seven-leg
+order; `README.md`, this file, `docs/skills.md`, and `docs/skill-sources.md`
+are swept to the seven-leg flow — `scope` → `think` → `challenge` →
+`spec-to-plan` → `assign-to-workforce` → `deviate` → `summarize-delivery`.
+
 **The execution seam and deviate (0.18.0, #53 esd t1–t11).** The flow gains a
 **sixth leg** — **`deviate`** — plus the read-only "end state" that closes the
 loop between a confirmed plan and what the workforce actually produces mid-run.
@@ -29,10 +45,11 @@ verbatim (#69, #70); `summarize-delivery` now starts from the `devague summary`
 skeleton and quotes approved deviations by `dN` id instead of reconstructing
 drift from memory. `culture.yaml` reverts `backend` to `claude`, the mesh
 standard, now that `agex-cli#46` is closed (#66). Docs (this file, `README.md`,
-`docs/skills.md`) now name the **six-leg flow** — `scope` → `think` →
-`spec-to-plan` → `assign-to-workforce` → `deviate` → `summarize-delivery` — and
-the two audiences it serves: operators (the main agent driving the CLI) and
-the humans who own the go/no-go and final-PR gates.
+`docs/skills.md`) now name the **seven-leg flow** — `scope` → `think` →
+`challenge` → `spec-to-plan` → `assign-to-workforce` → `deviate` →
+`summarize-delivery` — and the two audiences it serves: operators (the main
+agent driving the CLI) and the humans who own the go/no-go and final-PR
+gates.
 
 **Operator kit carries the sharper method + new `/scope` skill (0.15.0).** The
 sharper end-to-end method spec+plan merged in #53 (0.14.1: docs + state only);
@@ -257,18 +274,20 @@ and hard questions, parking unresolved uncertainty as first-class "open
 vagueness," and only exporting a buildable spec once the frame *converges*. The
 plan method: seed a plan from that converged frame and converge it on coverage,
 acceptance criteria, and an acyclic dependency order before exporting a plan.
-The operator skills cover the **six legs** in flow order: **`/scope`**
+The operator skills cover the **seven legs** in flow order: **`/scope`**
 (idea→explored scope, the optional opening leg), **`/think`** (idea→spec),
-**`/spec-to-plan`** (spec→plan), **`/assign-to-workforce`**
-(plan→parallel implementation), **`/deviate`** (the execution-time leg — stop
-an in-flight fan-out the moment it must diverge from the confirmed plan, get
-explicit human approval, and record the divergence before resuming), and
-**`/summarize-delivery`** (execution→a committed accountability artifact, the
-delivery-side closure leg); the product/CLI they drive is **`devague`**. The
-skills are written for two audiences: **operators** — the main agent driving
-the deterministic CLI move by move — and the **humans** who own the go/no-go
-decision on the implementation split plan (gate 2, including any deviation
-against it) and the final PR review (gate 3).
+**`/challenge`** (a risk-scaled blind-spot discovery pass between /think and
+/spec-to-plan, adjudicated inside the existing spec gate), **`/spec-to-plan`**
+(spec→plan), **`/assign-to-workforce`** (plan→parallel implementation),
+**`/deviate`** (the execution-time leg — stop an in-flight fan-out the moment
+it must diverge from the confirmed plan, get explicit human approval, and
+record the divergence before resuming), and **`/summarize-delivery`**
+(execution→a committed accountability artifact, the delivery-side closure
+leg); the product/CLI they drive is **`devague`**. The skills are written for
+two audiences: **operators** — the main agent driving the deterministic CLI
+move by move — and the **humans** who own the go/no-go decision on the
+implementation split plan (gate 2, including any deviation against it) and
+the final PR review (gate 3).
 
 This is a **state machine over claims, honesty conditions, open vagueness, and
 convergence** driven by LLM-chosen moves — not a linear wizard. The CLI is
@@ -294,9 +313,9 @@ steward→guildmaster cutover; `steward` is still a sibling but no longer
 broadcasts). Vendored skills are cited, not imported (cite-don't-import): copy
 from `../guildmaster/.claude/skills/<name>/` and track provenance in
 `docs/skill-sources.md`. The exception is devague's own `scope` / `think` /
-`spec-to-plan` / `assign-to-workforce` / `deviate` / `summarize-delivery` —
-devague is their origin, so guildmaster re-broadcasts them *from* here; never
-re-vendor them back.
+`challenge` / `spec-to-plan` / `assign-to-workforce` / `deviate` /
+`summarize-delivery` — devague is their origin, so guildmaster re-broadcasts
+them *from* here; never re-vendor them back.
 
 ## Stack expectations (when code lands)
 

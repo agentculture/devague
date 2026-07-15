@@ -1,0 +1,377 @@
+{
+  "slug": "challenge-skill",
+  "title": "challenge skill",
+  "schema_version": 2,
+  "status": "exported",
+  "created": "2026-07-15T06:10:22Z",
+  "updated": "2026-07-15T06:29:41Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague gains a seventh origin skill, /challenge \u2014 a risk-scaled blind-spot discovery pass that pressure-tests the converged frame between /think and /spec-to-plan through structured lenses, routes every finding back through the existing deterministic moves, and records examined surfaces plus residual uncertainty instead of ever claiming there are no unknown unknowns",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "the shipped SKILL.md actually is what the announcement claims: risk-scaled (an explicit proportionality rule), positioned between /think and /spec-to-plan in every flow doc, findings routed only through existing deterministic moves, and a no-unknown-unknowns-claim rule",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "diff the shipped SKILL.md against this announcement claim by claim: risk-scaling rule present, position between /think and /spec-to-plan, findings routed through existing moves only, examined-surfaces record on a clean pass"
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "the new skill ships as .claude/skills/challenge/SKILL.md in the method-only shape \u2014 SKILL.md only, no scripts/ resolver, `type: command` frontmatter, a Provenance section naming devague as origin \u2014 matching the shipped deviate and summarize-delivery skills and the two-shape rule in docs/skills.md",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "listing .claude/skills/challenge/ shows exactly one file, SKILL.md, whose frontmatter carries `type: command` and whose Provenance section names devague as origin \u2014 no scripts/ directory",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "devague/cli/_commands/learn.py OPERATOR_SKILLS gains a seventh entry for challenge and its six-skill / six-leg wording updates, so `devague learn skills` and `skills:challenge` teach the new skill; this is teaching-content in the existing learn verb, not a new engine",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "`devague learn skills:challenge` exits 0 and emits the challenge authoring recipe; `devague learn skills` output says seven operator skills in seven-leg order",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "every surface naming the six-leg flow is updated to seven legs with challenge third: README.md (lines 82-94), CLAUDE.md (Status + Project intent), docs/skills.md (flow table + per-skill section), docs/skill-sources.md (origin-skills table + dont-re-vendor list)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "grepping README.md, CLAUDE.md, docs/skills.md, and docs/skill-sources.md for six-leg wording returns no hits, and all four surfaces name challenge as the third leg",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c5",
+      "kind": "boundary",
+      "text": "no new CLI engine, verb, or state model \u2014 challenge findings route through the existing deterministic moves only: capture / interrogate / question / park on the frame, `devague scope` for examined surfaces, `devague plan risk` for residual risk; the CLI stays deterministic and non-orchestrating per issue 20 and the issue 73 stated preference",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "the PR diff registers no new argparse subparser, adds no new devague/ module or store, and the only devague/ code change is teaching content in cli/_commands/learn.py",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c6",
+      "kind": "non_goal",
+      "text": "challenge is not a fourth standing human gate \u2014 the three gates (exported spec, implementation split plan, final PR) stay; challenge output lands as proposed claims and questions the user confirms inside the existing spec gate, mirroring how /deviate amends gate 2 rather than adding one",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "when the pass finds nothing, it records which lenses and surfaces were examined and what residual uncertainty remains \u2014 it never claims there are no unknown unknowns (issue 73 success criteria; anti-fabrication contract in docs/llm-guidance.md)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "the SKILL.md hard-rules section contains an explicit rule forbidding a no-unknown-unknowns conclusion, with the required fallback of recording examined lenses/surfaces plus residual uncertainty",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c8",
+      "kind": "assumption",
+      "text": "examined-surfaces records reuse the existing `devague scope` move (surface + finding + optional seeds) \u2014 Frame.scope_entries already persists them and the exported spec-md already renders a Scope exploration section (issue 53 t3/t6), so residual-uncertainty provenance survives into the buildable spec with no new state",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c9",
+      "kind": "assumption",
+      "text": "residual risk that survives into planning lands via `devague plan risk --kind` \u2014 RISK_KINDS equals the vagueness kinds (unknown_nonblocking / unknown_blocking / out_of_scope / follow_up) in devague/plan.py, which already distinguishes blocking from nonblocking residual uncertainty",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c10",
+      "kind": "decision",
+      "text": "integration option 1 from issue 73, per the issue author: a distinct operator skill /challenge, run as a mandatory but proportional pass \u2014 lightweight for ordinary work, rigorous for high-risk work \u2014 with no new CLI engine until the workflow proves it needs one",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c11",
+      "kind": "decision",
+      "text": "challenge is the seventh documented leg, positioned third: scope, think, challenge, spec-to-plan, assign-to-workforce, deviate, summarize-delivery \u2014 per the issue 73 proposal flow and the user's request driving this frame",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c12",
+      "kind": "audience",
+      "text": "operators \u2014 the main agent driving the deterministic CLI move by move \u2014 and the humans who own the spec and implementation-split-plan gates; downstream, the AgentCulture mesh once guildmaster re-broadcasts the skill",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "the SKILL.md description and body address the operator (move-by-move CLI driving) and the gate-owning human (confirmation of findings) as distinct readers, matching the other six origin skills",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "check the SKILL.md description names both audiences and docs/skill-sources.md routes challenge to guildmaster like the other six origin skills"
+    },
+    {
+      "id": "c13",
+      "kind": "before_state",
+      "text": "a frame can converge on precisely stated claims while the original framing is still incomplete: open questions only capture uncertainty someone already noticed \u2014 nothing actively hunts omitted dimensions, hidden dependencies, or shared assumptions, and no record exists of which surfaces were ever examined (issue 73 problem statement)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "issue 73's problem statement is accurately reflected: before this change no devague surface actively searched for omitted dimensions or recorded examined surfaces at spec time",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c14",
+      "kind": "why_it_matters",
+      "text": "an articulated blind spot becomes a known unknown the method can manage; an unexamined one surfaces later as a mid-run /deviate or a production surprise \u2014 the pass raises the odds of discovery before planning and lowers the cost of the surprises that remain (issue 73)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "the skill's intro states the surprise-cost rationale \u2014 discovery before planning is cheaper than /deviate mid-run or a production surprise \u2014 rather than promising to eliminate unknown unknowns",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c15",
+      "kind": "after_state",
+      "text": "a converged frame no longer slides straight into planning untested: the operator runs a proportional challenge pass over structured lenses, every finding lands as a proposed claim, question, or park that the user adjudicates, the frame reconverges, and the exported spec carries examined-surfaces provenance and residual uncertainty",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "a dogfooded /challenge run on a real converged frame produces only proposed findings, triggers reconvergence, and the re-exported spec renders the examined surfaces \u2014 verified before the skill is called done",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "dogfood /challenge on a real frame and verify findings landed proposed-only, the frame reconverged, and the re-exported spec shows the examined surfaces"
+    },
+    {
+      "id": "c16",
+      "kind": "success_signal",
+      "text": "every challenge pass leaves at least 1 durable record \u2014 proposed findings routed through existing moves, or examined-surfaces entries with residual uncertainty on a clean pass; 0 passes conclude with a bare no-issues-found, and 0 LLM-origin findings reach confirmed status without an explicit user confirm",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "the success-signal counts are checkable from state alone: frame JSON plus session transcript show every finding's lens/surface trace and zero llm-origin items confirmed without a user confirm move",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "review a dogfooded pass: each finding traceable to a lens and surface; grep the frame JSON for llm-origin claims that are confirmed without a user confirm in the session log"
+    },
+    {
+      "id": "c17",
+      "kind": "decision",
+      "text": "the challenge pass runs after /think exports: challenge the converged, exported frame before `devague plan new`; findings reopen the frame, reconverge, and re-export the same dated spec file \u2014 /think stays self-contained (resolves q1)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c18",
+      "kind": "decision",
+      "text": "resilience measures land in both spec and plan by nature: spec-side as requirement/boundary claims when they change what to build, plan-side as plan risks or tasks when they change how to build it \u2014 the skill coaches which is which (resolves q2)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    },
+    {
+      "id": "c19",
+      "kind": "decision",
+      "text": "the named escalation signals that deepen the pass from lightweight to rigorous: migrations, security-sensitive work, distributed state, hardware, destructive operations, other hard-to-reverse changes, concurrency hazards, and any surface that can lose user data (resolves q3)",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": ""
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "guildmaster re-vendors /challenge and re-broadcasts it to the mesh on its own schedule \u2014 outside this repo's control; the skill-sources row documents the re-vendor path so downstream picks it up on the next sync",
+      "kind": "follow_up",
+      "claim_id": null
+    },
+    {
+      "id": "v2",
+      "text": "whether the proportionality rule (lightweight vs rigorous) is calibrated right is only observable across future dogfooded runs \u2014 the first few /challenge passes should be watched for over- or under-escalation",
+      "kind": "unknown_nonblocking",
+      "claim_id": null
+    }
+  ],
+  "scope_entries": [
+    {
+      "id": "s1",
+      "surface": ".claude/skills/deviate/SKILL.md + .claude/skills/summarize-delivery/ + docs/skills.md file-structure rules",
+      "finding": "the method-only origin-skill shape is established: SKILL.md only, type: command frontmatter required for culture/agex backends, Provenance section naming devague as origin; deviate (0.18.0) and summarize-delivery (0.17.0) both shipped this way",
+      "seeds": [
+        "c2"
+      ]
+    },
+    {
+      "id": "s2",
+      "surface": "devague/cli/_commands/learn.py (OPERATOR_SKILLS at line 280, six-skill wording at lines 393/412/435)",
+      "finding": "learn skills now teaches all six operator skills from a data tuple; adding challenge is one tuple entry plus wording \u2014 teaching content, not a new engine",
+      "seeds": [
+        "c3"
+      ]
+    },
+    {
+      "id": "s3",
+      "surface": "README.md:82-94, CLAUDE.md Status/Project-intent, docs/skills.md flow table, docs/skill-sources.md origin table",
+      "finding": "four doc surfaces name the six-leg flow and the origin-skill family explicitly; all four must move to seven legs together or the docs drift",
+      "seeds": [
+        "c4"
+      ]
+    },
+    {
+      "id": "s4",
+      "surface": "docs/spec-contract.md vocabulary + devague/plan.py RISK_KINDS + .claude/skills/scope/SKILL.md findings table",
+      "finding": "the existing move vocabulary already covers every challenge output: findings as capture kinds (requirement/assumption/boundary/non_goal/decision), pressure-tests as interrogate, pending decisions as question, open vagueness as park, examined surfaces as devague scope entries, residual plan risk as plan risk with the four vagueness kinds \u2014 no gap forcing a new CLI verb",
+      "seeds": [
+        "c5",
+        "c8",
+        "c9"
+      ]
+    },
+    {
+      "id": "s5",
+      "surface": "issue 73 (integration options, success criteria) + CLAUDE.md three-human-gates section",
+      "finding": "issue author prefers a distinct mandatory-but-proportional operator pass with no new CLI engine; success criteria require findings to reconverge the authoritative frame and forbid claiming zero unknown unknowns \u2014 and the three-gate structure stays untouched",
+      "seeds": [
+        "c6",
+        "c7",
+        "c10",
+        "c11"
+      ]
+    },
+    {
+      "id": "s6",
+      "surface": "challenge pass / hidden-dependency lens: tests/test_cli_learn.py lines 43-56",
+      "finding": "the learn tests hardcode the origin-skill tuple, METHOD_ONLY_NAMES, and parametrized skills:name cases \u2014 they must move to seven skills in lockstep with learn.py or CI fails; lands as acceptance criteria on the learn-content plan task under c3",
+      "seeds": [
+        "c3"
+      ]
+    },
+    {
+      "id": "s7",
+      "surface": "challenge pass / adjacent-systems lens: .claude/skills.local.yaml.example, culture.yaml, .github/workflows",
+      "finding": "clean pass \u2014 none of these carry a skill-count dependency; no change needed",
+      "seeds": []
+    },
+    {
+      "id": "s8",
+      "surface": "challenge pass / failure-mode + reversibility lenses over the spec itself",
+      "finding": "no CLI behavior change means no version-skew failure mode for installed devague binaries (learn.py text is the only code delta); change is docs+skill additive, fully reversible by revert; concurrency and data-loss lenses not applicable to a docs-only delivery",
+      "seeds": []
+    }
+  ]
+}
