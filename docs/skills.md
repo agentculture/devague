@@ -137,7 +137,7 @@ A skill drives the deterministic CLI and adds no business logic of its own:
 
 ## The operator skills
 
-The **six-leg flow**, with the two audiences each leg serves — **operators**
+The **seven-leg flow**, with the two audiences each leg serves — **operators**
 (the main agent driving the CLI move by move) and the **humans** who own the
 three standing gates (the exported spec, the go/no-go on the implementation
 split plan — including any mid-run deviation approved against it — and the
@@ -147,6 +147,7 @@ final PR review):
 |-------|-----|----------------|
 | `scope` | idea → explored scope (the optional opening leg) | read-only exploration; findings land via existing `devague` moves |
 | `think` | idea → spec (working backwards) | the flat `devague <move>` verbs |
+| `challenge` | "a risk-scaled blind-spot discovery pass over a converged, exported frame BETWEEN /think and /spec-to-plan" | "pressure-test the spec through structured lenses, route every finding back through the existing deterministic moves as proposed-only content the human adjudicates" |
 | `spec-to-plan` | spec → plan (working forwards) | the `devague plan <move>` group |
 | `assign-to-workforce` | plan → parallel implementation | reads `devague plan waves` and `devague plan deliverables` (read-only) |
 | `deviate` | execution-time — an in-flight fan-out diverges from the confirmed plan | the `devague deviate` move (`--list [--json]`, `--confirm`/`--reject`), backed by the delivery store |
@@ -183,6 +184,47 @@ first-class open vagueness, and `export` a spec only once the frame **converges*
 - Source:
   [`.claude/skills/think/`](https://github.com/agentculture/devague/blob/main/.claude/skills/think/SKILL.md)
   (`SKILL.md` + `scripts/think.sh`).
+
+### `challenge` — risk-scaled blind-spot discovery pass (method-only)
+
+Quoted verbatim from the shipped `SKILL.md` frontmatter `description` (not
+paraphrased, per the doc-sweep instruction that shipped it):
+
+> Run a risk-scaled blind-spot discovery pass over a converged, exported
+> frame BETWEEN /think and /spec-to-plan (the seventh origin skill, third
+> leg in flow order): pressure-test the spec through structured lenses,
+> route every finding back through the existing deterministic moves as
+> proposed-only content the human adjudicates, and on a clean pass record
+> the examined lenses/surfaces and residual uncertainty — never a claim
+> that there are no unknown unknowns. Use when the user says "challenge
+> this spec", "blind-spot pass", "pressure-test the frame", "what are we
+> missing", "unknown unknowns", or after /think exports and before
+> `devague plan new`. Authored and maintained in agentculture/devague
+> (origin = devague); guildmaster pulls this skill from here and broadcasts
+> it to the AgentCulture mesh — it is NOT vendored from guildmaster like
+> the inbound skills here.
+
+Concretely: it sweeps structured lenses (adjacent systems, unstated
+assumptions, overlooked actors/lifecycle stages/failure modes, security/
+migration/concurrency/reversibility, missing observability/rollback, cheap
+probes) against the exported spec, routes findings through the existing
+deterministic moves (`capture` / `interrogate` / `question` / `park` /
+`devague scope` / `devague plan risk`) as `--origin llm`-proposed content the
+human adjudicates, then reconverges and re-exports the same dated spec file.
+Mandatory but proportional — lightweight for ordinary work, rigorous when an
+escalation signal (migrations, security-sensitive work, distributed state,
+hardware, destructive or hard-to-reverse changes, concurrency hazards, any
+data-loss surface) applies. Not a fourth standing gate: findings are
+adjudicated inside the existing spec gate, mirroring how `/deviate` amends
+gate 2 rather than adding one.
+
+The skill ships no entry-point script of its own — it drives the same flat
+`devague <move>` verbs `/think` already uses, so no new CLI surface,
+subparser, or state model exists to resolve (#20). New in 0.19.0.
+
+- Source:
+  [`.claude/skills/challenge/`](https://github.com/agentculture/devague/blob/main/.claude/skills/challenge/SKILL.md)
+  (`SKILL.md` only).
 
 ### `spec-to-plan` — converged spec → buildable plan
 
