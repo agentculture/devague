@@ -8,7 +8,7 @@
 # and names the recommended next move. It is the forward leg: seed a plan from a
 # *converged* frame, then work it into a buildable plan.
 #
-# Origin: authored and maintained in agentculture/devague. steward pulls this
+# Origin: authored and maintained in agentculture/devague. guildmaster pulls this
 # skill from here and broadcasts it to the rest of the AgentCulture mesh, so it
 # is written to run anywhere — portable bash, no devague-checkout assumptions.
 #

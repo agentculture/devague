@@ -21,7 +21,7 @@
 # the dependency graph; it does not spawn agents, manage worktrees, or pick
 # a backend. This wrapper is the operator-facing helper.
 #
-# Origin: authored and maintained in agentculture/devague. steward pulls this
+# Origin: authored and maintained in agentculture/devague. guildmaster pulls this
 # skill from here and broadcasts it to the rest of the AgentCulture mesh, so
 # it is written to run anywhere — portable bash, no devague-checkout assumptions.
 #

@@ -2,7 +2,7 @@
 
 These drive ``.claude/skills/think/scripts/think.sh`` via subprocess in a
 sandboxed ``tmp_path`` cwd (so ``.devague/`` never touches the repo). They pin
-the contract steward relies on when it pulls this skill into the mesh: the
+the contract guildmaster relies on when it pulls this skill into the mesh: the
 wrapper forwards moves verbatim, ``status`` reads the convergence gate and names
 the next move, and ``export`` stays blocked until the frame converges. The skill
 is named ``think``; the CLI it drives is still ``devague``.

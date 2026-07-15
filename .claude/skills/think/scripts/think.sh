@@ -9,7 +9,7 @@
 # `status` verb the CLI internalised in 0.11.0 (devague#30/#31), which reads the
 # convergence gate and names the recommended next move.
 #
-# Origin: authored and maintained in agentculture/devague. steward pulls this
+# Origin: authored and maintained in agentculture/devague. guildmaster pulls this
 # skill from here and broadcasts it to the rest of the AgentCulture mesh, so it
 # is written to run anywhere — portable bash, no devague-checkout assumptions.
 #

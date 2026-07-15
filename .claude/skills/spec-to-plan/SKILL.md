@@ -11,7 +11,7 @@ description: >
   build plan", or after the /think skill exports a spec. Authored and maintained
   in agentculture/devague (origin = devague); guildmaster pulls this skill from
   here and broadcasts it to the AgentCulture mesh — it is NOT vendored from
-  guildmaster like the other skills here.
+  guildmaster like the inbound skills here.
 type: command
 ---
 

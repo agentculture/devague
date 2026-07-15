@@ -11,7 +11,7 @@ description: >
   vague to build yet. Once a spec exports, hand off to the sibling /spec-to-plan
   skill to turn it into a plan. Authored and maintained in agentculture/devague
   (origin = devague); guildmaster pulls this skill from here and broadcasts it to
-  the AgentCulture mesh — it is NOT vendored from guildmaster like the other skills
+  the AgentCulture mesh — it is NOT vendored from guildmaster like the inbound skills
   here.
 type: command
 ---

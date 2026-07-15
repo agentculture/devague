@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-07-15
+
+### Fixed
+
+- skills: point the three wrapper scripts (`think.sh` / `spec-to-plan.sh` / `assign-to-workforce.sh`) and the `test_think_skill` docstring at **guildmaster**, the current mesh supplier, instead of the pre-cutover `steward` (matches every `SKILL.md` and the 2026-05-24 steward→guildmaster cutover) (#74).
+- skills: reword the `think` / `spec-to-plan` / `assign-to-workforce` / `deviate` descriptions to say they are not vendored like the **inbound** skills (matching `scope` / `summarize-delivery`), since the other origin skills are also not vendored from guildmaster (#74).
+- skills: refresh `scope`'s Provenance so its authoring-order ordinal reads correctly against its role as the **opening leg**, and add the missing never-re-vendored-back upstream clause (#74).
+
 ## [0.18.0] - 2026-07-15
 
 The execution seam and deviate — devague#53's follow-on plan
