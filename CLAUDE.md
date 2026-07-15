@@ -4,6 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**The challenge skill lands — the seventh leg (0.19.0, #73).** New seventh
+origin skill **`/challenge`** (`.claude/skills/challenge/SKILL.md`) — a
+risk-scaled blind-spot discovery pass that runs after `/think` exports and
+before `devague plan new`, pressure-testing the converged, exported frame
+through structured lenses. Method-only: no script, no new CLI verb, no new
+engine (#20) — every finding routes back through the existing deterministic
+moves (`capture`, `interrogate`, `park`, …) as proposed-only content for the
+human to adjudicate, and a reopened frame reconverges and re-exports before
+the plan leg proceeds. A clean pass records the examined surfaces and
+residual uncertainty via existing moves (`devague scope` entries, `park`,
+`plan risk`) — never a claim that there are no unknown unknowns.
+`devague learn skills` now teaches all **seven** operator skills in seven-leg
+order; `README.md`, this file, `docs/skills.md`, and `docs/skill-sources.md`
+are swept to the seven-leg flow — `scope` → `think` → `challenge` →
+`spec-to-plan` → `assign-to-workforce` → `deviate` → `summarize-delivery`.
+
 **The execution seam and deviate (0.18.0, #53 esd t1–t11).** The flow gains a
 **sixth leg** — **`deviate`** — plus the read-only "end state" that closes the
 loop between a confirmed plan and what the workforce actually produces mid-run.

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-07-15
+
+### Added
+
+- **New seventh origin skill `/challenge`** (`.claude/skills/challenge/SKILL.md`) —
+  method-only: no script, no new CLI verb. A risk-scaled blind-spot discovery
+  pass between `/think` and `/spec-to-plan` that pressure-tests a converged,
+  exported frame; findings route back through existing deterministic moves as
+  proposed-only content for the human to adjudicate, and a clean pass records
+  the examined surfaces plus residual uncertainty instead of claiming there
+  are no unknown unknowns (#73).
+
+### Changed
+
+- **`devague learn skills` now teaches seven operator skills** in seven-leg
+  flow order (`learn.py` and its tests updated in lockstep); README.md,
+  CLAUDE.md, `docs/skills.md`, and `docs/skill-sources.md` moved from the
+  six-leg to the seven-leg flow (#73).
+
 ## [0.18.1] - 2026-07-15
 
 ### Fixed
