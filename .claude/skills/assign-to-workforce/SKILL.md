@@ -11,7 +11,7 @@ description: >
   "fan out the plan", "parallel subagents", or after /spec-to-plan exports a
   plan. Authored and maintained in agentculture/devague (origin = devague);
   guildmaster pulls this skill from here and broadcasts it to the AgentCulture
-  mesh — it is NOT vendored from guildmaster like the other skills here.
+  mesh — it is NOT vendored from guildmaster like the inbound skills here.
 type: command
 ---
 
