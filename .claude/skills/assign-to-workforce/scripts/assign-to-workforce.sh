@@ -171,9 +171,14 @@ def marker(task_id):
 
 
 def truncate(summary):
-    if len(summary) > MAX_SUMMARY_LEN:
-        return summary[:MAX_SUMMARY_LEN] + ELLIPSIS
-    return summary
+    if len(summary) <= MAX_SUMMARY_LEN:
+        return summary
+    # Reserve room for the ellipsis so the rendered width (ellipsis included)
+    # never exceeds MAX_SUMMARY_LEN (issue #77). The trailing clamp keeps the
+    # contract intact even in the degenerate MAX_SUMMARY_LEN <= len(ELLIPSIS)
+    # case (PR #78 review), where the reserved slice would otherwise underflow.
+    slice_len = max(0, MAX_SUMMARY_LEN - len(ELLIPSIS))
+    return (summary[:slice_len] + ELLIPSIS)[:MAX_SUMMARY_LEN]
 
 
 print(f"Implementation split plan — plan: {plan_slug}")

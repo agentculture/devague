@@ -8,7 +8,7 @@ the actual ``devague`` / ``devague plan`` CLI (more robust than hand-writing
 ``.devague`` JSON), and asserts the table the human actually approves comes
 out: exactly one four-column table (Wave | Task | Model | Task summary),
 rows ordered by wave then task id, real (never placeholder) summaries
-truncated with an ellipsis past 72 chars, a `sonnet` default model, the
+truncated with an ellipsis to within 72 chars, a `sonnet` default model, the
 has-instruction/acceptance-count markers moved onto the wave-listing lines,
 and the go/no-go prompt + fan-out steps still present.
 
@@ -55,7 +55,10 @@ assert len(_LONG_SUMMARY) > 72
 
 _MAX_SUMMARY_LEN = 72
 _ELLIPSIS = "..."
-_EXPECTED_TRUNCATED = _LONG_SUMMARY[:_MAX_SUMMARY_LEN] + _ELLIPSIS
+# The rendered cell (ellipsis included) stays within MAX_SUMMARY_LEN — the
+# ellipsis eats into the slice rather than overshooting the cap (issue #77).
+_EXPECTED_TRUNCATED = _LONG_SUMMARY[: _MAX_SUMMARY_LEN - len(_ELLIPSIS)] + _ELLIPSIS
+assert len(_EXPECTED_TRUNCATED) == _MAX_SUMMARY_LEN
 
 
 def _converged_frame(monkeypatch, tmp_path) -> str:
@@ -181,7 +184,10 @@ def test_split_plan_renders_expected_table(tmp_path, monkeypatch) -> None:
     # to the split-plan table's own region of the output, not the full text.
     table_out = out[: out.index(_END_STATE_HEADER)] if _END_STATE_HEADER in out else out
     assert _LONG_SUMMARY not in table_out
-    assert _cells(lines[t2_idx])[3] == _EXPECTED_TRUNCATED
+    truncated_cell = _cells(lines[t2_idx])[3]
+    assert truncated_cell == _EXPECTED_TRUNCATED
+    # The rendered cell never overshoots the cap by the ellipsis length (#77).
+    assert len(truncated_cell) <= _MAX_SUMMARY_LEN
 
     # ── wave-listing markers (moved off the table, #69) ──────────────────────
     assert "t1 [instruction: yes, accept: 2]" in out
