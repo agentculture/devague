@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1] - 2026-07-15
+
+### Fixed
+
+- assign-to-workforce split-plan: `truncate()` no longer overshoots `MAX_SUMMARY_LEN` by the 3-char ellipsis — the rendered Task summary cell now stays within the 72-char cap (ellipsis included), so the table width control means what the constant says (#77).
+
 ## [0.19.0] - 2026-07-15
 
 ### Added

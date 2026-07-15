@@ -233,3 +233,7 @@ __marimo__/
 
 # claude agent worktrees (transient; harness-managed)
 .claude/worktrees/
+
+# eidetic: local memory store (canonical store lives at ~/.eidetic; a repo-local
+# .eidetic/ is stray runtime state and must never be committed)
+.eidetic/
