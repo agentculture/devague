@@ -1,0 +1,20 @@
+{
+  "plan_slug": "challenge-skill",
+  "schema_version": 1,
+  "created": "2026-07-15T06:52:02Z",
+  "updated": "2026-07-15T06:53:35Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "t4 additionally prepends a 0.19.0 release paragraph to CLAUDE.md's Status section (newest-first, repo convention)",
+      "task_ref": "t4",
+      "reason": "the confirmed t4 acceptance criteria name only pyproject.toml and CHANGELOG.md; every prior release (0.15.0, 0.17.0, 0.18.0) also added a CLAUDE.md Status paragraph \u2014 omitting it would leave the Status section stale at 0.18.0 after this ships",
+      "affects": [
+        "c4"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable"
+    }
+  ]
+}
