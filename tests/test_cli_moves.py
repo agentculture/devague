@@ -162,6 +162,129 @@ def test_park_adds_vagueness(tmp_path, monkeypatch, capsys) -> None:
     assert payload["id"] == "v1"
 
 
+# --- resolve-parked-vagueness t5: park --resolve VID --decision TEXT ----------
+
+
+def test_park_create_path_unchanged_without_json(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain the "new" output
+    rc = main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    assert rc == 0
+    assert capsys.readouterr().out.strip() == "parked v1 (unknown_blocking)"
+
+
+def test_park_bare_without_text_or_resolve_errors(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain the "new" output
+    rc = main(["park"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "no text to park" in err and "--resolve" in err
+
+
+def test_park_create_without_kind_errors(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain the "new" output
+    rc = main(["park", "scale is unclear"])
+    assert rc == 1
+    assert "--kind" in capsys.readouterr().err
+
+
+def test_park_resolve_marks_resolved_and_echoes_transition(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    rc = main(["park", "--resolve", "v1", "--decision", "cap at 10k"])
+    assert rc == 0
+    assert capsys.readouterr().out.strip() == "v1 -> resolved"
+    f = store.load(store.current_slug())
+    v = f.find_vagueness("v1")
+    assert v.resolved is True
+    assert v.resolution == "cap at 10k"
+
+
+def test_park_resolve_json_parity(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    rc = main(["park", "--resolve", "v1", "--decision", "cap at 10k", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["id"] == "v1"
+    assert payload["resolved"] is True
+    assert payload["resolution"] == "cap at 10k"
+
+
+def test_park_resolve_without_decision_refused_and_persists_nothing(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    rc = main(["park", "--resolve", "v1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "--decision" in err and "hint" in err
+    f = store.load(store.current_slug())
+    assert f.find_vagueness("v1").resolved is False
+
+
+def test_park_resolve_unknown_id_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()  # drain the "new" output
+    rc = main(["park", "--resolve", "v9", "--decision", "x"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown vagueness" in err and "hint" in err
+
+
+def test_park_resolve_already_resolved_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    main(["park", "--resolve", "v1", "--decision", "cap at 10k"])
+    capsys.readouterr()
+    rc = main(["park", "--resolve", "v1", "--decision", "cap at 20k"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "already" in err and "hint" in err
+    f = store.load(store.current_slug())
+    assert f.find_vagueness("v1").resolution == "cap at 10k"  # untouched
+
+
+def test_park_resolve_with_claim_links_deciding_claim(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)  # announcement = c1
+    main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    rc = main(["park", "--resolve", "v1", "--decision", "cap at 10k", "--claim", "c1"])
+    assert rc == 0
+    f = store.load(store.current_slug())
+    assert f.find_vagueness("v1").resolution_claim_id == "c1"
+
+
+def test_park_resolve_unknown_claim_id_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    rc = main(["park", "--resolve", "v1", "--decision", "cap at 10k", "--claim", "c99"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown claim" in err and "hint" in err
+    f = store.load(store.current_slug())
+    assert f.find_vagueness("v1").resolved is False
+
+
+def test_park_positional_text_with_resolve_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["park", "scale is unclear", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    rc = main(["park", "stray text", "--resolve", "v1", "--decision", "cap at 10k"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "not both" in err
+    f = store.load(store.current_slug())
+    assert f.find_vagueness("v1").resolved is False
+
+
 def test_show_renders_frame_markdown(tmp_path, monkeypatch, capsys) -> None:
     _seed(monkeypatch, tmp_path)
     rc = main(["show"])

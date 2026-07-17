@@ -132,4 +132,35 @@ def test_save_upgrades_stale_schema_version_on_write(tmp_path, monkeypatch) -> N
     store.save(f)
     assert store.load("demo").schema_version == SCHEMA_VERSION
     raw = json.loads(store.path_for("demo").read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 2
+    assert raw["schema_version"] == SCHEMA_VERSION
+
+
+# --- resolve-parked-vagueness t1: Vagueness resolution state (schema v3) ------
+
+
+def test_save_load_roundtrip_resolved_vagueness_identical(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    f = Frame(slug="demo", title="Demo")
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    f.resolve_vagueness("v1", "decided: cap at 10k")
+    store.save(f)
+    loaded = store.load("demo")
+    assert to_dict(loaded) == to_dict(f)
+    assert loaded.open_vagueness[0].resolved is True
+    assert loaded.open_vagueness[0].resolution == "decided: cap at 10k"
+
+
+def test_load_legacy_v2_vagueness_defaults_resolved_fields(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    store.FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+    legacy = {
+        "slug": "demo",
+        "title": "Demo",
+        "schema_version": 2,
+        "claims": [],
+        "open_vagueness": [{"id": "v1", "text": "x", "kind": "follow_up", "claim_id": None}],
+    }
+    store.path_for("demo").write_text(json.dumps(legacy), encoding="utf-8")
+    loaded = store.load("demo")
+    assert loaded.open_vagueness[0].resolved is False
+    assert loaded.open_vagueness[0].resolution == ""

@@ -166,6 +166,75 @@ def test_risk_recorded_and_unknown_task_errors(tmp_path, monkeypatch, capsys) ->
     assert "no such task" in capsys.readouterr().err
 
 
+def test_risk_create_path_requires_text_and_kind(tmp_path, monkeypatch, capsys) -> None:
+    """The risk-create path (positional text + --kind, optional --task) is
+    unchanged by adding --resolve/--decision — but --kind is no longer required
+    at the parser level (it must work as an optional so --resolve can omit it),
+    so the handler must refuse a missing --kind on the create path itself."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "risk", "no kind here"])
+    assert rc == 1
+    assert "--kind" in capsys.readouterr().err
+    assert plan_store.load(slug).risks == []
+
+
+def test_risk_resolve_happy_path_and_json_parity(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "risk", "scaling unknown", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+
+    rc = main(["plan", "risk", "--resolve", "r1", "--decision", "capped at 10k"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "r1" in out and "resolved" in out
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.resolved is True
+    assert risk.resolution == "capped at 10k"
+
+    main(["plan", "risk", "another risk", "--kind", "follow_up"])
+    capsys.readouterr()
+    rc = main(["plan", "risk", "--resolve", "r2", "--decision", "deferred", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"id": "r2", "resolved": True, "resolution": "deferred"}
+
+
+def test_risk_resolve_without_decision_refused(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "risk", "scaling unknown", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    rc = main(["plan", "risk", "--resolve", "r1"])
+    assert rc == 1
+    assert "--decision" in capsys.readouterr().err
+    assert plan_store.load(slug).find_risk("r1").resolved is False
+
+
+def test_risk_resolve_unknown_id_refused(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "risk", "--resolve", "rX", "--decision", "whatever"])
+    assert rc == 1
+    assert "unknown" in capsys.readouterr().err
+
+
+def test_risk_resolve_already_resolved_refused(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "risk", "scaling unknown", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+    main(["plan", "risk", "--resolve", "r1", "--decision", "first decision"])
+    capsys.readouterr()
+    rc = main(["plan", "risk", "--resolve", "r1", "--decision", "second decision"])
+    assert rc == 1
+    assert "already resolved" in capsys.readouterr().err
+    assert plan_store.load(slug).find_risk("r1").resolution == "first decision"
+
+
 # ── converge / export ───────────────────────────────────────────────────────
 def test_converge_reports_then_passes(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_frame(monkeypatch, tmp_path)

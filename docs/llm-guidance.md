@@ -45,7 +45,10 @@ Three legs share one chassis (the third optional):
   `success_signal`, `open_question`, `non_goal`, `requirement`, `assumption`,
   `decision`); honesty conditions and hard questions attached to claims; and
   **open vagueness** (parked unknowns, kinds `unknown_nonblocking` /
-  `unknown_blocking` / `out_of_scope` / `follow_up`).
+  `unknown_blocking` / `out_of_scope` / `follow_up`). A parked item is not
+  stuck once decided: `park --resolve <vN> --decision "<text>" [--claim <cN>]`
+  closes it out — it stays on record with its resolution, drops out of the
+  convergence gate, and never requires hand-editing `.devague` state.
 - **Plan (spec → plan).** Coverage targets (derived from a converged frame),
   tasks (with acceptance criteria, dependencies, and the targets they cover),
   and first-class plan risks.
@@ -107,7 +110,11 @@ These are not style preferences. Convergence is only meaningful if these hold.
   `interrogate --honesty`; the user owns whether each one actually holds.
 - **Park real unknowns; do not paper over them.** If something is genuinely
   unknown, `park` it (blocking or non-blocking) instead of writing confident
-  prose that hides the gap. Blocking vagueness holds back convergence by design.
+  prose that hides the gap. Blocking vagueness holds back convergence by
+  design — and once it is decided, close it out with `park --resolve <vN>
+  --decision "<text>"` (plan side: `plan risk --resolve <rN> --decision
+  "<text>"`) rather than leaving it parked forever or hand-editing state; the
+  resolved item stays on record with its resolution and stops blocking.
 - **Converge, don't vibe.** `export` is gated on `converge` passing. Never
   declare a frame or plan "ready" on a hunch — run `converge` and resolve every
   listed gap first.
@@ -125,6 +132,7 @@ These are not style preferences. Convergence is only meaningful if these hold.
 | You have a strong guess at the audience | `capture --kind audience … --origin user` (passing your guess off as the user's) | `capture --kind audience … --origin llm`, then ask the user to `confirm` |
 | You proposed an honesty condition | `confirm h3` yourself so the gate passes | leave `h3` proposed; surface it for the user to confirm |
 | A key detail is genuinely unknown | invent a plausible answer to keep momentum | `park "<the unknown>" --kind unknown_blocking` |
+| A blocking park just got decided | leave it parked forever, or hand-edit `.devague` state to unblock convergence | `park --resolve <vN> --decision "<the decision>"` |
 | User asks "is this ready?" | "Yes, looks solid." | run `converge`; report the actual blockers/warnings |
 | The user skipped a stage | march through the stages in order anyway | capture what they gave you; let the arc fill in adaptively |
 | Plan: a task has no clear acceptance test | mark it confirmed and move on | leave it without criteria (the gate blocks it) or `park` the risk |
@@ -139,7 +147,9 @@ spirit:
 - **LLM-proposed tasks stay proposed**; the user confirms them.
 - **Cover every target, criteria on every task** — the gate requires it.
 - **Keep the dependency graph honest** — real task ids, acyclic.
-- **Park genuine unknowns as risks** (`unknown_blocking` holds convergence back).
+- **Park genuine unknowns as risks** (`unknown_blocking` holds convergence
+  back); close a decided one out with `plan risk --resolve <rN> --decision
+  "<text>"` rather than leaving it parked or hand-editing plan state.
 - **Converge against the live frame** — `converge`/`export` re-load the source
   frame; if it regressed below convergence, re-converge the spec first.
 - **Instructions ride along to the workforce.** A task's optional

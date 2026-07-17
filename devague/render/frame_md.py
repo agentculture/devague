@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from devague.frame import Frame
+from devague.frame import Frame, Vagueness
 
 _SECTIONS = [
     ("announcement", "Announcement"),
@@ -53,11 +53,26 @@ def _section_lines(frame: Frame, kind: str, heading: str) -> list[str]:
     return lines
 
 
+def _vagueness_bullet(v: Vagueness) -> str:
+    """A single ``open_vagueness`` bullet: plain for an item still open, or
+    carrying its resolution text for a resolved one (resolve-parked-vagueness
+    t7). The flat list stays a single section — resolved items are not split
+    into their own heading here (spec_md's ``Resolved vagueness`` subsection is
+    the polished-export treatment; frame_md is the working-state view). An
+    already-resolved item with no resolution text renders the plain form —
+    never a fabricated ``— resolved:`` with nothing after it.
+    """
+    base = f"- [{v.kind}] {v.text}"
+    if v.resolved and v.resolution:
+        return f"{base} — resolved: {v.resolution}"
+    return base
+
+
 def _vagueness_lines(frame: Frame) -> list[str]:
     if not frame.open_vagueness:
         return []
     lines = ["## Open vagueness", ""]
-    lines.extend(f"- [{v.kind}] {v.text}" for v in frame.open_vagueness)
+    lines.extend(_vagueness_bullet(v) for v in frame.open_vagueness)
     lines.append("")
     return lines
 

@@ -133,12 +133,31 @@ def dependency_blockers(plan: Plan) -> list[str]:
 
 
 def _missing_risks(plan: Plan) -> list[str]:
-    return [f"blocking risk {r.id} unresolved" for r in plan.risks if r.kind == "unknown_blocking"]
+    """Unresolved blocking risks only.
+
+    A resolved risk stays on the plan's record for provenance (see
+    ``Plan.resolve_risk``) but drops out of the gate the moment it is resolved
+    (resolve-parked-vagueness t4, mirrors t3's frame-side twin).
+    """
+    return [
+        f"blocking risk {r.id} unresolved"
+        for r in plan.risks
+        if r.kind == "unknown_blocking" and not r.resolved
+    ]
 
 
 def _parked_items(plan: Plan) -> list[str]:
-    """Tracked, non-blocking risks (everything but unknown_blocking)."""
-    return [f"[{r.kind}] {r.text}" for r in plan.risks if r.kind != "unknown_blocking"]
+    """Tracked, non-blocking, *unresolved* risks (everything but unknown_blocking).
+
+    A resolved risk is no longer open vagueness — it stays on the plan's record for
+    provenance (``Plan.resolve_risk``) but should stop being advertised as parked
+    (t4 AC3, mirrors t3's frame-side ``_parked_items``).
+    """
+    return [
+        f"[{r.kind}] {r.text}"
+        for r in plan.risks
+        if r.kind != "unknown_blocking" and not r.resolved
+    ]
 
 
 def suggest_move(blocker: str) -> str:
@@ -169,7 +188,10 @@ def suggest_move(blocker: str) -> str:
         return "break the dependency cycle: re-point one task's --dep so the graph is acyclic"
     m = re.search(r"blocking risk (r\d+)", blocker)
     if m:
-        return f"resolve {m.group(1)}: cover it with a task, or re-record it as non-blocking"
+        return (
+            f"resolve {m.group(1)} with a decision: "
+            f'devague plan risk --resolve {m.group(1)} --decision "<the decision>"'
+        )
     return "devague plan show     # inspect and decide"
 
 

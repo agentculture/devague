@@ -129,6 +129,53 @@ def test_render_deliverables_open_items_excludes_blocking() -> None:
     assert "a blocking risk" not in out
 
 
+# ── resolve-parked-vagueness (#53-esd t7): surviving-open-items excludes ─────
+# resolved frame vagueness and resolved plan risks ───────────────────────────
+
+
+def test_render_deliverables_open_items_excludes_resolved_vagueness_and_risk() -> None:
+    frame = _frame_with_world_after()
+    plan = _plan_with_tasks()
+    v = next(v for v in frame.open_vagueness if v.kind == "unknown_nonblocking")
+    frame.resolve_vagueness(v.id, "decided: acceptable for v1")
+    r = next(r for r in plan.risks if r.kind == "unknown_nonblocking")
+    plan.resolve_risk(r.id, "mitigated by t2's retry logic")
+
+    out = render_deliverables(plan, frame, converged=True)
+    # both surviving non-blocking items are now resolved — nothing left to show.
+    assert "## Open items" not in out
+    assert "scale unknown" not in out
+    assert "perf unknown" not in out
+
+
+def test_render_deliverables_open_items_partial_resolution_keeps_unresolved() -> None:
+    frame = _frame_with_world_after()
+    plan = _plan_with_tasks()
+    v = next(v for v in frame.open_vagueness if v.kind == "unknown_nonblocking")
+    frame.resolve_vagueness(v.id, "decided: acceptable for v1")
+    # the plan risk stays unresolved.
+
+    out = render_deliverables(plan, frame, converged=True)
+    assert "## Open items" in out
+    assert "scale unknown" not in out  # resolved frame vagueness — excluded
+    assert "[unknown_nonblocking] perf unknown" in out  # unresolved risk — still shown
+
+
+def test_render_deliverables_resolved_blocking_items_still_excluded() -> None:
+    # A resolved unknown_blocking item was already excluded by kind alone; confirm
+    # resolving it doesn't somehow surface it (it must stay excluded either way).
+    frame = _frame_with_world_after()
+    plan = _plan_with_tasks()
+    blocker = next(v for v in frame.open_vagueness if v.kind == "unknown_blocking")
+    frame.resolve_vagueness(blocker.id, "decided: not a real blocker after all")
+    risk_blocker = next(r for r in plan.risks if r.kind == "unknown_blocking")
+    plan.resolve_risk(risk_blocker.id, "decided: mitigated")
+
+    out = render_deliverables(plan, frame, converged=True)
+    assert "a real blocker" not in out
+    assert "a blocking risk" not in out
+
+
 def test_render_deliverables_banner_when_not_converged() -> None:
     out = render_deliverables(_plan_with_tasks(), _frame_with_world_after(), converged=False)
     lines = out.splitlines()

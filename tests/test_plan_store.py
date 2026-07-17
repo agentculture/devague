@@ -125,6 +125,39 @@ def test_save_load_roundtrips_task_instruction_verbatim(tmp_path, monkeypatch) -
     assert loaded.find_task("t1").instruction == "write the failing test before the fix"
 
 
+def test_save_load_roundtrips_resolved_risk(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    p = _plan()
+    r = p.add_risk("scope?", "unknown_blocking")
+    p.resolve_risk(r.id, "decided: proceed with option B")
+    plan_store.save(p)
+    loaded = plan_store.load("demo")
+    loaded_risk = loaded.find_risk(r.id)
+    assert loaded_risk.resolved is True
+    assert loaded_risk.resolution == "decided: proceed with option B"
+
+
+def test_load_v2_plan_with_risk_but_no_resolution_fields(tmp_path, monkeypatch) -> None:
+    # resolve-parked-vagueness t2: a pre-existing (schema_version 2) plan predates
+    # PlanRisk.resolved/resolution entirely — it must still load, defaulting both.
+    monkeypatch.chdir(tmp_path)
+    plan_store.PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    legacy = {
+        "slug": "demo",
+        "title": "Demo",
+        "frame_slug": "demo",
+        "schema_version": 2,
+        "tasks": [],
+        "risks": [{"id": "r1", "text": "scope?", "kind": "unknown_blocking", "task_id": None}],
+    }
+    plan_store.path_for("demo").write_text(json.dumps(legacy), encoding="utf-8")
+    loaded = plan_store.load("demo")
+    assert loaded.schema_version == 2
+    r = loaded.find_risk("r1")
+    assert r.resolved is False
+    assert r.resolution == ""
+
+
 def test_load_rejects_slug_mismatch(tmp_path, monkeypatch) -> None:
     # A file under demo.json whose internal slug is a *different* valid slug must
     # be rejected, so a later save() can't be redirected onto another plan.
@@ -149,4 +182,4 @@ def test_save_upgrades_stale_schema_version_on_write(tmp_path, monkeypatch) -> N
     plan_store.save(p)
     assert plan_store.load("demo").schema_version == PLAN_SCHEMA_VERSION
     raw = json.loads(plan_store.path_for("demo").read_text(encoding="utf-8"))
-    assert raw["schema_version"] == 2
+    assert raw["schema_version"] == PLAN_SCHEMA_VERSION

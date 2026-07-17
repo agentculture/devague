@@ -24,7 +24,10 @@ from devague.frame import (
 
 
 def test_schema_version_bumped_exactly_once() -> None:
-    assert SCHEMA_VERSION == 2
+    # Pinned at 2 when this file was written (#53 t1); a later legitimate bump
+    # (resolve-parked-vagueness t1, v3: Vagueness.resolved/resolution) moves
+    # this pin forward rather than leaving a stale, now-false assertion.
+    assert SCHEMA_VERSION == 3
 
 
 def test_claim_and_honesty_instruction_default_empty() -> None:

@@ -6,8 +6,8 @@ that question, synthesized *only* from existing frame/plan state: the live sourc
 frame's confirmed ``announcement`` / ``after_state`` / ``success_signal`` claims
 (verbatim), the plan's terminal tasks (:func:`devague.plan.terminal_tasks` — active
 tasks no other active task depends on) with their acceptance criteria, and surviving
-open items (the frame's non-blocking parked vagueness plus the plan's non-blocking
-risks).
+open items (the frame's non-blocking, unresolved parked vagueness plus the plan's
+non-blocking, unresolved risks — a resolved item is no longer open, #53-esd t7).
 
 Like :mod:`devague.render.plan_md` this is **not** registered in the
 ``devague.render`` registry (that registry is ``Callable[[Frame], str]``; a
@@ -69,20 +69,25 @@ def _terminal_tasks_section(plan: Plan) -> list[str]:
 
 
 def _open_items_section(frame: Frame, plan: Plan) -> list[str]:
-    """Surviving open items: non-blocking frame vagueness + non-blocking plan risks.
+    """Surviving open items: non-blocking, unresolved frame vagueness + plan risks.
 
     ``unknown_blocking`` items are excluded on both sides — a genuinely blocking item
     would have kept the frame/plan from converging in the first place, so what
     survives here is exactly the tracked-but-non-blocking uncertainty (mirrors
-    ``convergence._parked_items`` / ``plan_convergence._parked_items``).
+    ``convergence._parked_items`` / ``plan_convergence._parked_items``). A resolved
+    item — frame vagueness or plan risk — is also excluded regardless of kind: once
+    decided it is no longer a surviving *open* item (resolve-parked-vagueness t7);
+    it still renders elsewhere with its resolution (frame_md, spec_md).
     """
     items = [
         f"[{v.kind}] {autolink_urls(v.text)}"
         for v in frame.open_vagueness
-        if v.kind != "unknown_blocking"
+        if v.kind != "unknown_blocking" and not v.resolved
     ]
     items += [
-        f"[{r.kind}] {autolink_urls(r.text)}" for r in plan.risks if r.kind != "unknown_blocking"
+        f"[{r.kind}] {autolink_urls(r.text)}"
+        for r in plan.risks
+        if r.kind != "unknown_blocking" and not r.resolved
     ]
     if not items:
         return []

@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] - 2026-07-17
+
+### Added
+
+- **`devague park --resolve <vN> --decision "<text>" [--claim <cN>]`** — the
+  close-out for parked vagueness (#45, #55, #57, #60). A decided blocking park
+  now resolves through a CLI move: the item stays on the record with its
+  resolution text (and optionally the deciding claim via a new
+  `resolution_claim_id`), drops out of the convergence gate, and renders under
+  a `## Resolved vagueness` section in exported specs. A bare `--resolve`
+  without `--decision` is refused (evidence-bearing close-out); unknown and
+  already-resolved ids are refused fail-closed.
+- **`devague plan risk --resolve <rN> --decision "<text>"`** — the plan-side
+  twin: a resolved blocking risk stops blocking `plan converge`, stays on the
+  record, and drops out of open-item listings (`plan deliverables`,
+  `parked_items`).
+
+### Changed
+
+- Frame `SCHEMA_VERSION` and `PLAN_SCHEMA_VERSION` bump 2 → 3 (the new
+  `Vagueness.resolved`/`.resolution`/`.resolution_claim_id` and
+  `PlanRisk.resolved`/`.resolution` fields); older binaries fail closed on v3
+  artifacts with the existing upgrade hint, and v2 artifacts load with
+  defaults.
+- The blocking-vagueness and blocking-risk convergence hints now name the
+  executable resolve move (previously they recommended "re-park it as
+  non-blocking", which only ever appended a second item — #45's acceptance
+  bar).
+- Teaching surfaces (`devague learn`, `docs/llm-guidance.md`, the `/think`
+  skill, `docs/spec-contract.md`) teach the resolve close-out wherever park
+  is taught.
+
 ## [0.19.1] - 2026-07-15
 
 ### Fixed

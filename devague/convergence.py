@@ -95,11 +95,18 @@ def _missing_claim_resolution(frame: Frame, confirmed: list) -> list[str]:
 
 
 def _missing_open_uncertainty(frame: Frame) -> list[str]:
-    """No blocking vagueness or unresolved blocking hard question remains."""
+    """No blocking vagueness or unresolved blocking hard question remains.
+
+    A blocking vagueness that has been closed via ``Frame.resolve_vagueness``
+    (``v.resolved``) is no longer counted — it stays on record with its
+    resolution text, but it has already been resolved through the ``park
+    --resolve`` move, so it must not keep blocking convergence
+    (resolve-parked-vagueness t3, #45/#55/#57).
+    """
     missing = [
         f"blocking vagueness {v.id} unresolved"
         for v in frame.open_vagueness
-        if v.kind == "unknown_blocking"
+        if v.kind == "unknown_blocking" and not v.resolved
     ]
     missing += [
         f"blocking hard question {q.id} on {c.id} unresolved"
@@ -147,8 +154,17 @@ def _sharpness_warnings(frame: Frame, confirmed: list) -> list[str]:
 
 
 def _parked_items(frame: Frame) -> list[str]:
-    """Tracked, non-blocking open vagueness (everything but unknown_blocking)."""
-    return [f"[{v.kind}] {v.text}" for v in frame.open_vagueness if v.kind != "unknown_blocking"]
+    """Tracked, non-blocking open vagueness (everything but unknown_blocking).
+
+    A resolved item is closed, not open, so it drops out here too — otherwise
+    ``converge``/``status`` would keep advertising a decided item as a live
+    parked item (resolve-parked-vagueness t3).
+    """
+    return [
+        f"[{v.kind}] {v.text}"
+        for v in frame.open_vagueness
+        if v.kind != "unknown_blocking" and not v.resolved
+    ]
 
 
 def suggest_move(blocker: str) -> str:
@@ -185,7 +201,8 @@ def suggest_move(blocker: str) -> str:
         )
     m = re.search(r"blocking vagueness (v\d+)", blocker)
     if m:
-        return f"resolve {m.group(1)}: capture+confirm the answer, or re-park it as non-blocking"
+        vid = m.group(1)
+        return f'devague park --resolve {vid} --decision "<the decision>"'
     m = re.search(r"blocking hard question (q\d+) on (c\d+)", blocker)
     if m:
         return (

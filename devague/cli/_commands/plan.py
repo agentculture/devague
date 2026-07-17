@@ -59,7 +59,10 @@ PLAN_MOVES = {
     "cover": "Mark a task as covering a coverage target (c*/h*).",
     "confirm": "Confirm a task (user-only — no fabricated rigor).",
     "reject": "Reject a task.",
-    "risk": "Record a first-class plan risk instead of papering over it.",
+    "risk": (
+        "Record a first-class plan risk instead of papering over it, "
+        "or --resolve RID --decision TEXT to close one out."
+    ),
     "converge": "Check whether the plan can export, against the live frame.",
     "export": "Write the buildable plan — only once the plan converges.",
     "waves": "Emit deterministic dependency waves (scheduling metadata, not orchestration).",
@@ -427,7 +430,24 @@ def cmd_plan_reject(args: argparse.Namespace) -> int:
 
 
 def cmd_plan_risk(args: argparse.Namespace) -> int:
+    """Record a new plan risk, or (``--resolve RID --decision TEXT``) close one
+    out — mirrors ``park --resolve`` (t5) on the risk subcommand.
+
+    ``--kind`` is optional at the parser level (so a bare ``--resolve`` call
+    does not need it), but the create path still requires it — refused here,
+    in the handler, rather than by argparse. The create path (positional text
+    + ``--kind`` + optional ``--task``) is otherwise unchanged.
+    """
     plan = resolve_plan(args.plan)
+    if args.resolve:
+        return _cmd_plan_risk_resolve(args, plan)
+    if not args.text or not args.kind:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "text and --kind are required to record a new risk",
+            'pass "<risk text>" --kind <kind>, or --resolve RID --decision "<text>" to '
+            "resolve an existing risk",
+        )
     if args.task is not None:
         _require_task(plan, args.task)
     risk = plan.add_risk(args.text, args.kind, task_id=args.task)
@@ -436,6 +456,37 @@ def cmd_plan_risk(args: argparse.Namespace) -> int:
         emit_result({"id": risk.id, "kind": risk.kind, "task": risk.task_id}, json_mode=True)
     else:
         emit_result(f"recorded risk {risk.id} ({risk.kind})", json_mode=False)
+    return 0
+
+
+def _cmd_plan_risk_resolve(args: argparse.Namespace, plan: Plan) -> int:
+    """``plan risk --resolve RID --decision TEXT`` — close out a risk without
+    routing it through confirm/reject (the plan-side twin of ``park --resolve``, t5).
+
+    Fail-closed, same contract as :meth:`Plan.resolve_risk`: a bare ``--resolve``
+    without ``--decision`` persists nothing; an unknown id is refused; an
+    already-resolved id is refused rather than silently no-op'd.
+    """
+    if not args.decision:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "--decision is required to resolve a risk",
+            f'pass --decision "<text>" describing the resolution for {args.resolve}',
+        )
+    try:
+        risk = plan.resolve_risk(args.resolve, args.decision)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current risks"
+        ) from exc
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(
+            {"id": risk.id, "resolved": risk.resolved, "resolution": risk.resolution},
+            json_mode=True,
+        )
+    else:
+        emit_result(f"{risk.id} -> resolved ({risk.resolution})", json_mode=False)
     return 0
 
 
@@ -783,10 +834,14 @@ def register(sub: argparse._SubParsersAction) -> None:
     _plan_opt(prj)
     prj.set_defaults(func=cmd_plan_reject)
 
-    prk = psub.add_parser("risk", help="Record a first-class plan risk.")
-    prk.add_argument("text", help="The risk.")
-    prk.add_argument("--kind", required=True, choices=RISK_KINDS, help="Risk kind.")
+    prk = psub.add_parser("risk", help="Record or resolve a first-class plan risk.")
+    prk.add_argument("text", nargs="?", help="The risk (required unless --resolve).")
+    prk.add_argument("--kind", choices=RISK_KINDS, help="Risk kind (required unless --resolve).")
     prk.add_argument("--task", help="Task id this risk attaches to (optional).")
+    prk.add_argument(
+        "--resolve", metavar="RID", help="Resolve an existing risk id instead of creating one."
+    )
+    prk.add_argument("--decision", help="The resolution text recorded with --resolve.")
     _plan_opt(prk)
     prk.set_defaults(func=cmd_plan_risk)
 

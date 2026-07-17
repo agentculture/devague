@@ -40,6 +40,30 @@ def test_learn_json_includes_assign_to_workforce_section(
     assert "assign_to_workforce" in payload or "assign-to-workforce" in str(payload).lower()
 
 
+def test_learn_names_park_resolve_close_out(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` names the `park --resolve` close-out move wherever it
+    teaches `park` — the fix for issues 45/55/57/60 (a decided blocking park
+    must not read as a permanent dead end).
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "park --resolve" in out
+    assert "--decision" in out
+
+
+def test_plan_learn_names_risk_resolve_close_out(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague plan learn` names the `risk --resolve` close-out move — the
+    plan-side twin of `park --resolve`.
+    """
+    rc = main(["plan", "learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "--resolve" in out
+    assert "--decision" in out
+    assert "risk" in out
+
+
 # The seven origin skills, in seven-leg workflow order (devague#73).
 SKILL_NAMES = (
     "scope",
