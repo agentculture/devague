@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from devague.convergence import evaluate
+from devague.convergence import evaluate, suggest_move
 from devague.frame import Frame
 
 _REQUIRED_KINDS = (
@@ -95,3 +95,51 @@ def test_structured_result_lists_parked_items() -> None:
     assert res.ready is True
     assert any("follow_up" in p for p in res.parked_items)
     assert res.required_next_moves == []  # nothing left to do
+
+
+# --- resolve-parked-vagueness (t3): resolved items stop blocking/parked ------
+
+
+def test_resolved_blocking_vagueness_no_longer_blocks() -> None:
+    f = _full_frame()
+    v = f.add_vagueness("scale?", "unknown_blocking")
+    f.resolve_vagueness(v.id, "decided: cap at 10k")
+    res = evaluate(f)
+    assert res.ready is True
+    assert not any("blocking vagueness" in m for m in res.blockers)
+    assert res.required_next_moves == []
+
+
+def test_unresolved_blocking_vagueness_still_blocks_alongside_resolved_one() -> None:
+    f = _full_frame()
+    resolved_v = f.add_vagueness("scale?", "unknown_blocking")
+    f.resolve_vagueness(resolved_v.id, "decided: cap at 10k")
+    still_open = f.add_vagueness("auth model?", "unknown_blocking")
+    res = evaluate(f)
+    assert res.ready is False
+    assert any(still_open.id in m for m in res.blockers)
+    assert not any(resolved_v.id in m for m in res.blockers)
+
+
+def test_suggest_move_for_blocking_vagueness_names_park_resolve_verbatim() -> None:
+    hint = suggest_move("blocking vagueness v3 unresolved")
+    assert "devague park --resolve v3" in hint
+    assert "--decision" in hint
+    # the old dead-end hint must be gone
+    assert "re-park it as non-blocking" not in hint
+
+
+def test_parked_items_excludes_resolved_nonblocking_vagueness() -> None:
+    f = _full_frame()
+    v = f.add_vagueness("ship a JSON Schema file?", "follow_up")
+    f.resolve_vagueness(v.id, "decided: yes, ship it")
+    res = evaluate(f)
+    assert res.ready is True
+    assert res.parked_items == []
+
+
+def test_parked_items_still_lists_unresolved_nonblocking_vagueness() -> None:
+    f = _full_frame()
+    f.add_vagueness("ship a JSON Schema file?", "follow_up")
+    res = evaluate(f)
+    assert any("follow_up" in p for p in res.parked_items)
