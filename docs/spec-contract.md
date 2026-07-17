@@ -20,12 +20,19 @@ see [`llm-guidance.md`](llm-guidance.md) (also surfaced in `devague learn`).
 
 ## Versioning
 
-Every frame carries an integer `schema_version` (currently `2`). It is written
+Every frame carries an integer `schema_version` (currently `3`). It is written
 on save and checked on load: a frame whose `schema_version` is newer than this
 devague supports is rejected, fail-closed, with an actionable error. A 0.4.0
 frame predates the field and loads as the current schema, so existing frames
 keep working.
 
+> **v3 (resolve-parked-vagueness t1).** Bumped to add `Vagueness.resolved`,
+> `Vagueness.resolution`, and `Vagueness.resolution_claim_id` — see *Vagueness*
+> under Entities. A v2 frame predates all three: it loads with `resolved`
+> defaulted to `False`, `resolution` to `""`, and `resolution_claim_id` to
+> `None` — every pre-existing parked item loads as still-open, never silently
+> resolved.
+>
 > **v2 (#53 t1).** Bumped to add `Frame.scope_entries` and an `instruction`
 > field on `Claim` and `HonestyCondition` — see *ScopeEntry* under Entities and
 > the *Instructions* section below. A v1 frame predates both: it loads with no
@@ -93,7 +100,16 @@ First-class open vagueness — parked uncertainty, not a markdown afterthought.
 - `id` — `v1`, `v2`, …
 - `text` — the unknown.
 - `kind` — see Vagueness kinds.
-- `claim_id` — optional owning claim.
+- `claim_id` — optional owning claim, set at park time.
+- `resolved` — boolean; `False` until closed via `Frame.resolve_vagueness`
+  (v3, resolve-parked-vagueness t1). The **only** mutator — `park`/`confirm`/
+  `reject` never touch it (decision c11).
+- `resolution` — the resolution text recorded with `--decision`; `""` means
+  not yet resolved (v3). The item stays on record with its resolution for
+  provenance instead of being deleted.
+- `resolution_claim_id` — optional *deciding* claim id recorded at resolve
+  time via `--claim` (v3); distinct from `claim_id`, the *owning* claim set
+  at park time, which `resolve_vagueness` never overwrites.
 
 ### ScopeEntry
 
@@ -232,6 +248,7 @@ the exit code is non-zero and `stderr` carries a `hint:` line.
 | `interrogate <cN> [--honesty/--hard-question/--risk/--contradicts]` | claim id + attachment | `{added: [...]}` | attaches a honesty condition / question (`llm` honesty → `proposed`) |
 | `confirm <id>` / `reject <id>` | claim or honesty id | `{id, status}` | the **only** path to `confirmed` / `rejected` — user-only |
 | `park "<text>" --kind K` | text, vagueness kind | `{id, kind}` | adds first-class open vagueness |
+| `park --resolve VID --decision "<text>" [--claim CN]` | vagueness id, decision text, optional deciding claim id | `{id, resolved, resolution, resolution_claim_id}` | closes out a parked item (v3, resolve-parked-vagueness t5) — the **only** path to `Vagueness.resolved`; user-only, mirrors `question --resolve` |
 | `converge` | — | the convergence result | promotes/demotes frame `status` |
 | `export [--format spec-md]` | — | `{path, format}` | writes the spec; requires `ready_for_spec` |
 | `show` / `list` | — | frame dict / slug list | none |
@@ -239,10 +256,13 @@ the exit code is non-zero and `stderr` carries a `hint:` line.
 
 **Validation errors** (all raise a clean `DevagueError`, exit code 1): unknown
 claim kind / origin / status or vagueness kind (rejected at construction);
-unknown claim or honesty id on `confirm`/`reject`; an invalid `--frame` slug; a
-missing frame; a malformed or hand-edited frame file (including one whose
-embedded slug doesn't match the requested slug, or whose `schema_version` is not
-an integer); a frame whose `schema_version` is too new.
+unknown claim or honesty id on `confirm`/`reject`; `park --resolve` without
+`--decision`; positional park text passed together with `--resolve`; an
+unknown or already-resolved vagueness id on `park --resolve`; an unknown
+`--claim` id on `park --resolve`; an invalid `--frame` slug; a missing frame;
+a malformed or hand-edited frame file (including one whose embedded slug
+doesn't match the requested slug, or whose `schema_version` is not an
+integer); a frame whose `schema_version` is too new.
 
 ## Anti-fabrication guarantee
 
@@ -276,7 +296,10 @@ The plan engine (`devague plan …`) is the structural peer: a Plan holds covera
 targets derived from a converged frame, Tasks (`origin`/`status` like claims,
 plus `deps`, `covers`, `acceptance_criteria`, and an optional `instruction` —
 verbatim text on how to implement/verify the task, `""` means none, v2, #53 t2;
-see *Instructions* above), and PlanRisks. It reuses the same structured
+see *Instructions* above), and PlanRisks (`id`, `text`, `kind`, optional
+`task_id`, plus `resolved` / `resolution` — the plan-side twin of
+`Vagueness.resolved` / `.resolution`, field names pinned verbatim across both
+models, v3, resolve-parked-vagueness t2). It reuses the same structured
 convergence result, serialized under `ready_for_plan`. See
 `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
 
@@ -300,6 +323,7 @@ seeded surfaces as a clean error (frame drift) rather than a stale pass.
 | `cover <tN> --target <c*\|h*>` | task id, coverage target id | `{id, covers}` | marks a task as covering a coverage target; does not change `status` |
 | `confirm <tN>` / `reject <tN>` | task id | `{id, status}` | the **only** path to `confirmed` / `rejected` — user-only |
 | `risk "<text>" --kind K [--task <tN>]` | risk text, vagueness kind, optional task ref | `{id, kind, task}` | records a first-class PlanRisk |
+| `risk --resolve RID --decision "<text>"` | risk id, decision text | `{id, resolved, resolution}` | closes out a plan risk (v3, resolve-parked-vagueness t6) — the **only** path to `PlanRisk.resolved`; user-only, mirrors `park --resolve` (no `--claim` analog — risks link tasks via `--task`, not a deciding claim) |
 | `converge` | — | the convergence result (`ready_for_plan`) | promotes/demotes plan `status`; re-evaluates against the live source frame |
 | `export [--format plan-md]` | — | `{path, format}` | writes the buildable plan; requires `ready_for_plan` |
 | `waves [--json]` | — | `{plan, waves, tasks}` | none — read-only, convergence-agnostic (see below) |
@@ -316,8 +340,10 @@ unknown task id on `instruct` / `accept` / `amend` / `depend` / `cover` /
 dependency graph (a cycle, or a dependency on a missing/rejected task) on
 `waves`; `new` against an unconverged frame or over an existing plan; a
 source frame that has regressed below its own convergence on `converge` /
-`export` / `status` (frame drift); an invalid `--plan` / `--frame` slug; a
-missing plan; a malformed or hand-edited plan file; a plan whose
+`export` / `status` (frame drift); `risk --resolve` without `--decision`;
+positional risk text passed together with `--resolve`; an unknown or
+already-resolved risk id on `risk --resolve`; an invalid `--plan` / `--frame`
+slug; a missing plan; a malformed or hand-edited plan file; a plan whose
 `schema_version` is too new.
 
 ### The re-confirm rule
@@ -359,7 +385,7 @@ what is useful *before* convergence, at the assign-to-workforce go/no-go
 (issue #20: Devague describes state, it does not gate the human's decision).
 
 Plans carry the same persistence contract as frames. Every plan has an integer
-`schema_version` (currently `2`, `PLAN_SCHEMA_VERSION`), written on save and
+`schema_version` (currently `3`, `PLAN_SCHEMA_VERSION`), written on save and
 checked on load: `plan_store.load` **fails closed** with a clean `DevagueError`
 (exit code 1, upgrade hint) when a plan declares a `schema_version` newer than
 this devague supports. A pre-0.7.0 plan with no `schema_version` key loads
@@ -375,6 +401,12 @@ slug (so a tampered file can't silently redirect a later `save`), and parse
 non-integer value is rejected rather than coerced. These guards are symmetric
 across the frame and plan persistence twins.
 
+> **v3 (resolve-parked-vagueness t2).** `PLAN_SCHEMA_VERSION` bumped to add
+> `PlanRisk.resolved` and `PlanRisk.resolution` — the plan-side twin of the
+> frame's v3 Vagueness bump. A v2 plan predates both: it loads with `resolved`
+> defaulted to `False` and `resolution` to `""`, so every pre-existing risk
+> loads as still-open.
+>
 > **v2 (#53 t2).** `PLAN_SCHEMA_VERSION` bumped to add `Task.instruction`. A v1
 > plan predates it and loads with every task's `instruction` defaulted to `""`.
 

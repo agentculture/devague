@@ -23,7 +23,10 @@ MOVES = {
         "human review (read-only)."
     ),
     "question": "Record, list, or resolve a pending user decision (durable working state).",
-    "park": "Move uncertainty into first-class open vagueness instead of forcing an answer.",
+    "park": (
+        "Move uncertainty into first-class open vagueness instead of forcing an "
+        "answer, or close a decided one with 'park --resolve VID --decision TEXT'."
+    ),
     "converge": "Check whether the frame is solid enough to export a spec.",
     "export": "Write the buildable spec — only once the frame converges.",
     "status": "Report where the frame stands + the recommended next move (read-only).",
@@ -105,7 +108,10 @@ OPERATING_RULES = (
     "Honesty conditions route through the user — propose freely with "
     "'interrogate --honesty'; the user owns whether each one holds.",
     "Park real unknowns instead of papering over them — 'park' a genuine "
-    "unknown rather than writing confident prose that hides the gap.",
+    "unknown rather than writing confident prose that hides the gap. Once it's "
+    "decided, close it out with 'park --resolve VID --decision TEXT' instead of "
+    "leaving it parked or hand-editing state — the item stays on record with "
+    "its resolution and drops out of the gate.",
     "Converge, don't vibe — 'export' is gated on 'converge'; resolve every "
     "listed gap instead of declaring readiness on a hunch.",
     "Order is adaptive — the ten stages are an artifact shape, not a mandatory "

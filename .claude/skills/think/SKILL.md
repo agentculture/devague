@@ -80,6 +80,7 @@ for portable resolution.
 | `scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]` / `scope --list` | Record (or list) a pre-frame exploration finding as first-class state (see the scope pointer above). |
 | `question "<text>"` | Record / list / `--resolve` a pending user decision as durable working state in `.devague/questions/<slug>.md`. |
 | `park "<text>" --kind <kind>` | Move uncertainty into first-class open vagueness instead of forcing an answer. |
+| `park --resolve <vN> --decision "<text>" [--claim <cN>]` | Close out a decided parked item — stays on record with its resolution, drops out of the convergence gate; `--claim` links the deciding claim. **User-only decision**, same as `confirm`. |
 | `converge` | Evaluate the gate; list remaining gaps. |
 | `export` | Write the buildable spec to `docs/specs/` — only after `converge` passes. |
 | `status` | Read-only: where the frame stands + the recommended next move (`--json` too). |
@@ -207,7 +208,12 @@ These are the point of the method — convergence must mean something.
   and no unresolved blocking vagueness or hard question.
 - **Park real unknowns; don't paper over them.** If something is genuinely
   unknown, `park` it (blocking or non-blocking) rather than fabricating an
-  answer. Blocking vagueness holds back convergence — by design.
+  answer. Blocking vagueness holds back convergence — by design. Once it's
+  decided, close it out with `park --resolve <vN> --decision "<text>"` —
+  the item stays on record with its resolution and stops blocking. Never
+  leave a decided blocking park sitting forever, and never hand-edit
+  `.devague` state to work around it — the resolve move is the CLI's own
+  escape hatch.
 
 ## Output contract
 
