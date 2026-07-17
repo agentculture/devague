@@ -114,6 +114,10 @@ class Vagueness:
     # of confirm/reject (decision c11), so set_status must not touch them.
     resolved: bool = False
     resolution: str = ""
+    # v2/early-v3 frames predate this field (resolve-parked-vagueness t5); the
+    # *deciding* claim recorded at resolve time — distinct from claim_id, the
+    # *owning* claim set at park time, which resolve_vagueness never touches.
+    resolution_claim_id: Optional[str] = None
 
     def __post_init__(self) -> None:
         if self.kind not in VAGUENESS_KINDS:
@@ -216,20 +220,29 @@ class Frame:
     def find_vagueness(self, vid: str) -> Optional[Vagueness]:
         return next((v for v in self.open_vagueness if v.id == vid), None)
 
-    def resolve_vagueness(self, vid: str, resolution: str) -> Vagueness:
+    def resolve_vagueness(
+        self, vid: str, resolution: str, claim_id: Optional[str] = None
+    ) -> Vagueness:
         """Close out a parked item without routing it through confirm/reject.
 
         v-ids stay out of set_status (decision c11) — this is the only mutator
         for Vagueness.resolved/resolution. Fails closed on an unknown id and on
         an already-resolved one, rather than silently no-op'ing (issue #57).
+        ``claim_id``, if given, must name an existing claim (validated here,
+        the same seam as :meth:`add_scope_entry`'s seed-id check) and is
+        recorded as ``resolution_claim_id`` — the *deciding* claim, which
+        never overwrites ``claim_id``, the *owning* claim set at park time.
         """
         v = self.find_vagueness(vid)
         if v is None:
             raise ValueError(f"unknown vagueness id: {vid!r}")
         if v.resolved:
             raise ValueError(f"vagueness {vid!r} is already resolved")
+        if claim_id is not None and self.find_claim(claim_id) is None:
+            raise ValueError(f"unknown claim id: {claim_id!r}")
         v.resolved = True
         v.resolution = resolution
+        v.resolution_claim_id = claim_id
         return v
 
     def add_scope_entry(

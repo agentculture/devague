@@ -49,9 +49,12 @@ def test_roundtrip_to_from_dict() -> None:
     f.add_honesty(c, "cond")
     f.add_hard_question(c, "q?", blocking=True)
     f.add_vagueness("v", "follow_up", claim_id="c1")
+    f.resolve_vagueness("v1", "decided: ship v1", claim_id="c1")
     f2 = from_dict(to_dict(f))
     assert to_dict(f2) == to_dict(f)
     assert f2.claims[0].honesty_conditions[0].text == "cond"
+    assert f2.open_vagueness[0].resolved is True
+    assert f2.open_vagueness[0].resolution_claim_id == "c1"
 
 
 # --- #5 spec contract: enriched entity model ----------------------------------
@@ -177,3 +180,73 @@ def test_legacy_v2_vagueness_without_resolved_keys_defaults() -> None:
     f = from_dict(d)
     assert f.open_vagueness[0].resolved is False
     assert f.open_vagueness[0].resolution == ""
+
+
+# --- resolve-parked-vagueness t5: deciding-claim link on resolve --------------
+
+
+def test_vagueness_gains_resolution_claim_id_default() -> None:
+    v = Vagueness(id="v1", text="x", kind="follow_up", claim_id="c1")
+    assert v.resolution_claim_id is None
+
+
+def test_resolve_vagueness_records_deciding_claim() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    resolved = f.resolve_vagueness("v1", "decided: cap at 10k", claim_id="c1")
+    assert resolved.resolution_claim_id == "c1"
+    assert f.open_vagueness[0].resolution_claim_id == "c1"
+
+
+def test_resolve_vagueness_without_claim_id_leaves_it_none() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    resolved = f.resolve_vagueness("v1", "decided: cap at 10k")
+    assert resolved.resolution_claim_id is None
+
+
+def test_resolve_vagueness_claim_id_does_not_overwrite_owning_claim_id() -> None:
+    # claim_id is the *owning* claim set at park time; resolution_claim_id is
+    # the *deciding* claim recorded at resolve time — resolve must not clobber
+    # the former with the latter.
+    f = Frame(slug="s", title="t")
+    f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_claim("audience", "devs", origin="user")  # c2
+    f.add_vagueness("unsure about scale", "unknown_blocking", claim_id="c1")
+    resolved = f.resolve_vagueness("v1", "decided: cap at 10k", claim_id="c2")
+    assert resolved.claim_id == "c1"
+    assert resolved.resolution_claim_id == "c2"
+
+
+def test_resolve_vagueness_unknown_claim_id_raises() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    with pytest.raises(ValueError, match="unknown claim"):
+        f.resolve_vagueness("v1", "decided", claim_id="c99")
+    # Fails closed before mutating: the vagueness stays unresolved.
+    assert f.open_vagueness[0].resolved is False
+
+
+def test_legacy_v3_vagueness_without_resolution_claim_id_defaults() -> None:
+    # An early-v3 frame's open_vagueness entries (t1) predate resolution_claim_id.
+    d = {
+        "slug": "s",
+        "title": "t",
+        "schema_version": 3,
+        "claims": [],
+        "open_vagueness": [
+            {
+                "id": "v1",
+                "text": "x",
+                "kind": "follow_up",
+                "claim_id": None,
+                "resolved": True,
+                "resolution": "done",
+            }
+        ],
+    }
+    f = from_dict(d)
+    assert f.open_vagueness[0].resolved is True
+    assert f.open_vagueness[0].resolution == "done"
+    assert f.open_vagueness[0].resolution_claim_id is None
