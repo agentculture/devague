@@ -1,0 +1,369 @@
+{
+  "slug": "resolve-parked-vagueness",
+  "title": "resolve parked vagueness",
+  "frame_slug": "resolve-parked-vagueness",
+  "schema_version": 2,
+  "status": "exported",
+  "created": "2026-07-17T10:18:49Z",
+  "updated": "2026-07-17T10:26:48Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague ships a resolve move for parked vagueness: a blocking park can now be resolved or reclassified through CLI moves alone, closing issues 45, 55, 57, and 60"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "the shipped release clears a decided blocking park via CLI moves alone \u2014 issue 57's repro converges with zero .devague JSON edits"
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "the Vagueness dataclass (devague/frame.py:106) gains resolution state \u2014 e.g. a resolved flag plus resolution text \u2014 kept in frame state for the evidence trail rather than deleted; add_vagueness today only appends and set_status (frame.py:226) routes only claim and honesty ids, so v-ids are unaddressable by any move"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "a resolved Vagueness keeps its text, kind, and claim_id plus the resolution on the record, and round-trips save-load identical"
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "the convergence gate (devague/convergence.py:100-102) stops counting a resolved vagueness as a blocker, and suggest_move (convergence.py:188) names an actually executable move instead of today's 're-park it as non-blocking' hint, which only appends a second item while the first keeps blocking \u2014 the acceptance bar issue 45 sets explicitly"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "after park --resolve, converge no longer lists the item as a blocker and the blocking-vagueness hint names park --resolve verbatim \u2014 an executable move, issue 45's acceptance bar"
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "a new user-only resolve surface for v-ids that mirrors the existing `question --resolve <qid> --decision \"<text>\"` shape (devague/cli/_commands/question.py) \u2014 resolving is a user decision like confirm (issue 55), validated fail-closed with a hint on an unknown v-id, with stdout result, --json, and the existing exit-code contract"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "an unknown v-id is refused with a hint and nothing is persisted; output follows the existing stdout/--json/exit-code contract; resolving stays a user-decided move like confirm"
+    },
+    {
+      "id": "c5",
+      "kind": "requirement",
+      "text": "SCHEMA_VERSION bumps 2 to 3 (devague/frame.py:15) because adding fields to Vagueness breaks old loaders \u2014 from_dict does Vagueness(**v) (frame.py:284), so an old CLI reading a new frame raises TypeError; the documented fail-closed policy and the v2 scope_entries precedent both say bump; docs/spec-contract.md's Vagueness entity section gains the resolved state"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "a v3 frame on a v2-only binary fails closed with the schema_version error, never a Vagueness(**v) TypeError; v2 frames without the new fields still load with defaults"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "renderers keep a resolved vagueness on the record as provenance instead of dropping it \u2014 render/frame_md.py:56-60 lists every open_vagueness item flat, and render/spec_md.py:111 routes only follow_up/out_of_scope kinds into the spec; a resolved item should render with its resolution text so the exported spec shows the answered unknown (the provenance issue 45's comment asks for)"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "an exported spec from a frame with a resolved blocking park renders the unknown together with its resolution text, and the export passes markdownlint"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "every surface that teaches park also teaches the resolve close-out: devague/cli/_commands/learn.py (move table line 26, operating rules line 107), docs/llm-guidance.md (park rows in the fabrication table, lines 109-130), and .claude/skills/think/SKILL.md (move table line 82, rules lines 209-210) \u2014 otherwise operators keep learning the trap issues 45/55/57/60 all fell into"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "learn, docs/llm-guidance.md, and the think skill each name park --resolve wherever they teach park; issue 57's prefer-question workaround guidance is retired"
+    },
+    {
+      "id": "c9",
+      "kind": "boundary",
+      "text": "the resolve move is deterministic recording only \u2014 no LLM calls in the CLI (issue 20), and hand-editing .devague state stays forbidden; the fix removes the last reason operators had to hand-edit (the workaround all four issues document), it does not legitimize state edits"
+    },
+    {
+      "id": "h8",
+      "kind": "honesty",
+      "text": "the diff adds no LLM call and no subprocess to the CLI; resolution text is authored by the user/operator, never generated in-CLI"
+    },
+    {
+      "id": "c13",
+      "kind": "requirement",
+      "text": "the plan engine ships the twin in the same PR: PlanRisk (devague/plan.py:60) gains the same resolution state, `plan risk --resolve <rN>` the same user-only surface, plan_convergence.py:136 skips resolved risks, the hint at plan_convergence.py:172 names the executable move, and PLAN_SCHEMA_VERSION bumps 2 to 3 (PlanRisk(**r) at plan.py:310 has the same old-loader crash shape as the frame side)"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "plan converge drops a resolved blocking risk; the plan hint at plan_convergence.py:172 names plan risk --resolve verbatim; a v3 plan fails closed on a v2-only binary"
+    },
+    {
+      "id": "c14",
+      "kind": "audience",
+      "text": "operators driving /think and /spec-to-plan (the agents making CLI moves), the humans who own confirms, and the downstream AgentCulture repos that filed the four reports \u2014 colleague, lobes-cli, league-of-agents, and devague's own dogfooding"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "devague learn output alone teaches the close-out (park --resolve and plan risk --resolve) \u2014 an operator never needs to read source to escape a decided blocking park"
+    },
+    {
+      "id": "c15",
+      "kind": "after_state",
+      "text": "a parked blocking unknown, once decided, is closed through `park --resolve` (frames) or `plan risk --resolve` (plans): the item stays on record with its resolution text, drops out of the convergence gate, the converge hints name executable moves, and no operator ever hand-edits .devague state again"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "no .devague hand-edit remains necessary anywhere in the vagueness lifecycle: park, decide, resolve, converge, export all work through moves"
+    },
+    {
+      "id": "c16",
+      "kind": "why_it_matters",
+      "text": "four independent reports in five weeks (issues 45, 55, 57, 60) show the method punishing correct behavior: honest parking leads to a permanently blocked frame, and the only escape is the exact out-of-band state mutation the move-driven design exists to prevent \u2014 one repo has the hand-edit in committed history (league-of-agents 0c71282)"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "each of the four issues is closed with a comment naming the shipped release and the move that replaces its documented workaround"
+    },
+    {
+      "id": "c17",
+      "kind": "success_signal",
+      "text": "all 4 issues close against the shipped release; issue 57's repro script (park blocking, decide, resolve, converge) passes through moves alone with 0 hand-edits of .devague state; test coverage stays >= 95%"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "the stated numbers are verified before close: 4 issues closed, the repro converges with 0 hand-edits, coverage >= 95% in CI"
+    },
+    {
+      "id": "c18",
+      "kind": "requirement",
+      "text": "every secondary reader of open vagueness and plan risks handles resolved items consistently, not just the gate: _parked_items in convergence.py:151 and plan_convergence.py:141 (whose output feeds converge/status parked_items), and render/deliverables_md.py:72-81 (plan deliverables' surviving-open-items section, which reads frame.open_vagueness and plan risks directly) \u2014 a resolved item must stop being advertised as open everywhere, or status and deliverables contradict the spec"
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "with a resolved blocking item on a frame and a resolved blocking risk on a plan: converge/status parked_items and plan deliverables' open-items section show neither as open \u2014 verified by tests against those exact surfaces"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Frame-side model: Vagueness resolution state + schema v3",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Vagueness gains resolved: bool = False and resolution: str = '' with id/text/kind/claim_id unchanged; Frame.resolve_vagueness(vid, resolution) marks it resolved and raises ValueError on an unknown or already-resolved id",
+        "SCHEMA_VERSION == 3; a v2 frame JSON without the new keys loads with defaults; save-load round-trips a resolved item identical (tests/test_frame.py, tests/test_store.py)",
+        "store.load still fails closed with the upgrade hint when schema_version exceeds 3"
+      ],
+      "deps": [],
+      "covers": [
+        "c2",
+        "h2",
+        "c5",
+        "h5"
+      ],
+      "instruction": "extend Vagueness in devague/frame.py with resolved: bool = False and resolution: str = ''; add Frame.resolve_vagueness(vid: str, resolution: str); bump SCHEMA_VERSION to 3; default the new keys in from_dict for v2 artifacts; keep set_status untouched \u2014 v-ids stay out of confirm/reject per decision c11; field names are pinned (resolved, resolution) \u2014 t2 and t7 read them verbatim"
+    },
+    {
+      "id": "t2",
+      "summary": "Plan-side model: PlanRisk resolution state + plan schema v3",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "PlanRisk gains resolved: bool = False and resolution: str = '' with id/text/kind/task_id unchanged; Plan.resolve_risk(rid, resolution) mirrors the frame-side error contract (ValueError on unknown or already-resolved)",
+        "PLAN_SCHEMA_VERSION == 3; a v2 plan JSON loads with defaults; save-load round-trips a resolved risk identical (tests/test_plan.py, tests/test_plan_store.py)"
+      ],
+      "deps": [],
+      "covers": [
+        "c13",
+        "h9"
+      ],
+      "instruction": "mirror t1 exactly in devague/plan.py: PlanRisk.resolved/resolution, Plan.resolve_risk, PLAN_SCHEMA_VERSION = 3, from_dict defaults for v2 artifacts; field names must match t1 verbatim (resolved, resolution) \u2014 deliverables_md reads both models"
+    },
+    {
+      "id": "t3",
+      "summary": "Frame gate: skip resolved vagueness, executable hint, parked_items",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "_missing_open_uncertainty skips resolved items: a resolved unknown_blocking no longer appears in blockers (tests/test_convergence.py)",
+        "suggest_move for a blocking-vagueness blocker names the executable syntax verbatim: park --resolve VID --decision TEXT",
+        "_parked_items excludes resolved items, so converge/status parked_items stops advertising a closed item as open"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c3",
+        "h3",
+        "c18",
+        "h14"
+      ],
+      "instruction": "in devague/convergence.py: filter v.resolved in _missing_open_uncertainty and _parked_items; rewrite the blocking-vagueness branch of suggest_move (line 188) to emit the park --resolve move; plain CLI text, stdout only \u2014 renderer changes are t7, not here"
+    },
+    {
+      "id": "t4",
+      "summary": "Plan gate: skip resolved risks, executable hint, parked_items",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a resolved unknown_blocking risk no longer blocks plan convergence (tests/test_plan_convergence.py)",
+        "the blocking-risk hint at plan_convergence.py:172 names the executable syntax verbatim: plan risk --resolve RID --decision TEXT",
+        "plan-side _parked_items excludes resolved risks"
+      ],
+      "deps": [
+        "t2"
+      ],
+      "covers": [
+        "c13",
+        "h9",
+        "c18",
+        "h14"
+      ],
+      "instruction": "mirror t3 in devague/plan_convergence.py: filter r.resolved in _missing_risks and _parked_items; rewrite the blocking-risk hint branch to emit the plan risk --resolve move"
+    },
+    {
+      "id": "t5",
+      "summary": "CLI: park --resolve VID --decision TEXT",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "park --resolve VID --decision TEXT marks the item resolved, echoes the transition on stdout, and has --json parity",
+        "a bare park --resolve VID without --decision is refused with a hint and persists nothing (decision c21); unknown and already-resolved ids are refused with a hint, exit 1 (answers the frame hard question: refuse, not no-op)",
+        "--claim CN links the deciding claim and an unknown claim id is refused; passing positional text together with --resolve is refused; the park-create path is unchanged (tests/test_cli_moves.py)"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c4",
+        "h4"
+      ],
+      "instruction": "in devague/cli/_commands/park.py make the positional text optional (nargs='?') the way question.py does; add --resolve VID, --decision TEXT, --claim CN; require --decision whenever --resolve is passed; route through Frame.resolve_vagueness and translate ValueError into DevagueError with a run-devague-show hint; fail-closed refusal for already-resolved ids, consistent with the store posture"
+    },
+    {
+      "id": "t6",
+      "summary": "CLI: plan risk --resolve RID --decision TEXT",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "plan risk --resolve RID --decision TEXT resolves the risk with stdout echo and --json parity; bare resolve without --decision refused; unknown and already-resolved ids refused with hint, exit 1 (tests/test_cli_plan.py)",
+        "the risk-create path (positional text --kind K --task TN) is unchanged"
+      ],
+      "deps": [
+        "t2"
+      ],
+      "covers": [
+        "c13",
+        "h9"
+      ],
+      "instruction": "mirror t5 on the risk subcommand in devague/cli/_commands/plan.py: positional text becomes optional, add --resolve RID and --decision TEXT with the same refusal semantics; no --claim analog (risks link tasks via --task); route through Plan.resolve_risk"
+    },
+    {
+      "id": "t7",
+      "summary": "Renderers: resolved items render with resolution; deliverables excludes them",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "frame_md and spec_md render a resolved item with its resolution text verbatim; an exported spec from a frame with a resolved blocking park passes markdownlint (integration test + goldens)",
+        "deliverables_md surviving-open-items excludes resolved frame vagueness and resolved plan risks (tests/test_plan_deliverables.py)"
+      ],
+      "deps": [
+        "t1",
+        "t2"
+      ],
+      "covers": [
+        "c6",
+        "h6",
+        "c18",
+        "h14"
+      ],
+      "instruction": "frame_md: keep the flat Open vagueness list for open items and render resolved ones as '- [kind] text \u2014 resolved: TEXT'; spec_md: render resolved items of any kind with their resolution under the existing structure (a Resolved vagueness subsection is acceptable); deliverables_md: filter on the resolved flag from both models; update tests/goldens accordingly"
+    },
+    {
+      "id": "t8",
+      "summary": "Teaching + contract docs sweep: the close-out loop everywhere park is taught",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "devague learn and devague plan learn name park --resolve / plan risk --resolve wherever park/risk are taught (tests/test_cli_learn.py asserts the strings)",
+        "docs/spec-contract.md documents resolved/resolution on Vagueness and PlanRisk, the resolve move rows, and schema_version 3 for both engines",
+        "docs/llm-guidance.md and .claude/skills/think/SKILL.md teach the close-out loop; the taught prefer-question workaround framing is retired"
+      ],
+      "deps": [
+        "t5",
+        "t6"
+      ],
+      "covers": [
+        "c7",
+        "h7",
+        "c14",
+        "h10",
+        "c5"
+      ],
+      "instruction": "sweep devague/cli/_commands/learn.py (move table + operating rules), docs/llm-guidance.md park rows, .claude/skills/think/SKILL.md move table and rules, and docs/spec-contract.md (entities, move tables, Versioning); match the exact flag names t5/t6 shipped; markdownlint everything touched"
+    },
+    {
+      "id": "t9",
+      "summary": "E2E repro + quality gates: issue 57 lifecycle through the real CLI, both engines",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a new e2e test drives the installed entry point through issue 57's repro: park blocking, capture the decision claim, park --resolve with --decision and --claim, converge passes, export succeeds \u2014 zero direct edits of .devague files; a plan-side twin e2e does the same through plan risk --resolve",
+        "coverage stays at 95 percent or higher; flake8, black, isort, bandit all clean",
+        "the resolve code paths add no LLM call and no subprocess usage inside the devague package (boundary h8) \u2014 asserted by inspection of the diff, not assumed"
+      ],
+      "deps": [
+        "t3",
+        "t4",
+        "t5",
+        "t6",
+        "t7"
+      ],
+      "covers": [
+        "c1",
+        "h1",
+        "c15",
+        "h11",
+        "c9",
+        "h8",
+        "c17",
+        "h13"
+      ],
+      "instruction": "new tests/test_e2e_resolve.py exercising devague.cli main() end to end for both engines; keep it hermetic in tmp_path working dirs; verify the exported spec passes the existing markdownlint integration harness"
+    },
+    {
+      "id": "t10",
+      "summary": "Release + close-out: 0.20.0, CHANGELOG, PR, close the four issues",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "pyproject.toml bumps 0.19.1 to 0.20.0 with a prepended CHANGELOG.md entry naming issues 45, 55, 57, 60; CI version-check passes",
+        "after merge, each of issues 45, 55, 57, 60 is closed with a comment naming the shipped release and the move that replaces its documented workaround, signed per convention"
+      ],
+      "deps": [
+        "t8",
+        "t9"
+      ],
+      "covers": [
+        "c16",
+        "h12",
+        "c17",
+        "h13"
+      ],
+      "instruction": "minor bump (new CLI surface); PR via the cicd skill / agex pr open, linking the spec and plan artifacts; issue-close comments quote the exact replacing move per issue (park --resolve for 45/55/57; both moves plus the existing plan amend pointer for 60)"
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "the updated think skill reaches downstream mesh repos only on guildmaster's next re-broadcast sync \u2014 until then vendored copies still teach the one-way park; known cadence cost, not a blocker",
+      "kind": "follow_up",
+      "task_id": null
+    }
+  ]
+}
