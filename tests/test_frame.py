@@ -116,3 +116,64 @@ def test_dataclasses_validate_enums() -> None:
         Vagueness(id="v1", text="x", kind="nope")
     with pytest.raises(ValueError):
         HonestyCondition(id="h1", text="x", status="weird")
+
+
+# --- resolve-parked-vagueness t1: Vagueness resolution state (schema v3) ------
+
+
+def test_schema_version_is_3() -> None:
+    assert SCHEMA_VERSION == 3
+
+
+def test_vagueness_gains_resolved_and_resolution_defaults() -> None:
+    v = Vagueness(id="v1", text="x", kind="follow_up", claim_id="c1")
+    assert v.resolved is False
+    assert v.resolution == ""
+    assert (v.id, v.text, v.kind, v.claim_id) == ("v1", "x", "follow_up", "c1")
+
+
+def test_resolve_vagueness_marks_resolved_and_records_resolution() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    resolved = f.resolve_vagueness("v1", "decided: cap at 10k")
+    assert resolved.resolved is True
+    assert resolved.resolution == "decided: cap at 10k"
+    assert f.open_vagueness[0].resolved is True
+    assert f.open_vagueness[0].resolution == "decided: cap at 10k"
+
+
+def test_resolve_vagueness_unknown_id_raises() -> None:
+    f = Frame(slug="s", title="t")
+    with pytest.raises(ValueError, match="unknown"):
+        f.resolve_vagueness("v99", "decision")
+
+
+def test_resolve_vagueness_already_resolved_raises() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    f.resolve_vagueness("v1", "decision one")
+    with pytest.raises(ValueError, match="already"):
+        f.resolve_vagueness("v1", "decision two")
+
+
+def test_set_status_does_not_touch_vagueness() -> None:
+    # v-ids stay out of confirm/reject (decision c11) — set_status must not
+    # find or mutate a Vagueness by id.
+    f = Frame(slug="s", title="t")
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    assert f.set_status("v1", "confirmed") is False
+    assert f.open_vagueness[0].resolved is False
+
+
+def test_legacy_v2_vagueness_without_resolved_keys_defaults() -> None:
+    # A v2 frame's open_vagueness entries predate resolved/resolution.
+    d = {
+        "slug": "s",
+        "title": "t",
+        "schema_version": 2,
+        "claims": [],
+        "open_vagueness": [{"id": "v1", "text": "x", "kind": "follow_up", "claim_id": None}],
+    }
+    f = from_dict(d)
+    assert f.open_vagueness[0].resolved is False
+    assert f.open_vagueness[0].resolution == ""
