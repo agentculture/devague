@@ -107,9 +107,9 @@ confirmed (task-by-task accounting above).
   comment on each of #45/#55/#57/#60 naming release 0.20.0 and the move that
   replaces its documented workaround (the `Closes` keywords auto-close them on
   merge). Owner: operator, post-merge.
-- Stale branch `resolve-parked-vagueness` (commit `b5c9e7c`, superseded
-  flat-verb spec) — delete if the reviewer agrees it is superseded. Owner:
-  human at gate 3.
+- ~~Stale branch `resolve-parked-vagueness` (commit `b5c9e7c`, superseded
+  flat-verb spec)~~ — done: the human approved deletion 2026-07-17; removed
+  locally and on origin.
 - Plan risk `r1` (follow_up, still open by design): downstream vendored copies
   of the think skill keep teaching the one-way park until guildmaster's next
   re-broadcast sync.
