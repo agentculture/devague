@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.2] - 2026-07-17
+
+### Added
+
+- Spec (docs + frame state only; no CLI change yet): **resolve parked vagueness
+  and scope findings** — `docs/specs/2026-07-17-resolve-parked-vagueness-and-scope-findings.md`,
+  the converged frame for the unaddressable-id class reported by #45, #55, #57
+  and #60. Specifies a new flat `devague resolve <vN> "<text>" [--kind <kind>]
+  [--claim <cN>]` move (close out an answered unknown; `--kind` also re-kinds a
+  downgraded one so it stops blocking yet stays tracked), plus
+  `devague scope --amend <sN> --finding "<text>"` for the identical append-only
+  hole on scope entries. Resolved items stay in the frame as evidence — history,
+  not deletion. `SCHEMA_VERSION` bumps 2 → 3 so an older devague fails closed
+  with an upgrade hint instead of a raw `TypeError`. The frame-side claim-text
+  edit ask in #60 stays out of scope; its plan-side half already shipped as
+  `plan amend` (#68, 0.18.0).
+
 ## [0.19.1] - 2026-07-15
 
 ### Fixed
