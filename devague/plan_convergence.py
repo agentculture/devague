@@ -190,7 +190,7 @@ def suggest_move(blocker: str) -> str:
     if m:
         return (
             f"resolve {m.group(1)} with a decision: "
-            f"devague plan risk --resolve RID --decision TEXT"
+            f'devague plan risk --resolve {m.group(1)} --decision "<the decision>"'
         )
     return "devague plan show     # inspect and decide"
 

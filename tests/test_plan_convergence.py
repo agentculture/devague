@@ -435,12 +435,12 @@ def test_resolved_blocking_risk_does_not_appear_in_required_next_moves() -> None
 
 
 def test_blocking_risk_hint_names_executable_resolve_syntax() -> None:
-    """The blocking-risk hint at plan_convergence.py:172 names the executable
-    ``plan risk --resolve`` syntax verbatim (t4 AC2): ``plan risk --resolve RID
-    --decision TEXT`` (uppercase placeholders, mirroring t3's frame-side hint).
+    """The blocking-risk hint names the executable ``plan risk --resolve``
+    syntax with the actual risk id interpolated (t4 AC2), mirroring t3's
+    frame-side ``park --resolve v1 --decision "<the decision>"`` hint shape.
     """
     hint = suggest_move("blocking risk r1 unresolved")
-    assert "plan risk --resolve RID --decision TEXT" in hint
+    assert 'devague plan risk --resolve r1 --decision "<the decision>"' in hint
 
 
 def test_blocking_risk_hint_end_to_end_via_evaluate() -> None:
@@ -448,7 +448,7 @@ def test_blocking_risk_hint_end_to_end_via_evaluate() -> None:
     p = _converging()
     p.add_risk("scope unclear", "unknown_blocking")
     res = evaluate(p)
-    assert any("plan risk --resolve RID --decision TEXT" in m for m in res.required_next_moves)
+    assert any("plan risk --resolve r1 --decision" in m for m in res.required_next_moves)
 
 
 def test_resolved_risk_excluded_from_parked_items() -> None:
