@@ -27,7 +27,9 @@ from devague.frame import (
 # Bump when the persisted plan shape changes incompatibly. `plan_store.load`
 # fails closed on a plan whose schema_version is newer/unknown (see #18; the
 # plan-engine peer of frame.SCHEMA_VERSION). v2 (#53 t2) adds Task.instruction.
-PLAN_SCHEMA_VERSION = 2
+# v3 (resolve-parked-vagueness t2) adds PlanRisk.resolved/resolution — the
+# plan-side twin of frame.SCHEMA_VERSION's Vagueness.resolved/resolution bump.
+PLAN_SCHEMA_VERSION = 3
 
 TASK_STATUSES = ("proposed", "confirmed", "rejected")
 # Risks reuse the frame's open-vagueness kinds: a plan risk is the task-level peer of
@@ -62,6 +64,13 @@ class PlanRisk:
     text: str
     kind: str  # one of RISK_KINDS
     task_id: Optional[str] = None
+    # Resolution state (resolve-parked-vagueness t2), the plan-side twin of
+    # frame.Vagueness.resolved/resolution — field names are pinned verbatim, since
+    # render/deliverables_md.py (t7) reads both models. Empty string means "no
+    # resolution recorded"; a resolved risk stays on the record for provenance
+    # instead of being deleted (see Plan.resolve_risk).
+    resolved: bool = False
+    resolution: str = ""
 
     def __post_init__(self) -> None:
         if self.kind not in RISK_KINDS:
@@ -154,6 +163,30 @@ class Plan:
         )
         self.risks.append(r)
         return r
+
+    def find_risk(self, rid: str) -> Optional[PlanRisk]:
+        return next((r for r in self.risks if r.id == rid), None)
+
+    def resolve_risk(self, rid: str, resolution: str) -> PlanRisk:
+        """Close out a risk with a decision (resolve-parked-vagueness t2 — the
+        plan-side twin of ``Frame.resolve_vagueness``).
+
+        The risk stays on the record with its resolution text for the evidence
+        trail instead of being deleted; it is the convergence gate (t4) that stops
+        counting a resolved risk as a blocker. Raises ``ValueError`` on an unknown
+        id or on an id that is already resolved — mirroring the frame-side error
+        contract exactly, so both engines refuse the same way. The caller (the
+        CLI ``plan risk --resolve`` move, t6) is responsible for requiring
+        ``--decision`` up front and translating this into a user-facing refusal.
+        """
+        risk = self.find_risk(rid)
+        if risk is None:
+            raise ValueError(f"unknown risk id: {rid!r}")
+        if risk.resolved:
+            raise ValueError(f"risk already resolved: {rid!r}")
+        risk.resolved = True
+        risk.resolution = resolution
+        return risk
 
     def find_target(self, target_id: str) -> Optional[CoverageTarget]:
         return next((tg for tg in self.targets if tg.id == target_id), None)

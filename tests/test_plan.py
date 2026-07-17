@@ -61,6 +61,45 @@ def test_add_risk_rejects_unknown_kind() -> None:
         p.add_risk("bad", "not_a_kind")
 
 
+def test_risk_resolved_resolution_default() -> None:
+    p = _plan()
+    r = p.add_risk("scope?", "unknown_blocking")
+    assert r.resolved is False
+    assert r.resolution == ""
+
+
+def test_find_risk_and_reports_unknown() -> None:
+    p = _plan()
+    r = p.add_risk("scope?", "unknown_blocking")
+    assert p.find_risk(r.id) is r
+    assert p.find_risk("rX") is None
+
+
+def test_resolve_risk_marks_resolved_and_records_resolution() -> None:
+    p = _plan()
+    r = p.add_risk("scope?", "unknown_blocking")
+    resolved = p.resolve_risk(r.id, "decided: ship option B")
+    assert resolved is r
+    assert r.resolved is True
+    assert r.resolution == "decided: ship option B"
+    # id/text/kind/task_id are untouched by resolving.
+    assert (r.text, r.kind, r.task_id) == ("scope?", "unknown_blocking", None)
+
+
+def test_resolve_risk_rejects_unknown_id() -> None:
+    p = _plan()
+    with pytest.raises(ValueError):
+        p.resolve_risk("rX", "decided")
+
+
+def test_resolve_risk_rejects_already_resolved() -> None:
+    p = _plan()
+    r = p.add_risk("scope?", "unknown_blocking")
+    p.resolve_risk(r.id, "first decision")
+    with pytest.raises(ValueError):
+        p.resolve_risk(r.id, "second decision")
+
+
 def test_set_status_transitions_and_reports_unknown() -> None:
     p = _plan()
     p.add_task("x")
@@ -76,9 +115,10 @@ def test_plan_carries_schema_version() -> None:
     assert from_dict(to_dict(p)).schema_version == PLAN_SCHEMA_VERSION
 
 
-def test_plan_schema_version_bumped_to_2_for_instruction_field() -> None:
-    # #53 t2: the instruction field bumps the persisted plan shape exactly once.
-    assert PLAN_SCHEMA_VERSION == 2
+def test_plan_schema_version_bumped_to_3_for_resolution_field() -> None:
+    # resolve-parked-vagueness t2: PlanRisk.resolved/resolution bumps the persisted
+    # plan shape exactly once (the plan-side twin of frame.SCHEMA_VERSION 2 -> 3).
+    assert PLAN_SCHEMA_VERSION == 3
 
 
 def test_legacy_plan_without_schema_version_loads() -> None:
@@ -112,6 +152,31 @@ def test_legacy_v1_task_dict_without_instruction_loads_with_empty_default() -> N
     }
     p = from_dict(legacy)
     assert p.find_task("t1").instruction == ""
+
+
+def test_legacy_v2_risk_dict_without_resolution_fields_loads_with_defaults() -> None:
+    # A schema_version-2 plan's risk dicts predate resolved/resolution entirely.
+    legacy = {
+        "slug": "s",
+        "title": "t",
+        "frame_slug": "s",
+        "schema_version": 2,
+        "risks": [{"id": "r1", "text": "scope?", "kind": "unknown_blocking", "task_id": None}],
+    }
+    p = from_dict(legacy)
+    r = p.find_risk("r1")
+    assert r.resolved is False
+    assert r.resolution == ""
+
+
+def test_risk_resolution_roundtrips_verbatim() -> None:
+    p = _plan()
+    r = p.add_risk("scope?", "unknown_blocking")
+    p.resolve_risk(r.id, "decided: ship option B")
+    restored = from_dict(to_dict(p))
+    restored_risk = restored.find_risk(r.id)
+    assert restored_risk.resolved is True
+    assert restored_risk.resolution == "decided: ship option B"
 
 
 def test_dataclasses_validate_enums() -> None:
@@ -150,7 +215,8 @@ def test_roundtrip_preserves_nested_fields() -> None:
     p.add_dep(t, "t9")
     p.add_cover(t, "h2")
     t.instruction = "verify against acceptance criteria before merge"
-    p.add_risk("scope?", "unknown_blocking", task_id="t1")
+    r = p.add_risk("scope?", "unknown_blocking", task_id="t1")
+    p.resolve_risk(r.id, "decided: covered by t1's acceptance criteria")
     p.targets.append(targets_from_frame(_seed_frame())[0])
     restored = from_dict(to_dict(p))
     assert restored == p
