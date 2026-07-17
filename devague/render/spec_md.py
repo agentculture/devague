@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from devague.frame import Claim, Frame, HonestyCondition
+from devague.frame import Claim, Frame, HonestyCondition, Vagueness
 from devague.render._md_safety import autolink_urls, heading_safe
 
 
@@ -108,7 +108,40 @@ def _hard_questions(frame: Frame) -> list[str]:
 
 
 def _follow_up(frame: Frame) -> list[str]:
-    return [v.text for v in frame.open_vagueness if v.kind in ("follow_up", "out_of_scope")]
+    # A resolved follow_up/out_of_scope item is no longer open — it moves into
+    # ``_resolved_vagueness_section`` instead (resolve-parked-vagueness t7);
+    # counting it here too would fabricate it as still-open.
+    return [
+        v.text
+        for v in frame.open_vagueness
+        if v.kind in ("follow_up", "out_of_scope") and not v.resolved
+    ]
+
+
+def _resolved_vagueness(frame: Frame) -> list[Vagueness]:
+    """Resolved open-vagueness items, of any kind.
+
+    Unlike ``_follow_up`` (which only ever surfaced follow_up/out_of_scope
+    kinds), a decided item — including a resolved ``unknown_blocking`` or
+    ``unknown_nonblocking`` park — belongs in the exported spec once it carries
+    a resolution: the whole point of resolving a parked unknown is that the
+    answer ships with the spec (issue 45's provenance ask). An item marked
+    resolved with no resolution text renders nothing here — never fabricated
+    filler (mirrors ``_instruction_lines``).
+    """
+    return [v for v in frame.open_vagueness if v.resolved and v.resolution]
+
+
+def _resolved_vagueness_section(frame: Frame) -> list[str]:
+    items = _resolved_vagueness(frame)
+    if not items:
+        return []
+    out = ["## Resolved vagueness", ""]
+    out.extend(
+        f"- [{v.kind}] {autolink_urls(v.text)} — resolved: {autolink_urls(v.resolution)}"
+        for v in items
+    )
+    return out + [""]
 
 
 def _scope_section(frame: Frame) -> list[str]:
@@ -149,4 +182,5 @@ def render_spec(frame: Frame) -> str:
     out += _hard_questions(frame)
     out += _claim_section("Open questions", _claims(frame, "open_question"))
     out += _text_section("Open / follow-up", _follow_up(frame))
+    out += _resolved_vagueness_section(frame)
     return "\n".join(out).rstrip() + "\n"

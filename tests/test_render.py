@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import shutil
+import subprocess  # noqa: S404 - dev-tooling integration check, not shipped code
+from pathlib import Path
+
 import pytest
 
 from devague import render
@@ -232,3 +236,150 @@ def test_spec_md_does_not_mutate_frame_claim_text() -> None:
     after = [c.text for c in frame.claims]
     assert before == after
     assert frame.title == "League of Agents is live at https://league-of-agents.ai."
+
+
+# ── resolve-parked-vagueness (#53-esd t7): resolved items render with their ──
+# resolution; deliverables excludes them from surviving open items ───────────
+
+GOLDENS = Path(__file__).parent / "goldens"
+
+
+def _resolved_vagueness_frame() -> Frame:
+    """A frame with open + resolved vagueness across multiple kinds — a
+    resolved unknown_blocking (the exact issue-45/57 shape), a still-open
+    unknown_nonblocking, and a resolved follow_up (previously the only kind
+    spec_md rendered at all).
+    """
+    f = Frame(slug="resolved", title="Resolved Vagueness")
+    f.add_claim("announcement", "Shipped the resolve move", origin="user")
+    blocking = f.add_vagueness("what happens on double resolve", "unknown_blocking")
+    f.resolve_vagueness(blocking.id, "refuse with a hint, exit 1")
+    f.add_vagueness("scale unknown", "unknown_nonblocking")  # stays open
+    follow_up = f.add_vagueness("follow up on docs", "follow_up")
+    f.resolve_vagueness(follow_up.id, "docs updated in t8")
+    return f
+
+
+def test_frame_md_renders_resolved_vagueness_with_resolution_verbatim() -> None:
+    out = render.render(_resolved_vagueness_frame(), "frame-md")
+    assert "## Open vagueness" in out
+    assert (
+        "- [unknown_blocking] what happens on double resolve"
+        " — resolved: refuse with a hint, exit 1" in out
+    )
+    assert "- [follow_up] follow up on docs — resolved: docs updated in t8" in out
+
+
+def test_frame_md_still_open_item_carries_no_resolved_marker() -> None:
+    out = render.render(_resolved_vagueness_frame(), "frame-md")
+    lines = out.splitlines()
+    idx = lines.index("- [unknown_nonblocking] scale unknown")
+    assert "resolved" not in lines[idx]
+
+
+def test_frame_md_resolved_vagueness_is_markdownlint_clean() -> None:
+    assert_markdownlint_clean(render.render(_resolved_vagueness_frame(), "frame-md"))
+
+
+def test_spec_md_renders_resolved_vagueness_section_with_resolution_verbatim() -> None:
+    out = render.render(_resolved_vagueness_frame(), "spec-md")
+    assert "## Resolved vagueness" in out
+    assert (
+        "- [unknown_blocking] what happens on double resolve"
+        " — resolved: refuse with a hint, exit 1" in out
+    )
+    assert "- [follow_up] follow up on docs — resolved: docs updated in t8" in out
+
+
+def test_spec_md_resolved_follow_up_is_excluded_from_open_follow_up_section() -> None:
+    # The only vagueness item of kind follow_up/out_of_scope is resolved — the
+    # "Open / follow-up" section must not fabricate it as still open.
+    out = render.render(_resolved_vagueness_frame(), "spec-md")
+    assert "## Open / follow-up" not in out
+
+
+def test_spec_md_still_open_nonblocking_park_stays_unlisted() -> None:
+    # Unchanged pre-existing behavior: spec_md never rendered unknown_blocking/
+    # unknown_nonblocking kinds unless resolved — the still-open nonblocking
+    # item here has no resolution, so it stays absent from the exported spec.
+    out = render.render(_resolved_vagueness_frame(), "spec-md")
+    assert "scale unknown" not in out
+
+
+def test_spec_md_resolved_vagueness_is_markdownlint_clean() -> None:
+    assert_markdownlint_clean(render.render(_resolved_vagueness_frame(), "spec-md"))
+
+
+def test_spec_md_wraps_bare_url_in_resolved_vagueness_resolution() -> None:
+    f = Frame(slug="urlres", title="URL Resolution")
+    v = f.add_vagueness("check this later", "follow_up")
+    f.resolve_vagueness(v.id, "see https://example.com/decision for the writeup")
+    out = render.render(f, "spec-md")
+    assert (
+        "- [follow_up] check this later"
+        " — resolved: see <https://example.com/decision> for the writeup" in out
+    )
+
+
+def test_frame_md_resolved_item_with_empty_resolution_renders_no_marker() -> None:
+    # Never fabricate: a resolved flag with no resolution text (a malformed
+    # record — the CLI resolve move always requires --decision) must not
+    # produce a dangling "— resolved:" with nothing after it.
+    f = Frame(slug="edge", title="Edge")
+    v = f.add_vagueness("mystery", "unknown_nonblocking")
+    v.resolved = True
+    out = render.render(f, "frame-md")
+    assert "- [unknown_nonblocking] mystery" in out
+    assert "resolved:" not in out
+
+
+def test_spec_md_resolved_item_with_empty_resolution_is_omitted() -> None:
+    f = Frame(slug="edge2", title="Edge2")
+    v = f.add_vagueness("mystery2", "unknown_blocking")
+    v.resolved = True
+    out = render.render(f, "spec-md")
+    assert "## Resolved vagueness" not in out
+    assert "mystery2" not in out
+
+
+def test_spec_md_omits_resolved_vagueness_section_when_none_resolved() -> None:
+    out = render.render(_frame(), "spec-md")
+    assert "## Resolved vagueness" not in out
+
+
+def test_golden_resolved_vagueness_frame_md() -> None:
+    expected = (GOLDENS / "resolved_vagueness_frame.md").read_text(encoding="utf-8")
+    assert render.render(_resolved_vagueness_frame(), "frame-md") == expected
+
+
+def test_golden_resolved_vagueness_spec_md() -> None:
+    expected = (GOLDENS / "resolved_vagueness_spec.md").read_text(encoding="utf-8")
+    assert render.render(_resolved_vagueness_frame(), "spec-md") == expected
+
+
+# ── real markdownlint-cli2 check on a resolved blocking park (AC1's ──────────
+# "an exported spec from a frame with a resolved blocking park passes
+# markdownlint" honesty condition) — driven at the renderer level directly,
+# since the convergence-gate skip for resolved items (t3/t4) is a later,
+# parallel task this one does not depend on; devague export's CLI-level gate
+# is out of scope here. Skips cleanly when the binary is not on PATH, mirroring
+# tests/test_export_markdownlint_integration.py.
+_MARKDOWNLINT = shutil.which("markdownlint-cli2")
+_MD_CONFIG = Path(__file__).resolve().parent.parent / ".markdownlint-cli2.yaml"
+
+
+@pytest.mark.skipif(
+    _MARKDOWNLINT is None,
+    reason="markdownlint-cli2 not on PATH (dev tooling; not installed by this repo's CI)",
+)
+def test_resolved_blocking_park_spec_passes_real_markdownlint_cli2(tmp_path: Path) -> None:
+    out = render.render(_resolved_vagueness_frame(), "spec-md")
+    spec_path = tmp_path / "resolved-blocking-park.md"
+    spec_path.write_text(out, encoding="utf-8")
+    result = subprocess.run(  # noqa: S603 - fixed argv, no shell, test-only
+        [_MARKDOWNLINT, "--config", str(_MD_CONFIG), str(spec_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
