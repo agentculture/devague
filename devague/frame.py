@@ -12,7 +12,8 @@ from typing import Optional
 # Bump when the persisted shape changes incompatibly. `store.load` fails closed
 # on a frame whose schema_version is newer/unknown (see #5, honesty condition h15).
 # v2 (#53 t1) adds Frame.scope_entries and Claim/HonestyCondition.instruction.
-SCHEMA_VERSION = 2
+# v3 (resolve-parked-vagueness t1) adds Vagueness.resolved / Vagueness.resolution.
+SCHEMA_VERSION = 3
 
 CLAIM_KINDS = (
     "announcement",
@@ -108,6 +109,11 @@ class Vagueness:
     text: str
     kind: str
     claim_id: Optional[str] = None
+    # v2 frames predate these fields (resolve-parked-vagueness t1); default to
+    # "not yet resolved". Set only via Frame.resolve_vagueness — v-ids stay out
+    # of confirm/reject (decision c11), so set_status must not touch them.
+    resolved: bool = False
+    resolution: str = ""
 
     def __post_init__(self) -> None:
         if self.kind not in VAGUENESS_KINDS:
@@ -205,6 +211,25 @@ class Frame:
             claim_id=claim_id,
         )
         self.open_vagueness.append(v)
+        return v
+
+    def find_vagueness(self, vid: str) -> Optional[Vagueness]:
+        return next((v for v in self.open_vagueness if v.id == vid), None)
+
+    def resolve_vagueness(self, vid: str, resolution: str) -> Vagueness:
+        """Close out a parked item without routing it through confirm/reject.
+
+        v-ids stay out of set_status (decision c11) — this is the only mutator
+        for Vagueness.resolved/resolution. Fails closed on an unknown id and on
+        an already-resolved one, rather than silently no-op'ing (issue #57).
+        """
+        v = self.find_vagueness(vid)
+        if v is None:
+            raise ValueError(f"unknown vagueness id: {vid!r}")
+        if v.resolved:
+            raise ValueError(f"vagueness {vid!r} is already resolved")
+        v.resolved = True
+        v.resolution = resolution
         return v
 
     def add_scope_entry(
