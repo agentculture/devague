@@ -11,7 +11,7 @@ These tests cover:
 from __future__ import annotations
 
 from devague.plan import CoverageTarget, Plan, Task, dependency_waves
-from devague.plan_convergence import evaluate
+from devague.plan_convergence import evaluate, suggest_move
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -401,3 +401,62 @@ def test_ready_for_plan_unchanged_by_warnings_only() -> None:
     assert any("serial" in w.lower() or "parallel" in w.lower() for w in res.warnings)
     # blockers empty
     assert res.blockers == []
+
+
+# ── blocking risk resolution (resolve-parked-vagueness t4, mirrors t3) ─────────
+
+
+def test_unresolved_blocking_risk_blocks_convergence() -> None:
+    """Baseline: an unresolved unknown_blocking risk still blocks convergence."""
+    p = _converging()
+    p.add_risk("scope unclear", "unknown_blocking")
+    res = evaluate(p)
+    assert res.ready is False
+    assert any("blocking risk r1" in b for b in res.blockers)
+
+
+def test_resolved_blocking_risk_no_longer_blocks_convergence() -> None:
+    """A resolved unknown_blocking risk must not block plan convergence (t4 AC1)."""
+    p = _converging()
+    r = p.add_risk("scope unclear", "unknown_blocking")
+    p.resolve_risk(r.id, "decided: ship option B")
+    res = evaluate(p)
+    assert res.ready is True, f"expected convergence; blockers: {res.blockers}"
+    assert not any("blocking risk" in b for b in res.blockers)
+
+
+def test_resolved_blocking_risk_does_not_appear_in_required_next_moves() -> None:
+    """A resolved risk generates no follow-up hint since it is no longer a blocker."""
+    p = _converging()
+    r = p.add_risk("scope unclear", "unknown_blocking")
+    p.resolve_risk(r.id, "decided: ship option B")
+    res = evaluate(p)
+    assert not any("risk" in m for m in res.required_next_moves)
+
+
+def test_blocking_risk_hint_names_executable_resolve_syntax() -> None:
+    """The blocking-risk hint at plan_convergence.py:172 names the executable
+    ``plan risk --resolve`` syntax verbatim (t4 AC2): ``plan risk --resolve RID
+    --decision TEXT`` (uppercase placeholders, mirroring t3's frame-side hint).
+    """
+    hint = suggest_move("blocking risk r1 unresolved")
+    assert "plan risk --resolve RID --decision TEXT" in hint
+
+
+def test_blocking_risk_hint_end_to_end_via_evaluate() -> None:
+    """The same executable-syntax hint surfaces through evaluate()'s required_next_moves."""
+    p = _converging()
+    p.add_risk("scope unclear", "unknown_blocking")
+    res = evaluate(p)
+    assert any("plan risk --resolve RID --decision TEXT" in m for m in res.required_next_moves)
+
+
+def test_resolved_risk_excluded_from_parked_items() -> None:
+    """Plan-side _parked_items excludes resolved risks (t4 AC3)."""
+    p = _converging()
+    r = p.add_risk("a non-blocking risk", "unknown_nonblocking")
+    res = evaluate(p)
+    assert any("a non-blocking risk" in item for item in res.parked_items)
+    p.resolve_risk(r.id, "decided: not an issue")
+    res2 = evaluate(p)
+    assert not any("a non-blocking risk" in item for item in res2.parked_items)
