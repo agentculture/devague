@@ -81,6 +81,16 @@ ASSIGN_TO_WORKFORCE_GUIDANCE = {
         "This keeps file-contention safe: overlapping same-file changes "
         "surface as merge conflicts at reconcile time, not live races."
     ),
+    "worktree_location": (
+        "Put every worktree under one repo-owned root beside the repo "
+        "directory: <parent-of-repo>/.worktrees.<repo-name>/agent-<task-id> "
+        '(resolve it, don\'t hardcode: wt_root="$(dirname "$repo_root")'
+        '/.worktrees.$(basename "$repo_root")"). A shared ../worktrees/ '
+        "collides across repos and plans (task ids restart at t1) and looks "
+        "deletable to anyone else cleaning up; an in-repo path gets swept "
+        "into your PR by git add -A and destroyed by git clean -fdx. Remove "
+        "only the worktrees you created — never the root itself."
+    ),
     "main_agent_merge_gate": (
         "The main agent gates each subagent worktree merge with TDD: tests "
         "pass before AND after merge. No human per-task merge decision."
@@ -204,6 +214,7 @@ _TEXT = (
     f"  Prerequisites: {ASSIGN_TO_WORKFORCE_GUIDANCE['prerequisites']}\n"
     f"  Human gates (3): {ASSIGN_TO_WORKFORCE_GUIDANCE['human_gates']}\n"
     f"  Safety: {ASSIGN_TO_WORKFORCE_GUIDANCE['worktree_isolation']}\n"
+    f"  Worktree location: {ASSIGN_TO_WORKFORCE_GUIDANCE['worktree_location']}\n"
     f"  Main agent: {ASSIGN_TO_WORKFORCE_GUIDANCE['main_agent_merge_gate']}\n"
     f"  TDD: {ASSIGN_TO_WORKFORCE_GUIDANCE['tdd_acceptance_criteria']}\n"
     f"  Scope: {ASSIGN_TO_WORKFORCE_GUIDANCE['not_orchestration']}\n"
@@ -339,8 +350,10 @@ OPERATOR_SKILLS = (
         "leg": "plan -> parallel implementation",
         "role": (
             "Reads 'devague plan waves' and fans out one agent per task per wave in "
-            "isolated git worktrees, with main-agent TDD-gated merges. Three human "
-            "gates; devague never orchestrates (#20)."
+            "isolated git worktrees, all under the repo-owned root "
+            "'<parent-of-repo>/.worktrees.<repo-name>/' (never a shared "
+            "'../worktrees/', never in-repo), with main-agent TDD-gated merges. "
+            "Three human gates; devague never orchestrates (#20)."
         ),
         "method_only": False,
     },

@@ -148,11 +148,30 @@ stay consistent if either changes.)
 
 Once the human approves, the main agent fans out each wave in order:
 
-1. **Create an isolated git worktree** for each task in the current wave:
+1. **Create an isolated git worktree** for each task in the current wave,
+   **inside this repo's own worktree root** — `.worktrees.<repo-name>`, a
+   sibling of the repo directory:
 
    ```bash
-   git worktree add ../worktrees/agent-<task-id> -b agent/<task-id>
+   repo_root=$(git rev-parse --show-toplevel)
+   wt_root="$(dirname "$repo_root")/.worktrees.$(basename "$repo_root")"
+   git worktree add "$wt_root/agent-<task-id>" -b agent/<task-id>
    ```
+
+   Never use a bare `../worktrees/` or an in-repo path. The
+   `.worktrees.<repo-name>` root is mandatory for three reasons:
+
+   - **Nobody else will delete it.** A shared `../worktrees/` in a multi-repo
+     parent directory looks like anyone's scratch space; a directory named
+     after *your* repo is visibly owned, so another agent or human cleaning up
+     their own worktrees won't sweep away a live fan-out mid-wave.
+   - **No cross-repo collision.** Task ids restart at `t1` in every repo and
+     every plan, so `../worktrees/agent-t1` from two concurrent repos is the
+     same path. Namespacing by repo name keeps concurrent fan-outs disjoint.
+   - **The repo working tree stays clean.** An in-repo path (`.worktrees/`,
+     `.claude/worktrees/`) puts N checkouts inside the tree you are about to
+     commit and PR — `git add -A` sweeps them in and `git clean -fdx` destroys
+     them. Outside the repo, neither can touch them.
 
 2. **Spawn a task agent** inside that worktree (using the approved model from
    the split plan), with:
@@ -190,8 +209,12 @@ For each completed task worktree, the main agent:
 4. **Removes the worktree** once the merge is accepted:
 
    ```bash
-   git worktree remove ../worktrees/agent-<task-id>
+   git worktree remove "$wt_root/agent-<task-id>"
    ```
+
+   Remove only the worktrees this run created — never `rm -rf` the
+   `.worktrees.<repo-name>` root itself, and never touch another repo's
+   worktree root. A concurrent fan-out may be live inside it.
 
 The human does **not** review individual task merges. Per-task acceptance is
 the main agent's responsibility — the TDD gate (tests pass before AND after
@@ -242,6 +265,10 @@ These protect the human-gate contract and the TDD guarantee.
   contention is managed by isolation, not by trust in the dependency graph.
   The dependency graph guarantees *logical* independence within a wave, not
   *file* disjointness. Conflicts surface at merge time.
+- **All worktrees live under `.worktrees.<repo-name>`.** Every worktree this
+  skill creates goes in that one repo-owned root beside the repo directory —
+  never a shared `../worktrees/`, never inside the repo. Clean up only the
+  worktrees you created; leave the root and anyone else's worktrees alone.
 - **Tests before AND after merge — no exceptions.** The TDD gate must pass on
   both sides. A merge that makes tests pass only after (not before) means the
   baseline was already broken — fix the baseline first.
@@ -285,22 +312,27 @@ a split-plan
 # --- HUMAN: review the table, edit agent/model assignments if needed,
 #     then say "approved" to proceed ---
 
-# 3. Fan out wave 1 (t1, t2, t3 are independent — run in parallel)
-git worktree add ../worktrees/agent-t1 -b agent/t1
-git worktree add ../worktrees/agent-t2 -b agent/t2
-git worktree add ../worktrees/agent-t3 -b agent/t3
+# 3. Fan out wave 1 (t1, t2, t3 are independent — run in parallel).
+#    All worktrees live under this repo's own root, beside the repo dir:
+#    e.g. <parent>/devague -> <parent>/.worktrees.devague/
+repo_root=$(git rev-parse --show-toplevel)
+wt_root="$(dirname "$repo_root")/.worktrees.$(basename "$repo_root")"
+
+git worktree add "$wt_root/agent-t1" -b agent/t1
+git worktree add "$wt_root/agent-t2" -b agent/t2
+git worktree add "$wt_root/agent-t3" -b agent/t3
 # ... spawn task agents in each worktree, await completion ...
 
 # 4. TDD-gated merge for each wave-1 task (no human per task)
 git merge --no-ff agent/t1   # tests pass before + after
-git worktree remove ../worktrees/agent-t1
+git worktree remove "$wt_root/agent-t1"
 git merge --no-ff agent/t2
-git worktree remove ../worktrees/agent-t2
+git worktree remove "$wt_root/agent-t2"
 git merge --no-ff agent/t3
-git worktree remove ../worktrees/agent-t3
+git worktree remove "$wt_root/agent-t3"
 
 # 5. Advance to wave 2 (t4 depends on t1–t3 being merged)
-git worktree add ../worktrees/agent-t4 -b agent/t4
+git worktree add "$wt_root/agent-t4" -b agent/t4
 # ... spawn, await, merge with TDD gate, remove worktree ...
 
 # 6. Open the final PR (human gate 3)

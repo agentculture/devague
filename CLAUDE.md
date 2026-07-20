@@ -227,6 +227,34 @@ Same-file overlaps between tasks (which the dependency graph does not
 guarantee to exclude) surface as merge conflicts at reconcile time, never as
 live races. The main/operating agent reconciles each merge.
 
+### Where worktrees live: `.worktrees.<repo-name>` (mandatory)
+
+**Every worktree a fan-out creates goes under one repo-owned root beside the
+repo directory** — `<parent-of-repo>/.worktrees.<repo-name>/agent-<task-id>`.
+For this repo that is `../.worktrees.devague/`. Resolve it, never hardcode it:
+
+```bash
+repo_root=$(git rev-parse --show-toplevel)
+wt_root="$(dirname "$repo_root")/.worktrees.$(basename "$repo_root")"
+git worktree add "$wt_root/agent-<task-id>" -b agent/<task-id>
+```
+
+Two paths are **forbidden**, and each was in use here before this convention:
+
+- **A shared `../worktrees/`** — in a multi-repo parent like `~/git/`, that
+  directory belongs to nobody, so it reads as scratch space another agent or
+  human may delete while your wave is live. Worse, task ids restart at `t1` in
+  every repo and every plan, so `../worktrees/agent-t1` from two concurrent
+  fan-outs is literally the same directory. The repo-named root makes
+  ownership visible and collisions impossible.
+- **Anything inside the repo** (`.worktrees/`, `.claude/worktrees/`) — N full
+  checkouts inside the tree you are about to commit means `git add -A` sweeps
+  them into the PR and `git clean -fdx` destroys live agent work.
+
+Clean up with `git worktree remove "$wt_root/agent-<task-id>"` per merged task.
+Never `rm -rf` the root itself and never touch another repo's root — a
+concurrent fan-out may be running inside it.
+
 ### Main-agent TDD merge gate (no human per task)
 
 The main agent gates each subagent's worktree merge with test-driven development:

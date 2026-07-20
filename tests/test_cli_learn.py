@@ -29,6 +29,25 @@ def test_learn_documents_assign_to_workforce_invocation(
     assert "worktree" in out
 
 
+def test_learn_names_repo_owned_worktree_root(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`devague learn` teaches where fan-out worktrees live: one repo-owned root
+    beside the repo directory (`.worktrees.<repo-name>`), never a shared
+    `../worktrees/` (which collides across repos and reads as deletable scratch)
+    and never inside the repo (where `git add -A` / `git clean -fdx` reach it).
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert ".worktrees.<repo-name>" in out
+    # The rationale must survive, not just the path: this is why the root is
+    # repo-owned rather than shared.
+    lowered = out.lower()
+    assert "../worktrees/" in lowered
+    assert "git add -a" in lowered or "in-repo" in lowered
+
+
 def test_learn_json_includes_assign_to_workforce_section(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
