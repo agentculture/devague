@@ -83,13 +83,15 @@ ASSIGN_TO_WORKFORCE_GUIDANCE = {
     ),
     "worktree_location": (
         "Put every worktree under one repo-owned root beside the repo "
-        "directory: <parent-of-repo>/.worktrees.<repo-name>/agent-<task-id> "
-        '(resolve it, don\'t hardcode: wt_root="$(dirname "$repo_root")'
-        '/.worktrees.$(basename "$repo_root")"). A shared ../worktrees/ '
-        "collides across repos and plans (task ids restart at t1) and looks "
-        "deletable to anyone else cleaning up; an in-repo path gets swept "
-        "into your PR by git add -A and destroyed by git clean -fdx. Remove "
-        "only the worktrees you created — never the root itself."
+        "directory: <parent-of-repo>/.worktrees.<repo-name>/agent-<task-id>. "
+        "Resolve it, don't hardcode it — both steps, since an undefined "
+        'repo_root silently yields the in-repo path "./.worktrees.": '
+        'repo_root=$(git rev-parse --show-toplevel) then wt_root="$(dirname '
+        '"$repo_root")/.worktrees.$(basename "$repo_root")". A shared '
+        "../worktrees/ collides across repos and plans (task ids restart at "
+        "t1) and looks deletable to anyone else cleaning up; an in-repo path "
+        "gets swept into your PR by git add -A and destroyed by git clean "
+        "-fdx. Remove only the worktrees you created — never the root itself."
     ),
     "main_agent_merge_gate": (
         "The main agent gates each subagent worktree merge with TDD: tests "
