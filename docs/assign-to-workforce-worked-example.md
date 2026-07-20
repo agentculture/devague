@@ -97,6 +97,16 @@ git worktree add .claude/worktrees/agent-t4 -b agent/t4
 git worktree add .claude/worktrees/agent-t5 -b agent/t5
 ```
 
+> **Note — the worktree path has since changed.** This run used an in-repo
+> `.claude/worktrees/` path, recorded here as it actually happened. The current
+> convention (see the `assign-to-workforce` skill and `CLAUDE.md`) puts every
+> worktree under one repo-owned root *beside* the repo directory —
+> `<parent-of-repo>/.worktrees.<repo-name>/agent-<task-id>` — so that no other
+> agent mistakes it for shared scratch, task ids that restart at `t1` can't
+> collide across repos, and `git add -A` / `git clean -fdx` can't sweep live
+> agent checkouts into a PR or delete them. Follow the skill, not these
+> historical commands.
+
 Each subagent received its task id, summary, and acceptance criteria as its
 brief. Each was instructed to work **test-first**: write the failing test(s)
 matching the acceptance criteria before implementing.

@@ -246,7 +246,12 @@ guidance carried verbatim to the workforce.
 Reads `devague plan waves` (deterministic, read-only scheduling metadata) and
 fans out independent tasks to **one agent per task per wave in isolated git
 worktrees**, with **main-agent TDD-gated merges** (the task's tests pass before
-*and* after the merge). Exactly three human gates; the final PR uses the `cicd`
+*and* after the merge). Every worktree lives under one repo-owned root beside
+the repo directory — `<parent-of-repo>/.worktrees.<repo-name>/agent-<task-id>`
+— never a shared `../worktrees/` (which collides across repos and plans, since
+task ids restart at `t1`, and reads as deletable scratch space to anyone else)
+and never inside the repo (where `git add -A` sweeps checkouts into the PR and
+`git clean -fdx` destroys live agent work). Exactly three human gates; the final PR uses the `cicd`
 skill (`agex pr open`). Each subagent's brief quotes its task's fields verbatim
 from `plan show --json` / the exported plan-md — including the per-task
 `instruction` — never an operator paraphrase. The `split-plan` subcommand

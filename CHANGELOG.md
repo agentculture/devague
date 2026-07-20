@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-07-20
+
+### Changed
+
+- **Fan-out worktrees now live in one repo-owned root:
+  `<parent-of-repo>/.worktrees.<repo-name>/agent-<task-id>`.** The
+  `assign-to-workforce` skill, `CLAUDE.md`, `docs/skills.md`, the `split-plan`
+  fan-out instructions, and `devague learn` all teach the same mandatory path
+  and resolve it at runtime instead of hardcoding it. Two paths that were
+  previously in use are now explicitly forbidden: a shared `../worktrees/` (in
+  a multi-repo parent it belongs to nobody, so it reads as deletable scratch
+  space, and task ids restarting at `t1` in every repo and every plan make
+  concurrent fan-outs collide on the same directory) and any in-repo path such
+  as `.claude/worktrees/` (where `git add -A` sweeps agent checkouts into the
+  PR and `git clean -fdx` destroys live work). Cleanup removes only the
+  worktrees a run created — never the root itself, which a concurrent fan-out
+  may be using. `docs/assign-to-workforce-worked-example.md` keeps its
+  historical commands and gains a note pointing at the current convention.
+
 ## [0.20.0] - 2026-07-17
 
 ### Added

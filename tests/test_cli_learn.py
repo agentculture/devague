@@ -29,6 +29,43 @@ def test_learn_documents_assign_to_workforce_invocation(
     assert "worktree" in out
 
 
+def test_learn_names_repo_owned_worktree_root(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`devague learn` teaches where fan-out worktrees live: one repo-owned root
+    beside the repo directory (`.worktrees.<repo-name>`), never a shared
+    `../worktrees/` (which collides across repos and reads as deletable scratch)
+    and never inside the repo (where `git add -A` / `git clean -fdx` reach it).
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert ".worktrees.<repo-name>" in out
+    # The rationale must survive, not just the path: this is why the root is
+    # repo-owned rather than shared.
+    lowered = out.lower()
+    assert "../worktrees/" in lowered
+    assert "git add -a" in lowered or "in-repo" in lowered
+
+
+def test_learn_worktree_snippet_is_self_contained(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The taught shell snippet must define `repo_root` before using it (#89).
+
+    An operator copies this verbatim. With `repo_root` undefined the snippet
+    does not fail loudly — `$(dirname "")` is `.` and `$(basename "")` is
+    empty, so `wt_root` silently becomes `./.worktrees.`: a relative, in-repo
+    path with no repo name, i.e. exactly the layout this guidance forbids.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "wt_root=" in out, "guidance should teach the wt_root snippet"
+    # Wherever wt_root is derived from repo_root, repo_root must be defined.
+    assert "repo_root=$(git rev-parse --show-toplevel)" in out
+
+
 def test_learn_json_includes_assign_to_workforce_section(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
