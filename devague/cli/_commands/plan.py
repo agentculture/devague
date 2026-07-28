@@ -143,12 +143,45 @@ def _require_task(plan: Plan, tid: str):
 
 
 def _require_target(plan: Plan, target_id: str) -> None:
-    if plan.find_target(target_id) is None:
+    """Validate ``target_id`` against the plan's coverage targets (issue #90).
+
+    ``converge``/``status``/``export`` all re-derive targets from the **live**
+    source frame via :func:`_live`, so when a frame legitimately grows a new
+    confirmed claim/honesty condition mid-run, ``status`` immediately recommends
+    covering that new id. Checking only the (possibly stale) *stored* snapshot
+    here would make that exact recommended cover refuse as "unknown coverage
+    target" — two moves disagreeing about the same id in the same breath, and a
+    plan that grew could never converge again.
+
+    So: the stored snapshot is checked first (the common, no-I/O case — nothing
+    changed since the plan last converged). Only when ``target_id`` is absent
+    there do we consult the live frame; a hit refreshes and persists ``plan.targets``
+    so the stored copy catches up without a separate ``plan converge`` (the caller's
+    own ``plan_store.save`` right after this call carries the refreshed snapshot).
+
+    Decision (recorded as park v4 / plan risk r2): if the source frame has itself
+    regressed below its own convergence gate, :func:`_live` raises — that error is
+    let through here as-is rather than caught and reworded into "unknown coverage
+    target". A target absent from the stored snapshot when the frame is unhealthy
+    is genuinely unverifiable (it may be a real, newly-grown target that just
+    hasn't been re-converged, or a plain typo — there is no way to tell from a
+    frame that cannot currently be evaluated), so surfacing the real cause — "the
+    frame has regressed, re-converge it first" — is more honest than silently
+    blaming the target id for a problem that lives in the frame, not the plan.
+    A target already known to the stored snapshot is unaffected by any of this:
+    it never touches the live frame, so it keeps working through a frame
+    regression exactly as it did before this fix.
+    """
+    if plan.find_target(target_id) is not None:
+        return
+    _frame, live_targets = _live(plan)  # raises as-is on a regressed source frame
+    if not any(tg.id == target_id for tg in live_targets):
         raise DevagueError(
             EXIT_USER_ERROR,
             f"unknown coverage target: {target_id}",
             "run 'devague plan show' to see targets (c*/h*)",
         )
+    plan.targets = live_targets  # persist the refreshed snapshot on success
 
 
 # ── the re-confirm rule (#53 t5, sharpened in #53-esd t1) ────────────────────

@@ -142,6 +142,128 @@ def test_cover_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
     assert "unknown coverage target" in capsys.readouterr().err
 
 
+# ── issue #90: cover/--covers validate against the LIVE frame ───────────────
+def test_status_recommends_cover_and_cover_succeeds_without_reconverge(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The verified #90 repro, inverted: a frame that grows a new confirmed claim
+    mid-run must not leave `plan status`'s recommended cover and `plan cover`
+    disagreeing about the same target in the same breath — `cover` must succeed
+    immediately, with no intervening `plan converge`."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0  # plan converged; targets snapshot = 12
+    capsys.readouterr()
+
+    # The frame legitimately grows: a new confirmed requirement claim + its
+    # confirmed honesty condition (c7 / h7) — the documented reopen/reconverge loop.
+    assert main(["capture", "--kind", "requirement", "a new requirement", "--origin", "user"]) == 0
+    capsys.readouterr()
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    assert main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"]) == 0
+    capsys.readouterr()
+    assert main(["converge"]) == 0  # the frame itself still converges
+    capsys.readouterr()
+
+    # `plan status` now recommends covering the new claim ...
+    rc = main(["plan", "status", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert any(new_claim_id in b for b in payload["blockers"])
+    assert any(new_claim_id in m for m in payload["required_next_moves"])
+
+    # ... and that exact cover succeeds immediately — no `plan converge` in between.
+    rc = main(["plan", "cover", "t1", "--target", new_claim_id])
+    assert rc == 0
+    task = plan_store.load(slug).find_task("t1")
+    assert new_claim_id in task.covers
+
+    # The refreshed live snapshot was persisted as a side effect of the successful
+    # cover, so the stored plan now knows about the new target too.
+    persisted = plan_store.load(slug)
+    assert persisted.find_target(new_claim_id) is not None
+
+
+def test_task_inline_covers_also_validates_against_live_frame(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The `plan task --covers` call site shares `_require_target`; a target that
+    only exists in the live frame (not yet in the stored snapshot) must be
+    accepted there too."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+    assert main(["capture", "--kind", "requirement", "another requirement"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"])
+    assert main(["converge"]) == 0
+    capsys.readouterr()
+
+    rc = main(["plan", "task", "cover the new one", "--covers", new_claim_id])
+    assert rc == 0
+    task = plan_store.load(slug).find_task("t2")
+    assert new_claim_id in task.covers
+
+
+def test_cover_unknown_target_still_refused_after_frame_grows(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """A target unknown to both the stored snapshot and the live-derived set is
+    still refused, even once the live-frame fallback exists."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+    assert main(["capture", "--kind", "requirement", "grows the frame"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"])
+    assert main(["converge"]) == 0
+    capsys.readouterr()
+
+    rc = main(["plan", "cover", "t1", "--target", "zzz"])
+    assert rc == 1
+    assert "unknown coverage target" in capsys.readouterr().err
+
+
+def test_cover_known_target_survives_frame_regression(tmp_path, monkeypatch, capsys) -> None:
+    """A target already in the plan's stored snapshot keeps working through `cover`
+    even after the source frame regresses below its own convergence gate — only a
+    target absent from the stored snapshot ever needs to consult the live frame."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    main(["plan", "task", "extra"])  # t2
+    capsys.readouterr()
+    main(["park", "scale?", "--kind", "unknown_blocking"])  # regress the frame
+    capsys.readouterr()
+
+    rc = main(["plan", "cover", "t2", "--target", "c1"])  # c1 already stored
+    assert rc == 0
+    assert plan_store.load(slug).find_task("t2").covers == ["c1"]
+
+
+def test_cover_new_target_refuses_with_reconverge_hint_when_frame_regressed(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Decision (b), park v4 / plan risk r2: when the source frame has regressed
+    below its own convergence gate, a target not yet in the stored snapshot cannot
+    be verified — `cover` refuses with the same reconverge hint `_live` already
+    gives `converge`/`status`/`export`, rather than mislabeling it 'unknown'."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+
+    # Grow the frame with a new confirmed requirement claim that has NO confirmed
+    # honesty condition yet — this alone regresses the frame below its own gate,
+    # and the new claim is not (and cannot yet be) in the plan's stored snapshot.
+    assert main(["capture", "--kind", "requirement", "an unresolved requirement"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    capsys.readouterr()
+
+    rc = main(["plan", "cover", "t1", "--target", new_claim_id])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "regressed below convergence" in err
+    assert "re-converge the frame first" in err
+
+
 # ── confirm / reject (user-only) ────────────────────────────────────────────
 def test_confirm_and_reject(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_frame(monkeypatch, tmp_path)
