@@ -167,9 +167,15 @@ def _hard_question_marker(q: HardQuestion) -> str:
     else ``(blocking)`` while it still blocks convergence, else nothing.
     Resolved takes priority over blocking — an answered question is no longer
     an open blocker regardless of the flag it was created with (#49).
+
+    A resolved question carrying the optional ``--decision`` text renders it
+    inline, mirroring how ``_resolved_vagueness_section`` renders a resolved
+    park's decision. #49 asked for resolved questions to carry "a pointer to
+    the claim/decision that answered them", not merely a flag — the bare
+    marker alone leaves a reader knowing a question was settled but not how.
     """
     if q.resolved:
-        return " (resolved)"
+        return f" (resolved: {_safe(q.resolution)})" if q.resolution else " (resolved)"
     if q.blocking:
         return " (blocking)"
     return ""

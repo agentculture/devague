@@ -10,8 +10,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The fifteen-issue backlog sweep (the `issue-backlog-sweep` plan, tasks t1–t19)
 — one devague-orchestrated workforce fan-out closing issues #48, #49, #52, #79, #82, #83, #84, #85, #86, #87, #88, #90, #91, #92, and #93.
 Three of those were hard blockers downstream repos were already working around
-by hand: hand-editing frame JSON (#48/#52), and writing a second plan renderer
-(#85).
+by hand: hand-editing frame JSON (#48/#52), excluding generated artifacts from
+markdownlint entirely (#87), and writing a second plan renderer (#85). All
+three workarounds are verified deletable in
+`docs/deliveries/2026-07-28-issue-backlog-sweep-closure-map.md`.
 
 ### Added
 
@@ -127,7 +129,13 @@ by hand: hand-editing frame JSON (#48/#52), and writing a second plan renderer
   `learn skills`, `devague explain` / `plan explain`, `README.md`,
   `CLAUDE.md`, `docs/spec-contract.md`, `docs/llm-guidance.md`,
   `docs/skills.md`, `docs/skill-sources.md`, and the `think` / `scope` /
-  `assign-to-workforce` skills.
+  `spec-to-plan` / `assign-to-workforce` skills. The `spec-to-plan` moves table
+  had gone stale across several releases — it still taught `plan reject` as
+  single-id ("loop for batches") and never gained `amend`, `defer`,
+  `deliverables`, `depend --remove`, or `risk --amend`. Since guildmaster
+  re-broadcasts that skill to the mesh, the stale row was actively teaching the
+  workaround #86 removed. `tests/test_spec_to_plan_skill.py` now pins the moves
+  table against `devague plan --help`.
 
 ### Fixed
 
@@ -136,10 +144,24 @@ by hand: hand-editing frame JSON (#48/#52), and writing a second plan renderer
   and silently dropped every open `unknown_nonblocking` item — exactly the
   kind that legitimately coexists with a converged frame, so the artifact
   claimed more certainty than the frame held. A resolved hard question now
-  carries a `(resolved)` marker instead of rendering as an open `(blocking)`
-  one. Hard questions attached to a rejected claim are dropped entirely. And
-  a scope-entry seed citing a rejected claim renders a `(rejected)` marker
-  instead of a bare dead reference.
+  carries a `(resolved)` marker — or `(resolved: <decision>)` when
+  `interrogate --resolve --decision` recorded one, the "pointer to the
+  claim/decision that answered them" #49 actually asked for — instead of
+  rendering as an open `(blocking)` one. Hard questions attached to a rejected
+  claim are dropped entirely. And a scope-entry seed citing a rejected claim
+  renders a `(rejected)` marker instead of a bare dead reference.
+- **URLs containing underscores survive the escaper** (#94). `md_safe_text()`
+  and `autolink_urls()` were introduced without knowing about each other, and
+  the renderers compose them in **opposite** orders — `spec_md.py` runs
+  `autolink_urls(md_safe_text(text))` while `plan_md.py` / `summary_md.py` run
+  `md_safe_text(autolink_urls(text))`. Both were wrong for a URL carrying an
+  underscore: the plan order backticked inside the link
+  (`<https://e.com/`some_path`>`) and the spec order truncated it at the first
+  underscore (`<https://e.com/>`some_path``), silently pointing a committed
+  artifact's link at the wrong address. `md_safe_text` now carves out URLs —
+  bare or already `<…>`-wrapped — exactly as it already carved out code spans,
+  so both orders produce identical, intact links. Caught by end-to-end
+  verification (t19), not by any task's own acceptance criteria.
 
 ## [0.20.1] - 2026-07-20
 

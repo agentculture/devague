@@ -122,3 +122,108 @@ def test_missing_cli_emits_install_hint(tmp_path: Path) -> None:
     proc = run("show", cwd=tmp_path, env=env)
     assert proc.returncode != 0
     assert "devague CLI not found" in proc.stderr
+
+
+# ── t19: SKILL.md must describe the surface the CLI actually ships ────────────
+#
+# The moves table in this skill went stale across several releases: it still
+# taught `plan reject` as single-id ("loop for batches") after devague#86 made
+# it transactional and multi-id, and never gained `defer` (#85), `amend`,
+# `deliverables`, `depend --remove`, or `risk --amend` (#84). That matters more
+# here than in most docs: guildmaster re-broadcasts this skill to every repo in
+# the mesh, so a stale instruction propagates the very workaround the release
+# removed. These tests pin the skill text against the live CLI surface.
+
+SKILL_MD = REPO_ROOT / ".claude" / "skills" / "spec-to-plan" / "SKILL.md"
+
+
+def _skill_text() -> str:
+    return SKILL_MD.read_text(encoding="utf-8")
+
+
+def _moves_table_first_cells() -> str:
+    """The first column of every row in the ``### Moves`` table, joined.
+
+    Rows legitimately pack two moves into one cell (``show`` / ``list``,
+    ``learn`` / ``explain``), so membership is checked against the whole
+    first-column text rather than against a row prefix.
+    """
+    lines = _skill_text().splitlines()
+    start = next(i for i, ln in enumerate(lines) if ln.strip() == "### Moves")
+    cells: list[str] = []
+    for ln in lines[start:]:
+        if not ln.startswith("|"):
+            if cells:  # the table ended
+                break
+            continue
+        cells.append(ln.split("|")[1])
+    return "\n".join(cells)
+
+
+def test_skill_md_exists() -> None:
+    assert SKILL_MD.is_file()
+
+
+@pytest.mark.parametrize(
+    "move",
+    [
+        "new",
+        "task",
+        "instruct",
+        "accept",
+        "amend",
+        "depend",
+        "cover",
+        "defer",
+        "confirm",
+        "reject",
+        "risk",
+        "converge",
+        "export",
+        "waves",
+        "deliverables",
+        "status",
+        "show",
+        "list",
+        "learn",
+        "explain",
+    ],
+)
+def test_skill_md_moves_table_names_every_shipped_plan_move(move: str) -> None:
+    # Every subcommand `devague plan --help` registers must appear in the
+    # skill's Moves table, or an operator driving from the skill cannot reach it.
+    cells = _moves_table_first_cells()
+    assert f"`{move}" in cells, f"'{move}' missing from the SKILL.md moves table"
+
+
+def test_skill_md_does_not_teach_the_single_id_reject_workaround() -> None:
+    # devague#86: `plan confirm`/`plan reject` are transactional and multi-id.
+    text = _skill_text()
+    assert "one task id per call" not in text
+    assert "loop for batches" not in text
+
+
+def test_skill_md_documents_transactional_multi_id_confirm_reject() -> None:
+    text = _skill_text()
+    assert "transactional" in text
+    assert "`confirm <tN> [<tN>…]`" in text
+
+
+def test_skill_md_documents_defer_as_the_honest_scoping_move() -> None:
+    # devague#85: the gate rewards a task that *mentions* a target it does not
+    # deliver. The skill must point at `defer`, not at faking coverage.
+    text = _skill_text()
+    assert "defer" in text
+    assert "Deferred targets" in text
+    assert "out_of_scope` *risk* does **not** excuse a target" in text
+
+
+def test_skill_md_documents_live_frame_cover_validation() -> None:
+    # devague#90: `cover` validates against the live frame, not the seed snapshot.
+    assert "live" in _skill_text().lower()
+    assert "grew after seeding" in _skill_text()
+
+
+def test_skill_md_documents_risk_amend() -> None:
+    # devague#84 comment: a risk whose text names a rotated task id is amendable.
+    assert "--amend <rN>" in _skill_text()

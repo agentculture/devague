@@ -268,3 +268,82 @@ def test_md_safe_text_is_idempotent_on_mixed_content() -> None:
 def test_md_safe_text_noop_on_clean_text() -> None:
     text = "Ship the feature with no special characters"
     assert md_safe_text(text) == text
+
+
+# ── #94: md_safe_text composed with autolink_urls (URLs carrying underscores) ─
+#
+# The renderers compose these two passes in *opposite* orders — spec_md.py runs
+# ``autolink_urls(md_safe_text(text))`` while plan_md.py and summary_md.py run
+# ``md_safe_text(autolink_urls(text))``. Before #94 neither pass knew about the
+# other, so an underscore inside a URL path was treated as an identifier to wrap
+# in a code span: the plan order corrupted the link
+# ("<https://e.com/`some_path`>") and the spec order truncated it at the first
+# underscore ("<https://e.com/>`some_path`"), silently pointing a committed
+# artifact's link at the wrong address. Both orders must now leave the URL
+# byte-identical and agree with each other.
+
+
+def _both_orders(text: str) -> tuple[str, str]:
+    """(plan_md/summary_md order, spec_md order) for the same input."""
+    return md_safe_text(autolink_urls(text)), autolink_urls(md_safe_text(text))
+
+
+def test_underscore_url_survives_plan_order_composition() -> None:
+    plan_order, _ = _both_orders("see https://example.com/some_path/file_name for details")
+    assert plan_order == "see <https://example.com/some_path/file_name> for details"
+
+
+def test_underscore_url_survives_spec_order_composition() -> None:
+    _, spec_order = _both_orders("see https://example.com/some_path/file_name for details")
+    assert spec_order == "see <https://example.com/some_path/file_name> for details"
+
+
+def test_dunder_url_survives_both_orders() -> None:
+    text = "https://raw.githubusercontent.com/org/repo/main/__init__.py"
+    plan_order, spec_order = _both_orders(text)
+    assert plan_order == f"<{text}>"
+    assert spec_order == f"<{text}>"
+
+
+def test_both_composition_orders_agree_on_underscore_urls() -> None:
+    for text in (
+        "docs at https://example.com/a_b",
+        "see https://example.com/some_path/file_name for details",
+        "https://raw.githubusercontent.com/org/repo/main/__init__.py",
+        "trailing https://example.com/a_b. next sentence",
+        "two https://e.com/a_b and https://f.com/c_d urls",
+    ):
+        plan_order, spec_order = _both_orders(text)
+        assert plan_order == spec_order, text
+
+
+def test_url_protection_does_not_disable_identifier_wrapping_elsewhere() -> None:
+    # The carve-out is scoped to the URL itself — prose identifiers outside it
+    # must still be wrapped, or the #87 fix would regress.
+    plan_order, spec_order = _both_orders("https://example.com/a_b then _read_file in prose")
+    assert plan_order == spec_order
+    assert "<https://example.com/a_b>" in plan_order
+    assert "`_read_file`" in plan_order
+
+
+def test_url_inside_code_span_stays_literal_in_both_orders() -> None:
+    text = "code `https://example.com/a_b` stays literal, _read_file wraps"
+    plan_order, spec_order = _both_orders(text)
+    assert plan_order == spec_order
+    assert "`https://example.com/a_b`" in plan_order
+    assert "<https://example.com/a_b>" not in plan_order
+
+
+def test_markdown_link_destination_still_escapes_to_literal_prose() -> None:
+    # Protecting the URL must not turn a claim that merely *mentions* link
+    # syntax into a live link — the brackets keep their pre-#94 escaping.
+    plan_order, spec_order = _both_orders("a [link](https://example.com/a_b) and _read_file")
+    assert plan_order == spec_order
+    assert plan_order.startswith("a \\[link\\](https://example.com/a_b)")
+
+
+def test_composition_is_idempotent_in_both_orders() -> None:
+    text = "see https://example.com/some_path/file_name and _read_file"
+    plan_order, spec_order = _both_orders(text)
+    assert md_safe_text(plan_order) == plan_order
+    assert autolink_urls(spec_order) == spec_order
