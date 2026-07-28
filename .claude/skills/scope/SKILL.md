@@ -83,11 +83,14 @@ of the method: no wizard.)
    `devague new "<announcement>" --title "<short>"` (this is also `/think`'s
    first move) — scope entries live on the frame, so it must exist first.
    Record each explored surface as a first-class finding:
-   `` `devague scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]` ``
+   `` `devague scope "<surface>" --finding "<text>" [--seeds <id> ...]` ``
    — text that **cites the surface explored** ("the CLI stays deterministic
    per issue 20; scope exploration is agent-side" beats "we won't overreach").
    Capture the claim it seeded first (`capture --kind ...`), then pass its id
-   to `--seeds` — an unknown seed id is refused with a hint. Provenance, not
+   to `--seeds`; a finding you routed to a hard question instead (the
+   "genuinely unknown" branch above) links the same way — `--seeds` accepts a
+   claim id (`c*`) **or** a claim-attached hard-question id (`q*`, #84) — and
+   an unknown seed id is refused with a hint. Provenance, not
    generic disclaimers: a reviewer should be able to trace every boundary claim
    back to something you read. **This move is always the main agent's, never a
    subagent's** — when step 2 fanned out, the main agent writes the finding
@@ -112,7 +115,8 @@ already exist, so run `devague new` first:
 | Move | What it does |
 |------|--------------|
 | `devague scope "<surface>" --finding "<text>"` | Record a finding on the current frame. |
-| `devague scope "<surface>" --finding "<text>" --seeds <claim-id> [<claim-id> ...]` | Record a finding, linking it to the claim id(s) it went on to seed. An unknown seed id is refused with a hint (`run 'devague show' to see valid claim ids`). |
+| `devague scope "<surface>" --finding "<text>" --seeds <id> [<id> ...]` | Record a finding, linking it to what it went on to seed — a claim id (`c*`) or a claim-attached hard-question id (`q*`, #84), so a finding routed to `interrogate --hard-question` keeps its provenance link too. An unknown seed id is refused with a hint (`run 'devague show' to see valid claim ids`). |
+| `devague scope --amend <sN> --finding "<corrected>"` | Replace an entry's finding in place — same `id`, `surface`, and `seeds` (#84). Use this instead of recording a second entry that says "supersedes s18"; there is no revision trail here, unlike claim `amend`. |
 | `devague scope --list [--json]` | Read every recorded entry back. |
 
 Boundary / non-goal / in-scope claims still land the same way they always
@@ -126,6 +130,16 @@ followed*:
 | out of scope (must not change) | `capture --kind boundary` / `--kind non_goal` |
 | genuinely unknown, needs a user decision | `question "<text>"` (later `question --resolve <qid> --decision "<text>"`) |
 | genuinely unknown, not decidable now | `park "<text>" --kind unknown_blocking\|unknown_nonblocking` |
+
+**Which `q*` ids `--seeds` accepts.** Two independent things mint `qN` ids and
+both start counting at `q1`: **claim-attached** hard questions
+(`interrogate <cN> --hard-question "<text>"`) and the separate durable
+`.devague/questions/<slug>.md` artifact (`devague question`). `scope --seeds`
+resolves against the **claim-attached** ones only. So when you want a
+"needs a user decision" finding to carry a provenance link, raise it with
+`interrogate --hard-question` on the claim it hangs off and seed that id —
+seeding a `devague question` id would either be refused or, worse, match an
+unrelated claim-attached question with the same number.
 
 ## Hard rules (do not violate)
 

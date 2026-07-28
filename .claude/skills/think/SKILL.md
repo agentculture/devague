@@ -45,11 +45,15 @@ generic disclaimers). Small ideas skip it and start here — no wizard. Findings
 now land on the frame itself through the shipped `devague scope` move: start
 the frame with `new` first (scope entries live on it, like any other claim),
 then record each explored surface with
-`` `devague scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]` ``
-— `--seeds` links the finding to claim ids it went on to seed, and an unknown
-seed id is refused with a hint. Read every recorded entry back with
-`` `scope --list [--json]` ``. (From the sharper end-to-end method spec,
-devague#53, task t3.)
+`` `devague scope "<surface>" --finding "<text>" [--seeds <id> ...]` ``
+— `--seeds` links the finding to what it went on to seed: a claim id (`c*`)
+**or** a claim-attached hard-question id (`q*`, for a finding that routed to
+`interrogate --hard-question` because it needed a user decision rather than a
+claim). An unknown seed id is refused with a hint. Read every recorded entry
+back with `` `scope --list [--json]` ``, and correct a wrong finding in place
+with `` `scope --amend <sN> --finding "<corrected>"` `` instead of recording a
+second entry that says "supersedes". (From the sharper end-to-end method spec,
+devague#53, task t3; `q*` seeds and `--amend` from #84.)
 
 ## How to run
 
@@ -74,10 +78,12 @@ for portable resolution.
 |------|--------------|
 | `new "<announcement>" [--title "<short>"]` | Start a frame from the announcement (the first move). Seeds an auto-confirmed `announcement` claim. Always pass `--title` (see *Export hygiene*). |
 | `capture --kind <kind> "<text>" [--instruction "<text>"]` | Record + classify a claim. `--origin llm` lands it as `proposed`. `--instruction` attaches verbatim working guidance (how to verify/implement the claim) at creation time. |
+| `amend <cN> [--text "<text>"] [--kind <kind>] [--reason "<why>"]` | Correct a claim **without** churning its id — its honesty conditions, hard questions, `instruction`, and inbound `scope --seeds` refs all survive. The superseded `(text, kind)` pair is kept on `Claim.revisions`; a **confirmed** claim flips back to `proposed` (re-confirm it). Prefer this over reject-and-recapture. |
 | `interrogate <id> --honesty "…"` | Attach an honesty condition (what must be true). Also `--hard-question`, `--risk`, `--contradicts`, `--blocking`. `--instruction "<text>"` adds/updates a claim's or honesty condition's instruction — `<id>` may be a claim (`c*`) or, with `--instruction` alone, an honesty condition (`h*`). |
-| `confirm <id> [<id>…]` / `reject <id> [<id>…]` | Resolve one or more claims (`c*`) / honesty conditions (`h*`) in one **transactional** call. **User-only decision.** Also `confirm --from-review <file>` to apply an edited review artifact. |
+| `interrogate <cN> --resolve <qN> [--decision "<text>"]` | Close out that claim's blocking hard question — it stays on record (rendered `(resolved)` in the export) and stops blocking `converge`. **User-only decision**, the claim-level twin of `park --resolve`; never invoke it on your own. Mutually exclusive with the add-flags above. |
+| `confirm <id> [<id>…]` / `reject <id> [<id>…]` | Resolve one or more claims (`c*`) / honesty conditions (`h*`) in one **transactional** call. **User-only decision.** Rejecting a claim cascades onto its still-live honesty conditions and unresolved hard questions (echoed as `(also rejected: h3, q1)`). Also `confirm --from-review <file>` to apply an edited review artifact. |
 | `review` | List every **proposed** (unconfirmed) claim + honesty condition with ids and their instructions (`--json` too); writes a non-authoritative artifact to `.devague/reviews/<slug>.md`. Un-gated; never mutates. |
-| `scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]` / `scope --list` | Record (or list) a pre-frame exploration finding as first-class state (see the scope pointer above). |
+| `scope "<surface>" --finding "<text>" [--seeds <c*\|q*> ...]` / `scope --list` / `scope --amend <sN> --finding "<text>"` | Record (or list, or correct in place) a pre-frame exploration finding as first-class state (see the scope pointer above). |
 | `question "<text>"` | Record / list / `--resolve` a pending user decision as durable working state in `.devague/questions/<slug>.md`. |
 | `park "<text>" --kind <kind>` | Move uncertainty into first-class open vagueness instead of forcing an answer. |
 | `park --resolve <vN> --decision "<text>" [--claim <cN>]` | Close out a decided parked item — stays on record with its resolution, drops out of the convergence gate; `--claim` links the deciding claim. **User-only decision**, same as `confirm`. |
