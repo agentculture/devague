@@ -85,11 +85,13 @@ def emit_status(
     if result.ready:
         lines.append("convergence: PASSED ✓")
         lines += [f"  ⚠ {w}" for w in result.warnings]
+        lines += [f"  ~ {p}" for p in result.parked_items]
         lines.append(f"next move: {labels.export_move}")
     else:
         lines.append(f"convergence: NOT passed — {len(result.blockers)} gap(s):")
         lines += [f"  - {b}" for b in result.blockers]
         lines += [f"  ⚠ {w}" for w in result.warnings]
+        lines += [f"  ~ {p}" for p in result.parked_items]
         if result.required_next_moves:
             lines += [
                 "",

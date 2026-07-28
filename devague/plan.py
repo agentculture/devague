@@ -91,6 +91,14 @@ class CoverageTarget:
     id: str
     kind: str  # a claim kind, or "honesty" for an honesty condition
     text: str
+    # Per-target deferral (issue #85, schema v4): a coverage target the operator
+    # has deliberately excluded from THIS plan's gate — typically because it
+    # belongs to a later milestone plan — with the reason recorded so the
+    # exclusion is visible in the exported artifact instead of silently implied
+    # by absence. False/"" means "not deferred"; never fabricated when absent.
+    # Set/cleared only via ``Plan.defer_target`` / ``Plan.undefer_target``.
+    deferred: bool = False
+    deferred_reason: str = ""
 
 
 @dataclass
@@ -193,6 +201,45 @@ class Plan:
 
     def find_target(self, target_id: str) -> Optional[CoverageTarget]:
         return next((tg for tg in self.targets if tg.id == target_id), None)
+
+    def defer_target(self, target_id: str, reason: str) -> CoverageTarget:
+        """Deliberately exclude ``target_id`` from this plan's coverage gate (issue
+        #85): a milestone-scoped plan should not have to fake coverage of a target
+        that genuinely belongs to a later plan just to satisfy the gate.
+
+        Mirrors ``resolve_risk``'s / ``Frame.resolve_vagueness``'s fail-closed
+        contract: an unknown target id raises, and deferring an already-deferred
+        target raises rather than silently overwriting its recorded reason — call
+        ``undefer_target`` first to change your mind, so the reversal is itself an
+        explicit, auditable move rather than a quiet edit. The caller (the CLI
+        ``plan defer`` move) is responsible for validating ``target_id`` against
+        the live frame first (the same seam ``cover`` already uses), so by the
+        time this runs the target is guaranteed to exist in ``self.targets``.
+        """
+        target = self.find_target(target_id)
+        if target is None:
+            raise ValueError(f"unknown coverage target: {target_id!r}")
+        if target.deferred:
+            raise ValueError(f"coverage target {target_id!r} is already deferred")
+        target.deferred = True
+        target.deferred_reason = reason
+        return target
+
+    def undefer_target(self, target_id: str) -> CoverageTarget:
+        """Reverse a prior ``defer_target`` call, returning the target to the
+        active coverage gate.
+
+        Fails closed on an unknown id and on a target that was never deferred —
+        the same "no silent no-op" contract as every other resolve/undo move here.
+        """
+        target = self.find_target(target_id)
+        if target is None:
+            raise ValueError(f"unknown coverage target: {target_id!r}")
+        if not target.deferred:
+            raise ValueError(f"coverage target {target_id!r} is not deferred")
+        target.deferred = False
+        target.deferred_reason = ""
+        return target
 
     @staticmethod
     def _validate_acceptance_index(task: Task, index: int) -> None:

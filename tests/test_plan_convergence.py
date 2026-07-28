@@ -460,3 +460,96 @@ def test_resolved_risk_excluded_from_parked_items() -> None:
     p.resolve_risk(r.id, "decided: not an issue")
     res2 = evaluate(p)
     assert not any("a non-blocking risk" in item for item in res2.parked_items)
+
+
+# ── per-target deferral (issue #85, t9) ───────────────────────────────────────
+
+
+def test_deferred_target_does_not_block_convergence() -> None:
+    """Baseline: an uncovered, deferred target is not a coverage blocker."""
+    p = _converging()  # one task covering c1
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="worktree concurrency"))
+    p.defer_target("c47", "Milestone 3: worktree mechanics")
+    res = evaluate(p)
+    assert res.ready is True, f"expected convergence; blockers: {res.blockers}"
+    assert not any("c47" in b for b in res.blockers)
+
+
+def test_uncovered_undeferred_target_still_blocks() -> None:
+    """A target that is neither covered nor deferred remains a real blocker —
+    deferral must be an explicit decision, not a side effect of merely existing."""
+    p = _converging()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="worktree concurrency"))
+    res = evaluate(p)
+    assert res.ready is False
+    assert any("coverage target c47" in b and "has no confirmed task" in b for b in res.blockers)
+
+
+def test_deferred_target_appears_in_parked_items_distinctly() -> None:
+    """A deferred target surfaces in parked_items labeled distinctly from a plain
+    unresolved risk, so a reviewer can tell 'deliberately deferred' apart from
+    'not yet covered' or 'an open risk' at a glance."""
+    p = _converging()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="worktree concurrency"))
+    p.defer_target("c47", "Milestone 3: worktree mechanics")
+    res = evaluate(p)
+    matches = [item for item in res.parked_items if "c47" in item]
+    assert matches, f"expected a parked item naming c47, got: {res.parked_items}"
+    assert "deferred" in matches[0]
+    assert "Milestone 3: worktree mechanics" in matches[0]
+
+
+def test_deferred_target_absent_from_required_next_moves() -> None:
+    """A deferred target generates no follow-up hint — it is not a blocker."""
+    p = _converging()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="worktree concurrency"))
+    p.defer_target("c47", "Milestone 3")
+    res = evaluate(p)
+    assert not any("c47" in m for m in res.required_next_moves)
+
+
+def test_undeferred_target_blocks_again() -> None:
+    """Reversing a deferral (``undefer_target``) restores the target as a real
+    blocker — deferral is not a permanent write-off once undone."""
+    p = _converging()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="worktree concurrency"))
+    p.defer_target("c47", "Milestone 3")
+    p.undefer_target("c47")
+    res = evaluate(p)
+    assert res.ready is False
+    assert any("coverage target c47" in b for b in res.blockers)
+
+
+def test_shell_cli_shape_90_covered_12_deferred_converges() -> None:
+    """The exact repro shape from issue #85's comment thread: a plan confirmed
+    and complete — 19 tasks / 9 waves in the real repro, simplified here to one
+    covering task per covered target — with 90 of 102 coverage targets covered
+    and the remaining 12 deliberately deferred to a later milestone. It must
+    converge cleanly, with zero coverage blockers and every deferred target
+    named in parked_items.
+    """
+    p = Plan(slug="milestone-scoped", title="Milestone-scoped plan", frame_slug="milestone-scoped")
+    covered_ids = [f"c{i}" for i in range(1, 91)]
+    deferred_ids = [f"c{i}" for i in range(91, 103)]
+    for tid in covered_ids:
+        p.targets.append(CoverageTarget(id=tid, kind="requirement", text=f"target {tid}"))
+    for tid in deferred_ids:
+        p.targets.append(CoverageTarget(id=tid, kind="requirement", text=f"target {tid}"))
+    assert len(p.targets) == 102
+
+    t = p.add_task("deliver the in-scope milestones")
+    t.instruction = "implement every in-scope target"
+    p.add_acceptance(t, "all 90 in-scope targets pass their own acceptance checks")
+    for tid in covered_ids:
+        p.add_cover(t, tid)
+
+    for tid in deferred_ids:
+        p.defer_target(tid, "belongs to a later milestone plan")
+
+    res = evaluate(p)
+    assert res.ready is True, f"expected convergence; blockers: {res.blockers}"
+    assert res.blockers == []
+    deferred_parked = [item for item in res.parked_items if "deferred" in item]
+    assert len(deferred_parked) == 12
+    for tid in deferred_ids:
+        assert any(tid in item for item in deferred_parked)

@@ -12,7 +12,28 @@ from typing import Optional
 
 from devague.frame import Frame
 from devague.plan import Plan, Task
-from devague.render._md_safety import autolink_urls, heading_safe
+from devague.render._md_safety import autolink_urls, heading_safe, md_safe_text
+
+
+def _verbatim(text: str) -> str:
+    """Render-only escaping for free-form verbatim body text (#64 + #87): wrap
+    bare URLs first (MD034), then apply the identifier/control-char escaper
+    (MD037/MD050) on top of the result. Plain prose and plain URLs — the common
+    cases, and the ones under test — are unaffected by the order; the one
+    combination this does not special-case is a URL whose host/path itself
+    contains an underscore, since ``autolink_urls``'s ``<...>`` wrapper is not
+    code-span-aware the way ``md_safe_text``'s own carving is.
+    """
+    return md_safe_text(autolink_urls(text))
+
+
+def _verbatim_heading(text: str) -> str:
+    """Like :func:`_verbatim` but for heading text: autolink + strip
+    markdownlint's MD026 trailing punctuation (``heading_safe``), then wrap any
+    underscore/dunder identifiers in code spans on top (MD037/MD050) — the
+    #87-comment MD050 regression this task exists to close for task headings.
+    """
+    return md_safe_text(heading_safe(text))
 
 
 def _topo_order(tasks: list[Task]) -> list[Task]:
@@ -59,15 +80,15 @@ def _task_lines(task: Task) -> list[str]:
         # t9), mirroring t6's nested ``- instruction:`` bullet in spec_md.py /
         # frame_md.py. A task is a heading rather than a claim bullet, so the
         # instruction renders as the first body bullet, immediately under it.
-        body.append(f"- instruction: {autolink_urls(task.instruction)}")
+        body.append(f"- instruction: {_verbatim(task.instruction)}")
     if task.deps:
         body.append(f"- depends on: {', '.join(task.deps)}")
     if task.covers:
         body.append(f"- covers: {', '.join(task.covers)}")
     if task.acceptance_criteria:
         body.append("- acceptance:")
-        body.extend(f"  - {autolink_urls(a)}" for a in task.acceptance_criteria)
-    lines = [f"### {task.id} — {heading_safe(task.summary)}{mark}"]
+        body.extend(f"  - {_verbatim(a)}" for a in task.acceptance_criteria)
+    lines = [f"### {task.id} — {_verbatim_heading(task.summary)}{mark}"]
     if body:
         # Blank line between the heading and its list (MD022/MD032).
         lines += ["", *body]
@@ -75,16 +96,34 @@ def _task_lines(task: Task) -> list[str]:
     return lines
 
 
+def _deferred_targets_lines(plan: Plan) -> list[str]:
+    """The ``## Deferred targets`` section (issue #85): every coverage target
+    deliberately excluded from this plan's gate (``plan defer``), named with its
+    reason so the exclusion is visible in the exported artifact rather than
+    implied by absence. Renders nothing when the plan has no deferred targets.
+    """
+    deferred = [tg for tg in plan.targets if tg.deferred]
+    if not deferred:
+        return []
+    out = ["## Deferred targets", ""]
+    for tg in deferred:
+        out.append(
+            f"- `{tg.id}` ({tg.kind}): {_verbatim(tg.text)}"
+            f" — deferred: {_verbatim(tg.deferred_reason)}"
+        )
+    return out + [""]
+
+
 def render_plan(plan: Plan, frame: Optional[Frame]) -> str:
     out = [
-        f"# Build Plan — {heading_safe(plan.title)}",
+        f"# Build Plan — {_verbatim_heading(plan.title)}",
         "",
         f"slug: `{plan.slug}` · status: `{plan.status}` · from frame: `{plan.frame_slug}`",
         "",
     ]
     ann = _announcement(frame)
     if ann:
-        out += ["> " + autolink_urls(ann), ""]
+        out += ["> " + _verbatim(ann), ""]
 
     tasks = [t for t in plan.tasks if t.status != "rejected"]
     if tasks:
@@ -92,11 +131,13 @@ def render_plan(plan: Plan, frame: Optional[Frame]) -> str:
         for t in _topo_order(tasks):
             out.extend(_task_lines(t))
 
+    out += _deferred_targets_lines(plan)
+
     if plan.risks:
         out += ["## Risks", ""]
         for r in plan.risks:
             suffix = f" (task {r.task_id})" if r.task_id else ""
-            out.append(f"- [{r.kind}] {autolink_urls(r.text)}{suffix}")
+            out.append(f"- [{r.kind}] {_verbatim(r.text)}{suffix}")
         out.append("")
 
     return "\n".join(out).rstrip() + "\n"

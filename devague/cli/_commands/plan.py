@@ -57,6 +57,10 @@ PLAN_MOVES = {
         "(may flip confirmed -> proposed)."
     ),
     "cover": "Mark a task as covering a coverage target (c*/h*).",
+    "defer": (
+        "Deliberately exclude a coverage target from this plan's gate "
+        "(--reason TEXT), or --undo to reverse it."
+    ),
     "confirm": "Confirm a task (user-only — no fabricated rigor).",
     "reject": "Reject a task.",
     "risk": (
@@ -105,8 +109,35 @@ def _load_source_frame(slug: str) -> Frame:
         ) from None
 
 
+def _merge_deferred_state(old_targets: list, new_targets: list) -> list:
+    """Carry persisted per-target deferral state across a live-frame re-derive
+    (issue #85).
+
+    :func:`targets_from_frame` builds brand-new ``CoverageTarget`` instances from
+    the frame every time — deriving them fresh is exactly what makes frame drift
+    detectable — but that also means the freshly derived objects know nothing
+    about deferral, which lives only on the plan's own record (``plan.targets``,
+    persisted via ``plan_store``). Without this, every ``converge``/``export``/
+    ``status`` call would silently drop a recorded deferral the moment it
+    re-derives targets from the live frame. A deferred target the live re-derive
+    no longer contains (the underlying claim was rejected, say) simply has
+    nothing to carry forward — its deferral becomes moot, not resurrected as a
+    phantom target.
+    """
+    deferred = {tg.id: (tg.deferred, tg.deferred_reason) for tg in old_targets if tg.deferred}
+    for tg in new_targets:
+        if tg.id in deferred:
+            tg.deferred, tg.deferred_reason = deferred[tg.id]
+    return new_targets
+
+
 def _live(plan: Plan):
-    """Re-load the source frame and re-derive targets; guard against frame drift."""
+    """Re-load the source frame and re-derive targets; guard against frame drift.
+
+    Re-derived targets are freshly built by :func:`targets_from_frame` and so
+    start with no deferral state; :func:`_merge_deferred_state` carries the
+    plan's persisted deferrals across the re-derive (issue #85) before returning.
+    """
     frame = _load_source_frame(plan.frame_slug)
     fres = evaluate_frame(frame)
     if not fres.ready:
@@ -115,7 +146,8 @@ def _live(plan: Plan):
             f"source frame '{frame.slug}' has regressed below convergence",
             f"re-converge the frame first: devague converge --frame {frame.slug}",
         )
-    return frame, targets_from_frame(frame)
+    targets = _merge_deferred_state(plan.targets, targets_from_frame(frame))
+    return frame, targets
 
 
 def _live_frame_and_targets(plan: Plan):
@@ -130,9 +162,15 @@ def _live_frame_and_targets(plan: Plan):
     corrupt source frame still raises via :func:`_load_source_frame` — there is
     no state to synthesize from at all, which is a different failure than "not
     converged yet."
+
+    Like :func:`_live`, deferred state is carried across the re-derive (issue
+    #85) — otherwise a previously deferred target would count as a fresh
+    blocker here, making the ``converged`` bool this feeds disagree with what
+    ``converge``/``status``/``export`` report for the exact same plan.
     """
     frame = _load_source_frame(plan.frame_slug)
-    return frame, targets_from_frame(frame)
+    targets = _merge_deferred_state(plan.targets, targets_from_frame(frame))
+    return frame, targets
 
 
 def _require_task(plan: Plan, tid: str):
@@ -439,6 +477,64 @@ def cmd_plan_cover(args: argparse.Namespace) -> int:
         emit_result({"id": task.id, "covers": task.covers}, json_mode=True)
     else:
         emit_result(f"{task.id} covers {args.target}", json_mode=False)
+    return 0
+
+
+def cmd_plan_defer(args: argparse.Namespace) -> int:
+    """``plan defer <target-id> --reason "<text>"`` — deliberately exclude a
+    coverage target from this plan's gate, or ``--undo`` to reverse a prior
+    deferral (issue #85: a milestone-scoped plan should not have to fake
+    coverage of a target that genuinely belongs to a later plan just to make
+    the gate go green).
+
+    Mirrors ``plan risk --resolve``'s shape and house style: the target is
+    validated the same way ``cover`` validates one (:func:`_require_target` —
+    stored snapshot first, live frame fallback, refreshing the persisted
+    snapshot on a live hit), and the create/undo paths share one subcommand the
+    way risk's create/resolve paths do.
+    """
+    plan = resolve_plan(args.plan)
+    _require_target(plan, args.id)  # may refresh + persist plan.targets in-memory
+    if args.undo:
+        return _cmd_plan_defer_undo(args, plan)
+    if not args.reason:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "--reason is required to defer a coverage target",
+            f'pass --reason "<why this is out of scope>", '
+            f"or --undo to reverse a prior defer for {args.id}",
+        )
+    try:
+        target = plan.defer_target(args.id, args.reason)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current targets"
+        ) from exc
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(
+            {"id": target.id, "deferred": target.deferred, "reason": target.deferred_reason},
+            json_mode=True,
+        )
+    else:
+        emit_result(f"{target.id} -> deferred ({target.deferred_reason})", json_mode=False)
+    return 0
+
+
+def _cmd_plan_defer_undo(args: argparse.Namespace, plan: Plan) -> int:
+    """``plan defer <target-id> --undo`` — reverse a prior deferral, returning
+    the target to the active coverage gate."""
+    try:
+        target = plan.undefer_target(args.id)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current targets"
+        ) from exc
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result({"id": target.id, "deferred": target.deferred}, json_mode=True)
+    else:
+        emit_result(f"{target.id} -> no longer deferred", json_mode=False)
     return 0
 
 
@@ -856,6 +952,17 @@ def register(sub: argparse._SubParsersAction) -> None:
     pc.add_argument("--target", required=True, help="Coverage target id (c*/h*).")
     _plan_opt(pc)
     pc.set_defaults(func=cmd_plan_cover)
+
+    pdf = psub.add_parser(
+        "defer", help="Deliberately exclude a coverage target from this plan's gate."
+    )
+    pdf.add_argument("id", help="Coverage target id (c*/h*).")
+    pdf.add_argument("--reason", help="Why this target is out of scope for this plan.")
+    pdf.add_argument(
+        "--undo", action="store_true", help="Reverse a prior defer instead of creating one."
+    )
+    _plan_opt(pdf)
+    pdf.set_defaults(func=cmd_plan_defer)
 
     pcf = psub.add_parser("confirm", help="Confirm a task (user-only).")
     pcf.add_argument("id", help=_TASK_ID_HELP)
