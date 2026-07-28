@@ -581,3 +581,48 @@ def test_amend_scope_entry_empty_finding_raises() -> None:
     f.add_scope_entry("a.py", "first")
     with pytest.raises(ValueError, match="requires a new finding"):
         f.amend_scope_entry("s1", "")
+
+
+# --- scope --seeds accepts question ids (issue #84's "smaller, related gap") -
+
+
+def test_find_hard_question_looks_up_across_all_claims() -> None:
+    f = Frame(slug="s", title="t")
+    c1 = f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_claim("audience", "devs", origin="user")  # c2
+    q = f.add_hard_question(c1, "is this real?", blocking=True)  # q1
+    assert f.find_hard_question("q1") is q
+
+
+def test_find_hard_question_unknown_id_returns_none() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("announcement", "x", origin="user")  # c1
+    assert f.find_hard_question("q99") is None
+
+
+def test_add_scope_entry_accepts_hard_question_seed_id() -> None:
+    # The /scope routing table sends a "needs a user decision" finding to the
+    # `question` move rather than `capture` — a scope entry recording that
+    # finding must be able to cite the hard question it seeded, not just a
+    # claim (#84).
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_hard_question(c, "is this real?", blocking=True)  # q1
+    entry = f.add_scope_entry("some/surface.py", "a finding", seeds=["q1"])
+    assert entry.seeds == ["q1"]
+
+
+def test_add_scope_entry_accepts_mixed_claim_and_question_seeds() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_hard_question(c, "is this real?", blocking=True)  # q1
+    entry = f.add_scope_entry("some/surface.py", "a finding", seeds=["c1", "q1"])
+    assert entry.seeds == ["c1", "q1"]
+
+
+def test_add_scope_entry_unknown_question_seed_id_raises() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("announcement", "x", origin="user")  # c1 — no hard question exists
+    with pytest.raises(ValueError, match="unknown seed claim id"):
+        f.add_scope_entry("some/surface.py", "a finding", seeds=["q1"])
+    assert f.scope_entries == []  # transactional: nothing recorded on the refusal

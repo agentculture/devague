@@ -3,9 +3,11 @@
 The pre-frame exploration leg (`/scope`, #53 t3). Recording is deterministic:
 no LLM calls, no subprocess, no filesystem exploration — the move only
 RECORDS what the operator already explored read-only. Optional ``--seeds``
-links the entry to claim ids it went on to seed; an unknown seed id is
-refused with a hint rather than silently accepted (see
-``Frame.add_scope_entry``).
+links the entry to the claim ids (``c*``) or claim-attached hard-question
+ids (``q*``, issue #84's "smaller, related gap" — the branch a
+"needs a user decision" finding routes to via ``question`` rather than
+``capture``) it went on to seed; an unknown seed id is refused with a hint
+rather than silently accepted (see ``Frame.add_scope_entry``).
 
 ``--amend <sN> --finding <text>`` (issue #84) replaces an existing entry's
 finding in place — same id, same ``surface``, same ``seeds`` — instead of
@@ -120,8 +122,8 @@ def register(sub: argparse._SubParsersAction) -> None:
         "--seeds",
         nargs="*",
         default=None,
-        metavar="CLAIM_ID",
-        help="Claim ids this finding seeded (must already exist).",
+        metavar="ID",
+        help="Claim ids (c*) or hard-question ids (q*) this finding seeded (must already exist).",
     )
     p.add_argument(
         "--amend",
