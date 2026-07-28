@@ -16,6 +16,10 @@ from typing import Optional
 # v4 (issue-backlog-sweep t2) is reserved for t4's HardQuestion resolution field;
 # t2 itself only bumps the number, hardens store.load's check-before-parse order,
 # and makes HardQuestion/Vagueness loading tolerant of unknown keys like Claim.
+# Claim.revisions (t6, issue #84 — the `amend` move) is added WITHOUT a bump:
+# it is purely additive with a `default_factory=list`, and `from_dict` below
+# loads it tolerantly (`c.get("revisions", [])`), so a v4 frame written before
+# t6 still loads cleanly with an empty revision trail.
 SCHEMA_VERSION = 4
 
 CLAIM_KINDS = (
@@ -87,6 +91,26 @@ class HardQuestion:
 
 
 @dataclass
+class ClaimRevision:
+    """A superseded ``(text, kind)`` pair, recorded when a claim is amended.
+
+    ``amend`` corrects a claim WITHOUT churning its id (issue #84) — but the
+    frame is meant to be an evidence trail, so the value it had before the
+    amend is kept here rather than silently overwritten. This is
+    deliberately a *lightweight* marker, not a full audit log: it captures
+    only the two fields ``Frame.amend_claim`` can change, plus an optional
+    operator-authored ``reason``, and carries no timestamp or actor (no
+    other Frame entity does either). A full revision history keyed by time
+    would be a schema change; this is not one — it is a plain list field
+    with a ``default_factory``, so older frames simply load with ``[]``.
+    """
+
+    text: str
+    kind: str
+    reason: str = ""
+
+
+@dataclass
 class Claim:
     id: str
     kind: str
@@ -100,6 +124,11 @@ class Claim:
     # implement this claim. Empty string means "no instruction" — never
     # fabricated or defaulted to prose (#53 t1, c10/h3).
     instruction: str = ""
+    # Prior (text, kind) pairs superseded by `Frame.amend_claim` (t6, #84), in
+    # chronological order (most recent supersession last). Empty for a claim
+    # that has never been amended — the common case, and every claim
+    # predating t6.
+    revisions: list[ClaimRevision] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.kind not in CLAIM_KINDS:
@@ -189,6 +218,56 @@ class Frame:
 
     def find_claim(self, cid: str) -> Optional[Claim]:
         return next((c for c in self.claims if c.id == cid), None)
+
+    def amend_claim(
+        self,
+        claim_id: str,
+        *,
+        text: Optional[str] = None,
+        kind: Optional[str] = None,
+        reason: str = "",
+    ) -> tuple[Claim, bool]:
+        """Correct a claim's ``text`` and/or ``kind`` in place (issue #84).
+
+        Unlike reject-and-recapture, amending never changes the claim's id,
+        so its honesty conditions, hard questions, ``instruction``, and any
+        scope-entry ``seeds`` that cite this id all keep pointing at
+        something real — the whole point of the move. ``origin`` is never
+        touched here: correcting what a claim says is not the same fact as
+        who originally proposed it, and there is no flag that can reach it.
+
+        Amending a claim that is currently ``confirmed`` flips it back to
+        ``proposed`` — the same re-confirm rule ``interrogate --instruction``
+        already applies to a change of that weight (the issue calls this
+        "good behaviour and the right precedent"). Returns ``(claim,
+        flipped)`` so the caller can echo the transition the same way
+        ``interrogate.py``'s ``_apply_instruction`` does; ``flipped`` is
+        ``False`` for a claim that was already ``proposed``/``rejected``.
+
+        The superseded ``(text, kind)`` pair is appended to
+        ``claim.revisions`` (with ``reason``, if given) rather than
+        discarded — the frame is an evidence trail, not just current state.
+
+        Raises ``ValueError`` if the claim id is unknown, if neither
+        ``text`` nor ``kind`` is given (nothing to amend), or if ``kind``
+        names an unknown claim kind.
+        """
+        claim = self.find_claim(claim_id)
+        if claim is None:
+            raise ValueError(f"unknown claim id: {claim_id!r}")
+        if text is None and kind is None:
+            raise ValueError("amend requires a new text and/or a new kind")
+        if kind is not None and kind not in CLAIM_KINDS:
+            raise ValueError(f"unknown claim kind: {kind!r}")
+        claim.revisions.append(ClaimRevision(text=claim.text, kind=claim.kind, reason=reason))
+        if text is not None:
+            claim.text = text
+        if kind is not None:
+            claim.kind = kind
+        flipped = claim.status == "confirmed"
+        if flipped:
+            claim.status = "proposed"
+        return claim, flipped
 
     def find_honesty(self, hid: str) -> Optional[HonestyCondition]:
         return next((h for h in self._all_honesty() if h.id == hid), None)
@@ -293,6 +372,33 @@ class Frame:
             seeds=seed_ids,
         )
         self.scope_entries.append(entry)
+        return entry
+
+    def find_scope_entry(self, sid: str) -> Optional[ScopeEntry]:
+        return next((e for e in self.scope_entries if e.id == sid), None)
+
+    def amend_scope_entry(self, entry_id: str, finding: str) -> ScopeEntry:
+        """Replace a scope entry's ``finding`` in place (issue #84).
+
+        Before this move, correcting a scope finding meant recording a
+        *second* entry that says "supersedes s18" — the exported spec then
+        carries both the wrong entry and its correction, and the reader has
+        to notice the word "supersedes". Amending replaces the finding in
+        place instead: same id, same ``surface``, same ``seeds`` — nothing
+        else about the entry changes. (Unlike ``amend_claim``, a scope entry
+        carries no ``status``/``origin`` to protect and nothing else in the
+        method's contract calls for a revision trail here — see the CLI
+        module for that decision.)
+
+        Raises ``ValueError`` if the entry id is unknown or ``finding`` is
+        empty.
+        """
+        entry = self.find_scope_entry(entry_id)
+        if entry is None:
+            raise ValueError(f"unknown scope entry id: {entry_id!r}")
+        if not finding:
+            raise ValueError("amend requires a new finding")
+        entry.finding = finding
         return entry
 
     def set_status(self, item_id: str, status: str) -> bool:
@@ -417,6 +523,17 @@ def from_dict(d: dict) -> Frame:
             links=list(c.get("links", [])),
             # v1 frames predate this field (#53 t1); default to "no instruction".
             instruction=c.get("instruction", ""),
+            revisions=[
+                ClaimRevision(
+                    text=r["text"],
+                    kind=r["kind"],
+                    reason=r.get("reason", ""),
+                )
+                # Pre-t6 frames (#84) predate this field entirely; default to
+                # an empty trail, the same tolerant pattern as hard_questions
+                # above.
+                for r in c.get("revisions", [])
+            ],
         )
         for c in d.get("claims", [])
     ]
