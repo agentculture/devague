@@ -349,3 +349,92 @@ def test_interrogate_no_flags_errors(tmp_path, monkeypatch, capsys) -> None:
     rc = main(["interrogate", "c1"])
     assert rc == 1
     assert "nothing to interrogate" in capsys.readouterr().err
+
+
+# --- issue-backlog-sweep (t4): interrogate --resolve, #48/#52 ----------------
+
+
+def test_interrogate_resolve_marks_hard_question_resolved_and_echoes_transition(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["interrogate", "c1", "--hard-question", "is this real?", "--blocking"])  # q1
+    capsys.readouterr()
+    rc = main(["interrogate", "c1", "--resolve", "q1", "--decision", "yes, verified"])
+    assert rc == 0
+    assert capsys.readouterr().out.strip() == "q1 on c1 -> resolved"
+    f = store.load(store.current_slug())
+    q = f.claims[0].hard_questions[0]
+    assert q.resolved is True
+    assert q.resolution == "yes, verified"
+
+
+def test_interrogate_resolve_json_parity(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["interrogate", "c1", "--hard-question", "is this real?", "--blocking"])  # q1
+    capsys.readouterr()
+    rc = main(["interrogate", "c1", "--resolve", "q1", "--decision", "yes, verified", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["claim"] == "c1"
+    assert payload["id"] == "q1"
+    assert payload["resolved"] is True
+    assert payload["resolution"] == "yes, verified"
+
+
+def test_interrogate_resolve_without_decision_defaults_to_empty(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    # Unlike park --resolve, --decision is optional here.
+    _seed(monkeypatch, tmp_path)
+    main(["interrogate", "c1", "--hard-question", "is this real?", "--blocking"])  # q1
+    capsys.readouterr()
+    rc = main(["interrogate", "c1", "--resolve", "q1"])
+    assert rc == 0
+    f = store.load(store.current_slug())
+    assert f.claims[0].hard_questions[0].resolved is True
+    assert f.claims[0].hard_questions[0].resolution == ""
+
+
+def test_interrogate_resolve_unknown_claim_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()
+    rc = main(["interrogate", "c99", "--resolve", "q1", "--decision", "x"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown claim" in err and "hint" in err
+
+
+def test_interrogate_resolve_unknown_qid_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()
+    rc = main(["interrogate", "c1", "--resolve", "q9", "--decision", "x"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "no such hard question" in err and "hint" in err
+
+
+def test_interrogate_resolve_already_resolved_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["interrogate", "c1", "--hard-question", "is this real?", "--blocking"])  # q1
+    main(["interrogate", "c1", "--resolve", "q1", "--decision", "first"])
+    capsys.readouterr()
+    rc = main(["interrogate", "c1", "--resolve", "q1", "--decision", "second"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "already" in err and "hint" in err
+    f = store.load(store.current_slug())
+    assert f.claims[0].hard_questions[0].resolution == "first"  # untouched
+
+
+def test_interrogate_resolve_combined_with_add_flag_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["interrogate", "c1", "--hard-question", "is this real?", "--blocking"])  # q1
+    capsys.readouterr()
+    rc = main(["interrogate", "c1", "--resolve", "q1", "--decision", "x", "--honesty", "must hold"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "cannot be combined" in err
+    f = store.load(store.current_slug())
+    assert f.claims[0].hard_questions[0].resolved is False
+    assert f.claims[0].honesty_conditions == []  # nothing was smuggled in either
