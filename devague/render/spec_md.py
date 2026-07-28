@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
+from devague.contested import ContestedMarker
 from devague.frame import (
     VAGUENESS_KINDS,
     Claim,
@@ -11,6 +14,14 @@ from devague.frame import (
     Vagueness,
 )
 from devague.render._md_safety import autolink_urls, heading_safe, md_safe_text
+
+# Keyed by confirmed claim id -> the approved deviations naming it in their
+# ``--affects`` (#92). Pure input data: this module never derives it itself
+# (that would mean I/O inside a renderer) — the caller (``devague export``)
+# computes it via ``devague.contested.find_contested_markers`` and passes it
+# in, the same way ``render.deliverables_md`` takes a already-loaded ``Plan``
+# rather than loading one itself.
+ContestedMap = dict[str, list[ContestedMarker]]
 
 
 def _safe(text: str) -> str:
@@ -47,35 +58,65 @@ def _instruction_lines(instruction: str, indent: str = "  ") -> list[str]:
     return [f"{indent}- instruction: {_safe(instruction)}"] if instruction else []
 
 
-def _claim_bullets(claims: list[Claim], prefix: str = "") -> list[str]:
+def _contested_marker_text(m: ContestedMarker) -> str:
+    """The shared ``contested by `dN` (classification): reason`` fragment —
+    used both as a nested bullet under an affected claim and (prefixed with
+    ``>``) under the announcement blockquote.
+    """
+    text = f"contested by `{m.deviation_id}`"
+    if m.classification:
+        text += f" ({m.classification})"
+    return f"{text}: {_safe(m.reason)}"
+
+
+def _contested_lines(
+    claim_id: str, contested: Optional[ContestedMap], indent: str = "  "
+) -> list[str]:
+    """Nested ``- ⚠ contested by ...`` bullets for a confirmed claim named in an
+    approved deviation's ``--affects`` (#92), or nothing when the claim isn't
+    contested — never fabricated filler, mirrors ``_instruction_lines``. The
+    spec is never rewritten to match what execution later learned (the #92
+    maintainer ruling); this only ever adds a read-only pointer to the ledger
+    entry that superseded the claim.
+    """
+    entries = (contested or {}).get(claim_id, [])
+    return [f"{indent}- ⚠ {_contested_marker_text(m)}" for m in entries]
+
+
+def _claim_bullets(
+    claims: list[Claim], prefix: str = "", contested: Optional[ContestedMap] = None
+) -> list[str]:
     out: list[str] = []
     for c in claims:
         out.append(f"- {prefix}{_safe(c.text)}")
         out += _instruction_lines(c.instruction)
+        out += _contested_lines(c.id, contested)
     return out
 
 
-def _claim_section(heading: str, claims: list[Claim]) -> list[str]:
+def _claim_section(
+    heading: str, claims: list[Claim], contested: Optional[ContestedMap] = None
+) -> list[str]:
     """A ``## heading`` + bullet-list block of claims, each with its own nested
     instruction bullet when it carries one, or nothing when empty.
     """
     if not claims:
         return []
-    return [f"## {heading}", "", *_claim_bullets(claims), ""]
+    return [f"## {heading}", "", *_claim_bullets(claims, contested=contested), ""]
 
 
-def _before_after(frame: Frame) -> list[str]:
+def _before_after(frame: Frame, contested: Optional[ContestedMap] = None) -> list[str]:
     befores = _claims(frame, "before_state")
     afters = _claims(frame, "after_state")
     if not (befores or afters):
         return []
     lines = ["## Before → After", ""]
-    lines += _claim_bullets(befores, prefix="Before: ")
-    lines += _claim_bullets(afters, prefix="After: ")
+    lines += _claim_bullets(befores, prefix="Before: ", contested=contested)
+    lines += _claim_bullets(afters, prefix="After: ", contested=contested)
     return lines + [""]
 
 
-def _requirements_block(frame: Frame) -> list[str]:
+def _requirements_block(frame: Frame, contested: Optional[ContestedMap] = None) -> list[str]:
     """Requirement claims (confirmed) with their confirmed honesty conditions nested."""
     reqs = _claims(frame, "requirement")
     if not reqs:
@@ -84,6 +125,7 @@ def _requirements_block(frame: Frame) -> list[str]:
     for c in reqs:
         out.append(f"- {_safe(c.text)}")
         out += _instruction_lines(c.instruction)
+        out += _contested_lines(c.id, contested)
         for h in c.honesty_conditions:
             if h.status != "confirmed":
                 continue
@@ -222,7 +264,17 @@ def _scope_section(frame: Frame) -> list[str]:
     return out + [""]
 
 
-def render_spec(frame: Frame) -> str:
+def render_spec(frame: Frame, contested: Optional[ContestedMap] = None) -> str:
+    """Render the buildable spec.
+
+    ``contested`` (#92) maps a confirmed claim id to the approved deviations
+    naming it — computed by the caller via
+    :func:`devague.contested.find_contested_markers` and passed in verbatim;
+    this function stays a pure function of its two inputs, no I/O of its own
+    (the same layering ``render.deliverables_md`` uses for a ``Plan``).
+    Omitted/``None`` means "no contested markers" — every existing caller
+    that renders a frame with no notion of deviations is unaffected.
+    """
     out: list[str] = [f"# {_safe_heading(frame.title)}", ""]
     ann_claims = _claims(frame, "announcement")
     if ann_claims:
@@ -230,20 +282,22 @@ def render_spec(frame: Frame) -> str:
         out.append("> " + _safe(ann.text))
         if ann.instruction:
             out.append(f"> instruction: {_safe(ann.instruction)}")
+        for m in (contested or {}).get(ann.id, []):
+            out.append(f"> ⚠ {_contested_marker_text(m)}")
         out.append("")
-    out += _claim_section("Audience", _claims(frame, "audience"))
-    out += _before_after(frame)
-    out += _claim_section("Why it matters", _claims(frame, "why_it_matters"))
-    out += _requirements_block(frame)
+    out += _claim_section("Audience", _claims(frame, "audience"), contested)
+    out += _before_after(frame, contested)
+    out += _claim_section("Why it matters", _claims(frame, "why_it_matters"), contested)
+    out += _requirements_block(frame, contested)
     out += _honesty_section("Honesty conditions", _other_honesty(frame))
-    out += _claim_section("Success signals", _claims(frame, "success_signal"))
-    out += _claim_section("Scope / boundaries", _claims(frame, "boundary"))
-    out += _claim_section("Non-goals", _claims(frame, "non_goal"))
-    out += _claim_section("Assumptions", _claims(frame, "assumption"))
+    out += _claim_section("Success signals", _claims(frame, "success_signal"), contested)
+    out += _claim_section("Scope / boundaries", _claims(frame, "boundary"), contested)
+    out += _claim_section("Non-goals", _claims(frame, "non_goal"), contested)
+    out += _claim_section("Assumptions", _claims(frame, "assumption"), contested)
     out += _scope_section(frame)
-    out += _claim_section("Decisions", _claims(frame, "decision"))
+    out += _claim_section("Decisions", _claims(frame, "decision"), contested)
     out += _hard_questions(frame)
-    out += _claim_section("Open questions", _claims(frame, "open_question"))
+    out += _claim_section("Open questions", _claims(frame, "open_question"), contested)
     out += _open_parks(frame)
     out += _resolved_vagueness_section(frame)
     return "\n".join(out).rstrip() + "\n"

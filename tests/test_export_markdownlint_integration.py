@@ -261,3 +261,61 @@ def test_repeated_export_is_byte_stable_and_frame_json_content_unchanged(
 
     result = _run_markdownlint(spec_path)
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+# ── t14 (#92): a re-exported spec with a contested-by-deviation marker ──────
+
+
+def _build_and_export_contested_frame(monkeypatch, tmp_path) -> Path:
+    """A converged, exported frame carrying an approved deviation (#92) whose
+    ``--affects`` names a confirmed claim and whose ``reason`` is hostile
+    input (an underscore identifier, a bare URL, trailing punctuation) --
+    proves the contested marker's own ``_safe()`` composition holds under the
+    same hostile-input contract every other verbatim field in this file is
+    pinned against.
+    """
+    monkeypatch.chdir(tmp_path)
+    main(["new", "Ship the contested marker end to end."])
+    for kind in ("audience", "after_state", "before_state", "boundary", "success_signal"):
+        main(["capture", "--kind", kind, f"{kind} text.", "--origin", "user"])
+    frame = store.load(store.current_slug())
+    for c in frame.claims:
+        main(["interrogate", c.id, "--honesty", "must hold.", "--origin", "user"])
+    slug = store.current_slug()
+
+    main(["plan", "new", "--frame", slug])
+    plan = plan_store.load(slug)
+    args = ["plan", "task", "cover everything.", "--accept", "all good."]
+    for tg in plan.targets:
+        args += ["--covers", tg.id]
+    main(args)
+
+    main(
+        [
+            "deviate",
+            "walk transcripts recursively",
+            "--task",
+            "t1",
+            "--reason",
+            "measured 408 of 695 files (59%) below __the_depth__ the walker "
+            "searches, see https://example.com/report.",
+            "--affects",
+            "c1",
+            "--classification",
+            "risky",
+        ]
+    )
+
+    main(["converge"])
+    main(["export"])
+    frame = store.load(slug)
+    return Path("docs/specs") / f"{frame.created[:10]}-{frame.slug}.md"
+
+
+def test_contested_marker_export_passes_markdownlint_cli2(tmp_path, monkeypatch) -> None:
+    spec_path = _build_and_export_contested_frame(monkeypatch, tmp_path)
+    assert spec_path.exists()
+    out = spec_path.read_text(encoding="utf-8")
+    assert "contested by `d1`" in out
+    result = _run_markdownlint(spec_path)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
