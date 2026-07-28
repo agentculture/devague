@@ -85,15 +85,66 @@ def test_plan_new_happy_and_collision(tmp_path, monkeypatch, capsys) -> None:
 
 # ── task / accept / depend / cover ──────────────────────────────────────────
 def test_task_inline_flags_and_json(tmp_path, monkeypatch, capsys) -> None:
+    """`--dep` must reference an EXISTING task (issue #86) — this test used to
+    pin the broken behavior (`--dep t9` where t9 never existed, asserting
+    rc == 0). Flipped to depend on a real task (t1) instead, still exercising
+    every other inline flag (`--accept`/`--covers`/`--json`) together."""
     slug = _converged_frame(monkeypatch, tmp_path)
     main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "dep target"])  # t1 — a real task to depend on
     capsys.readouterr()
     rc = main(
-        ["plan", "task", "core", "--accept", "works", "--covers", "c1", "--dep", "t9", "--json"]
+        ["plan", "task", "core", "--accept", "works", "--covers", "c1", "--dep", "t1", "--json"]
     )
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["id"] == "t1" and payload["covers"] == ["c1"] and payload["deps"] == ["t9"]
+    assert payload["id"] == "t2" and payload["covers"] == ["c1"] and payload["deps"] == ["t1"]
+
+
+def test_task_dep_self_cycle_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `--dep` naming the id the about-to-be-created task will
+    itself receive (a batch-authoring mispredict) must refuse at creation
+    time, with the reporter's suggested error shape, not silently record a
+    self-cycle that only surfaces later at `plan waves`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "task", "core", "--dep", "t1"])  # this call would BE t1
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: task cannot depend on itself" in err
+    assert "hint: --dep t1 names the id this task will receive" in err
+    assert plan_store.load(slug).tasks == []  # nothing was persisted
+
+
+def test_task_dep_unknown_id_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: a typo'd `--dep` (naming a task id that does not exist at
+    all) must refuse at creation time with an actionable hint, rather than
+    silently recording a dangling dep that only surfaces later at `plan
+    waves`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "task", "core", "--dep", "t4"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: unknown task: t4" in err
+    assert "hint: --dep t4 does not match any existing task" in err
+    assert plan_store.load(slug).tasks == []  # nothing was persisted
+
+
+def test_task_dep_multiple_valid_and_invalid(tmp_path, monkeypatch, capsys) -> None:
+    """A valid `--dep` earlier in the list does not mask a later bad one, and
+    nothing is left half-created when one entry in the batch is invalid."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "root"])  # t1
+    capsys.readouterr()
+    rc = main(["plan", "task", "core", "--dep", "t1", "--dep", "ghost"])
+    assert rc == 1
+    assert "unknown task: ghost" in capsys.readouterr().err
+    plan = plan_store.load(slug)
+    assert len(plan.tasks) == 1  # only t1 exists — the second task was never created
 
 
 def test_task_unknown_cover_target_errors(tmp_path, monkeypatch, capsys) -> None:
@@ -117,6 +168,57 @@ def test_accept_depend_cover_moves(tmp_path, monkeypatch, capsys) -> None:
     assert main(["plan", "cover", "t1", "--target", "c1", "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["covers"] == ["c1"]
+
+
+def test_depend_self_cycle_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `depend <tN> --on <tN>` (an already-assigned task naming
+    itself) must refuse the same way the `plan task --dep` self-cycle does."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1
+    capsys.readouterr()
+    rc = main(["plan", "depend", "t1", "--on", "t1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: task cannot depend on itself" in err
+    assert "hint: --on t1 is the same task" in err
+    assert plan_store.load(slug).find_task("t1").deps == []
+
+
+def test_depend_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `depend <tN> --on <tM>` where <tM> does not exist must refuse
+    at authoring time with an actionable hint, rather than recording a dangling
+    dep that only surfaces later at `plan waves`/`plan converge`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1
+    capsys.readouterr()
+    rc = main(["plan", "depend", "t1", "--on", "t99"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: unknown task: t99" in err
+    assert "hint: --on t99 does not match any existing task" in err
+    assert plan_store.load(slug).find_task("t1").deps == []
+
+
+def test_depend_remove_repairs_preexisting_dangling_dep(tmp_path, monkeypatch, capsys) -> None:
+    """Design note: a plan authored before this fix existed (or hand-edited
+    JSON) can already carry a dangling dep that could no longer be CREATED
+    through the CLI today — `depend --remove` must still repair it. The
+    dangling dep is injected directly into the store to simulate that
+    pre-existing damage, since `plan task --dep`/`depend --on` now refuse to
+    create it."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1
+    capsys.readouterr()
+    plan = plan_store.load(slug)
+    plan.find_task("t1").deps.append("ghost")  # simulate pre-existing damage
+    plan_store.save(plan)
+
+    rc = main(["plan", "depend", "t1", "--on", "ghost", "--remove"])
+    assert rc == 0
+    assert plan_store.load(slug).find_task("t1").deps == []
 
 
 def test_moves_on_unknown_task_error(tmp_path, monkeypatch, capsys) -> None:
@@ -713,7 +815,16 @@ def test_waves_does_not_mutate_plan_state(tmp_path, monkeypatch, capsys) -> None
 
 
 def test_waves_dangling_dep_errors(tmp_path, monkeypatch, capsys) -> None:
-    _plan_with_deps(monkeypatch, tmp_path, capsys, [["t99"]])
+    """A dangling dep on a task id that never existed is still caught by
+    `plan waves`'s dependency-graph gate — but issue #86 means `plan task
+    --dep`/`depend --on` now refuse to CREATE one, so it is injected directly
+    into the store here to simulate a plan carrying pre-existing damage (from
+    before this fix, or hand-edited JSON)."""
+    slug = _plan_with_deps(monkeypatch, tmp_path, capsys, [[]])
+    plan = plan_store.load(slug)
+    plan.find_task("t1").deps.append("t99")
+    plan_store.save(plan)
+
     assert main(["plan", "waves", "--json"]) == 1
     assert "unknown task" in capsys.readouterr().err
 
