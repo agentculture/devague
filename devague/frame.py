@@ -13,7 +13,10 @@ from typing import Optional
 # on a frame whose schema_version is newer/unknown (see #5, honesty condition h15).
 # v2 (#53 t1) adds Frame.scope_entries and Claim/HonestyCondition.instruction.
 # v3 (resolve-parked-vagueness t1) adds Vagueness.resolved / Vagueness.resolution.
-SCHEMA_VERSION = 3
+# v4 (issue-backlog-sweep t2) is reserved for t4's HardQuestion resolution field;
+# t2 itself only bumps the number, hardens store.load's check-before-parse order,
+# and makes HardQuestion/Vagueness loading tolerant of unknown keys like Claim.
+SCHEMA_VERSION = 4
 
 CLAIM_KINDS = (
     "announcement",
@@ -312,14 +315,38 @@ def from_dict(d: dict) -> Frame:
                 )
                 for h in c.get("honesty_conditions", [])
             ],
-            hard_questions=[HardQuestion(**q) for q in c.get("hard_questions", [])],
+            hard_questions=[
+                HardQuestion(
+                    id=q["id"],
+                    text=q["text"],
+                    resolved=q.get("resolved", False),
+                    blocking=q.get("blocking", False),
+                )
+                # Tolerant of unknown keys the same way Claim is above (t2, issue
+                # #53 issue-backlog-sweep): a future field (e.g. t4's resolution)
+                # must not raw-TypeError a same-or-older-version load.
+                for q in c.get("hard_questions", [])
+            ],
             links=list(c.get("links", [])),
             # v1 frames predate this field (#53 t1); default to "no instruction".
             instruction=c.get("instruction", ""),
         )
         for c in d.get("claims", [])
     ]
-    vag = [Vagueness(**v) for v in d.get("open_vagueness", [])]
+    vag = [
+        Vagueness(
+            id=v["id"],
+            text=v["text"],
+            kind=v["kind"],
+            claim_id=v.get("claim_id"),
+            resolved=v.get("resolved", False),
+            resolution=v.get("resolution", ""),
+            resolution_claim_id=v.get("resolution_claim_id"),
+        )
+        # Tolerant of unknown keys the same way Claim is above (t2) — see the
+        # hard_questions comment just above for why this matters.
+        for v in d.get("open_vagueness", [])
+    ]
     scope_entries = [
         ScopeEntry(
             id=s["id"],

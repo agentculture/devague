@@ -10,7 +10,7 @@ import re
 import time
 from pathlib import Path
 
-from devague.frame import SCHEMA_VERSION, Frame, from_dict, to_dict
+from devague.frame import SCHEMA_VERSION, Frame, from_dict, parse_schema_version, to_dict
 
 FRAMES_DIR = Path(".devague/frames")
 CURRENT = Path(".devague/current")
@@ -133,18 +133,25 @@ def load(slug: str) -> Frame:
     p = path_for(slug)
     if not p.exists():
         raise FileNotFoundError(slug)
-    frame = from_dict(json.loads(p.read_text(encoding="utf-8")))
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    # Check the declared schema_version against the RAW dict before constructing
+    # the domain object: from_dict raises a bare TypeError on an unknown key
+    # buried in a nested hard_questions/open_vagueness entry, so parsing a
+    # genuinely newer-schema file first would surface that opaque crash instead
+    # of the intended fail-closed IncompatibleSchemaError (t2, issue-backlog-sweep).
+    version = parse_schema_version(raw, SCHEMA_VERSION)
+    if version > SCHEMA_VERSION:
+        raise IncompatibleSchemaError(
+            f"frame {slug!r} uses schema_version {version}, but this "
+            f"devague supports up to {SCHEMA_VERSION}; upgrade devague to read it"
+        )
+    frame = from_dict(raw)
     validate_slug(frame.slug)  # reject a tampered file whose internal slug escapes
     if frame.slug != slug:
         # The embedded slug drives save() and the current-frame pointer; a file
         # whose internal slug disagrees with its filename could silently redirect
         # a later save onto a different frame, so reject it.
         raise ValueError(f"frame slug mismatch: file {slug!r} declares slug {frame.slug!r}")
-    if frame.schema_version > SCHEMA_VERSION:
-        raise IncompatibleSchemaError(
-            f"frame {slug!r} uses schema_version {frame.schema_version}, but this "
-            f"devague supports up to {SCHEMA_VERSION}; upgrade devague to read it"
-        )
     return frame
 
 

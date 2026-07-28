@@ -29,7 +29,10 @@ from devague.frame import (
 # plan-engine peer of frame.SCHEMA_VERSION). v2 (#53 t2) adds Task.instruction.
 # v3 (resolve-parked-vagueness t2) adds PlanRisk.resolved/resolution — the
 # plan-side twin of frame.SCHEMA_VERSION's Vagueness.resolved/resolution bump.
-PLAN_SCHEMA_VERSION = 3
+# v4 (issue-backlog-sweep t2) is reserved for t9's per-target deferral state; t2
+# itself only bumps the number and hardens plan_store.load's check-before-parse
+# order (the plan-side twin of the same frame.SCHEMA_VERSION v4 hardening).
+PLAN_SCHEMA_VERSION = 4
 
 TASK_STATUSES = ("proposed", "confirmed", "rejected")
 # Risks reuse the frame's open-vagueness kinds: a plan risk is the task-level peer of
