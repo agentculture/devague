@@ -136,6 +136,98 @@ def test_scope_frame_flag_targets_named_frame(tmp_path, monkeypatch, capsys) -> 
     assert store.load("second-idea").scope_entries == []
 
 
+# --- scope --amend (issue #84): replace a finding in place --------------------
+
+
+def test_scope_amend_replaces_finding_in_place(tmp_path, monkeypatch) -> None:
+    _seed(monkeypatch, tmp_path)
+    slug = store.current_slug()
+    main(["capture", "--kind", "before_state", "count is 16", "--origin", "user"])  # c2
+    main(
+        [
+            "scope",
+            "colleague subprocess inventory",
+            "--finding",
+            "16 spawn literals",
+            "--seeds",
+            "c2",
+        ]
+    )  # s1
+    rc = main(
+        [
+            "scope",
+            "--amend",
+            "s1",
+            "--finding",
+            "21 spawn literals across 15 modules",
+        ]
+    )
+    assert rc == 0
+    frame = store.load(slug)
+    entry = frame.scope_entries[0]
+    assert entry.id == "s1"  # no id churn
+    assert entry.surface == "colleague subprocess inventory"  # untouched
+    assert entry.finding == "21 spawn literals across 15 modules"
+    assert entry.seeds == ["c2"]  # untouched
+
+
+def test_scope_amend_json_shape(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["scope", "a.py", "--finding", "first"])
+    capsys.readouterr()
+    rc = main(["scope", "--amend", "s1", "--finding", "corrected", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "id": "s1",
+        "surface": "a.py",
+        "finding": "corrected",
+        "seeds": [],
+    }
+
+
+def test_scope_amend_echoes_text_mode(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["scope", "a.py", "--finding", "first"])
+    capsys.readouterr()
+    rc = main(["scope", "--amend", "s1", "--finding", "corrected"])
+    assert rc == 0
+    assert capsys.readouterr().out.strip() == "amended s1 (a.py)"
+
+
+def test_scope_amend_unknown_id_errors_with_hint(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    rc = main(["scope", "--amend", "s99", "--finding", "corrected"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown scope entry id" in err
+    assert "hint:" in err
+
+
+def test_scope_amend_missing_finding_errors(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["scope", "a.py", "--finding", "first"])
+    capsys.readouterr()
+    rc = main(["scope", "--amend", "s1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "--finding" in err
+    frame = store.load(store.current_slug())
+    assert frame.scope_entries[0].finding == "first"  # untouched
+
+
+def test_scope_amend_with_surface_positional_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["scope", "a.py", "--finding", "first"])
+    capsys.readouterr()
+    rc = main(["scope", "stray-surface", "--amend", "s1", "--finding", "corrected"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "not both" in err
+    frame = store.load(store.current_slug())
+    assert frame.scope_entries[0].finding == "first"  # untouched
+
+
 def test_scope_deterministic_no_subprocess_or_llm(tmp_path, monkeypatch) -> None:
     # Guard against accidental scope creep: recording must never shell out or
     # touch the filesystem beyond the frame store itself.

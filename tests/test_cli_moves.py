@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from devague import store
 from devague.cli import main
 
@@ -500,3 +502,138 @@ def test_interrogate_resolve_combined_with_add_flag_refused(tmp_path, monkeypatc
     f = store.load(store.current_slug())
     assert f.claims[0].hard_questions[0].resolved is False
     assert f.claims[0].honesty_conditions == []  # nothing was smuggled in either
+
+
+# --- amend (issue #84): correct a claim without id churn ----------------------
+
+
+def test_amend_one_move_fixes_a_number_and_keeps_id_and_attachments(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The #84 acceptance criterion: correcting one number costs exactly one
+    move, and the id/attachments/inbound seed all survive it."""
+    _seed(monkeypatch, tmp_path)  # announcement c1
+    main(["capture", "--kind", "before_state", "count is 16", "--origin", "user"])  # c2, confirmed
+    main(["interrogate", "c2", "--honesty", "count is independently verified"])  # h1
+    main(["interrogate", "c2", "--instruction", "verify via grep -c"])
+    main(["scope", "colleague/tools.py", "--finding", "16 spawn literals", "--seeds", "c2"])  # s1
+    capsys.readouterr()
+
+    rc = main(["amend", "c2", "--text", "count is 21"])  # the single corrective move
+
+    assert rc == 0
+    f = store.load(store.current_slug())
+    claim = f.find_claim("c2")
+    assert claim.id == "c2"  # no id churn
+    assert claim.text == "count is 21"
+    assert claim.origin == "user"  # never changes silently
+    assert [h.id for h in claim.honesty_conditions] == ["h1"]
+    assert claim.honesty_conditions[0].text == "count is independently verified"
+    assert claim.instruction == "verify via grep -c"
+    assert f.scope_entries[0].seeds == ["c2"]  # inbound seed still resolves
+
+
+def test_amend_confirmed_claim_flips_to_proposed_and_echoes(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(
+        ["capture", "--kind", "boundary", "policy gate order", "--origin", "user"]
+    )  # c2, confirmed
+    capsys.readouterr()
+    rc = main(["amend", "c2", "--text", "policy gate order, corrected"])
+    assert rc == 0
+    err = capsys.readouterr().err
+    assert "c2 was confirmed" in err
+    assert "flips it back to proposed" in err
+    assert "devague confirm c2" in err
+    f = store.load(store.current_slug())
+    assert f.find_claim("c2").status == "proposed"
+
+
+def test_amend_proposed_claim_does_not_flip_and_no_echo(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "boundary", "x", "--origin", "llm"])  # c2, proposed
+    capsys.readouterr()
+    rc = main(["amend", "c2", "--text", "x, corrected"])
+    assert rc == 0
+    assert capsys.readouterr().err == ""
+    f = store.load(store.current_slug())
+    assert f.find_claim("c2").status == "proposed"
+
+
+def test_amend_kind_only(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "boundary", "x", "--origin", "user"])
+    capsys.readouterr()
+    rc = main(["amend", "c2", "--kind", "requirement"])
+    assert rc == 0
+    f = store.load(store.current_slug())
+    assert f.find_claim("c2").kind == "requirement"
+    assert f.find_claim("c2").text == "x"
+
+
+def test_amend_json_shape(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "boundary", "x", "--origin", "user"])
+    capsys.readouterr()
+    rc = main(["amend", "c2", "--text", "x, corrected", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "id": "c2",
+        "kind": "boundary",
+        "text": "x, corrected",
+        "origin": "user",
+        "status": "proposed",
+        "flipped": True,
+    }
+
+
+def test_amend_reason_recorded_on_revision(tmp_path, monkeypatch) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "before_state", "count is 16", "--origin", "user"])
+    main(["amend", "c2", "--text", "count is 21", "--reason", "reviewer caught a miscount"])
+    f = store.load(store.current_slug())
+    claim = f.find_claim("c2")
+    assert claim.revisions[0].text == "count is 16"
+    assert claim.revisions[0].kind == "before_state"
+    assert claim.revisions[0].reason == "reviewer caught a miscount"
+    assert claim.text == "count is 21"
+
+
+def test_amend_missing_text_and_kind_errors(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    capsys.readouterr()
+    rc = main(["amend", "c1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "requires a new text" in err
+    assert "--text" in err and "--kind" in err
+
+
+def test_amend_unknown_id_errors_with_hint(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    rc = main(["amend", "c99", "--text", "x"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown claim id" in err
+    assert "hint:" in err and "devague show" in err
+
+
+def test_amend_invalid_kind_choice_errors(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["amend", "c1", "--kind", "bogus"])
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "bogus" in err
+
+
+def test_amend_does_not_touch_hard_questions(tmp_path, monkeypatch) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "boundary", "x", "--origin", "user"])
+    main(["interrogate", "c2", "--hard-question", "what if empty?", "--blocking"])  # q1
+    main(["amend", "c2", "--text", "x, corrected"])
+    f = store.load(store.current_slug())
+    claim = f.find_claim("c2")
+    assert [q.id for q in claim.hard_questions] == ["q1"]
+    assert claim.hard_questions[0].text == "what if empty?"

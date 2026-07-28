@@ -7,6 +7,7 @@ from devague.frame import (
     SCHEMA_VERSION,
     SPEC_AFFECTING_KINDS,
     Claim,
+    ClaimRevision,
     Frame,
     HonestyCondition,
     Vagueness,
@@ -418,3 +419,165 @@ def test_reject_unknown_id_raises() -> None:
     f = Frame(slug="s", title="t")
     with pytest.raises(ValueError, match="unknown"):
         f.reject("zzz")
+
+
+# --- amend (issue #84): claim + scope-entry correction without id churn -------
+
+
+def test_amend_claim_confirmed_flips_to_proposed_and_reports_flip() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("before_state", "count is 16", origin="user")  # user -> confirmed
+    h = f.add_honesty(c, "count is independently verified", origin="user")
+    c.instruction = "verify via `grep -c literal file.py`"
+    assert c.status == "confirmed"
+
+    claim, flipped = f.amend_claim("c1", text="count is 21")
+
+    assert flipped is True
+    assert claim is c
+    assert claim.id == "c1"  # no id churn
+    assert claim.text == "count is 21"
+    assert claim.status == "proposed"  # flipped, mirroring interrogate --instruction
+    assert claim.origin == "user"  # never changes silently
+    # Every attachment survives, untouched:
+    assert claim.honesty_conditions == [h]
+    assert claim.instruction == "verify via `grep -c literal file.py`"
+
+
+def test_amend_claim_not_confirmed_does_not_flip() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("boundary", "x", origin="llm")  # llm -> proposed
+    claim, flipped = f.amend_claim("c1", text="x, corrected")
+    assert flipped is False
+    assert claim.status == "proposed"
+    assert claim.origin == "llm"
+
+
+def test_amend_claim_rejected_stays_rejected_no_flip() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("boundary", "x", origin="llm")
+    f.reject("c1")
+    claim, flipped = f.amend_claim("c1", text="x, corrected")
+    assert flipped is False
+    assert claim.status == "rejected"
+
+
+def test_amend_claim_kind_only() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("boundary", "x", origin="user")
+    claim, _ = f.amend_claim("c1", kind="requirement")
+    assert claim.kind == "requirement"
+    assert claim.text == "x"  # untouched
+
+
+def test_amend_claim_records_revision_with_reason() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("before_state", "count is 16", origin="user")
+    f.amend_claim("c1", text="count is 21", reason="reviewer caught a miscount")
+    claim = f.find_claim("c1")
+    assert claim.revisions == [
+        ClaimRevision(text="count is 16", kind="before_state", reason="reviewer caught a miscount")
+    ]
+    assert claim.text == "count is 21"  # current value is the corrected one
+
+
+def test_amend_claim_revision_defaults_reason_empty() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("boundary", "x", origin="user")
+    f.amend_claim("c1", text="y")
+    assert f.find_claim("c1").revisions[0].reason == ""
+
+
+def test_amend_claim_multiple_amends_append_to_revisions_in_order() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("boundary", "v1", origin="user")
+    f.amend_claim("c1", text="v2")
+    f.amend_claim("c1", text="v3")
+    claim = f.find_claim("c1")
+    assert [r.text for r in claim.revisions] == ["v1", "v2"]
+    assert claim.text == "v3"
+
+
+def test_amend_claim_preserves_inbound_scope_seed() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("before_state", "count is 16", origin="user")
+    f.add_scope_entry("colleague/tools.py:669-722", "spawn literal count", seeds=["c1"])
+    f.amend_claim("c1", text="count is 21")
+    # The seed reference still resolves to a live (non-rejected) claim — no
+    # id churn means no dangling provenance (the damage issue #84 documents).
+    assert f.scope_entries[0].seeds == ["c1"]
+    assert f.find_claim("c1").status != "rejected"
+
+
+def test_amend_claim_unknown_id_raises() -> None:
+    f = Frame(slug="s", title="t")
+    with pytest.raises(ValueError, match="unknown claim id"):
+        f.amend_claim("c99", text="x")
+
+
+def test_amend_claim_requires_text_or_kind() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("boundary", "x", origin="user")
+    with pytest.raises(ValueError, match="requires a new text"):
+        f.amend_claim("c1")
+
+
+def test_amend_claim_unknown_kind_raises() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("boundary", "x", origin="user")
+    with pytest.raises(ValueError, match="unknown claim kind"):
+        f.amend_claim("c1", kind="bogus")
+
+
+def test_amend_claim_roundtrips_revisions_via_dict() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("before_state", "count is 16", origin="user")
+    f.amend_claim("c1", text="count is 21", reason="miscount")
+    f2 = from_dict(to_dict(f))
+    assert to_dict(f2) == to_dict(f)
+    assert f2.claims[0].revisions[0].text == "count is 16"
+    assert f2.claims[0].revisions[0].reason == "miscount"
+
+
+def test_legacy_claim_dict_without_revisions_loads_with_empty_list() -> None:
+    legacy = {
+        "slug": "s",
+        "title": "t",
+        "claims": [
+            {
+                "id": "c1",
+                "kind": "boundary",
+                "text": "x",
+                "origin": "user",
+                "status": "confirmed",
+            }
+        ],
+        "open_vagueness": [],
+    }
+    f = from_dict(legacy)
+    assert f.claims[0].revisions == []
+
+
+def test_amend_scope_entry_replaces_finding_in_place() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("before_state", "count is 16", origin="user")
+    entry = f.add_scope_entry("colleague subprocess inventory", "16 spawn literals", seeds=["c1"])
+    amended = f.amend_scope_entry("s1", "21 spawn literals across 15 modules")
+    assert amended is entry
+    assert entry.id == "s1"  # no id churn
+    assert entry.surface == "colleague subprocess inventory"  # untouched
+    assert entry.finding == "21 spawn literals across 15 modules"
+    assert entry.seeds == ["c1"]  # untouched
+
+
+def test_amend_scope_entry_unknown_id_raises() -> None:
+    f = Frame(slug="s", title="t")
+    with pytest.raises(ValueError, match="unknown scope entry id"):
+        f.amend_scope_entry("s99", "x")
+
+
+def test_amend_scope_entry_empty_finding_raises() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_scope_entry("a.py", "first")
+    with pytest.raises(ValueError, match="requires a new finding"):
+        f.amend_scope_entry("s1", "")

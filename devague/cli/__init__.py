@@ -54,6 +54,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", parser_class=_DevagueArgumentParser)
 
+    from devague.cli._commands import amend as _amend_cmd
     from devague.cli._commands import capture as _capture_cmd
     from devague.cli._commands import confirm as _confirm_cmd
     from devague.cli._commands import converge as _converge_cmd
@@ -78,6 +79,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _explain_cmd.register(sub)
     _new_cmd.register(sub)
     _capture_cmd.register(sub)
+    _amend_cmd.register(sub)
     _interrogate_cmd.register(sub)
     _confirm_cmd.register(sub)
     _reject_cmd.register(sub)
