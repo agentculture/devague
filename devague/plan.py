@@ -199,6 +199,33 @@ class Plan:
         risk.resolution = resolution
         return risk
 
+    def amend_risk(self, rid: str, text: str) -> PlanRisk:
+        """Correct a risk's ``text`` in place (issue #84 comment): the common
+        case is a risk whose prose names a task id that later rotated (the
+        referenced task was rejected and recreated with a new id during a
+        scope change) — the risk is still substantively correct, only the id
+        it mentions went stale.
+
+        Preserves ``id``, ``kind``, ``task_id``, AND resolution state
+        (``resolved``/``resolution``) verbatim — a resolved risk that gets
+        its text corrected stays resolved; only ``text`` changes. Unlike
+        ``Frame.amend_claim`` (the frame-side sibling move, #84 t6), this is
+        a plain in-place replace with no revision trail: this engine's own
+        precedent for editing an already-recorded entity, ``amend_task``,
+        does not keep one either, and a ``PlanRisk`` has no honesty
+        conditions / hard questions / scope-entry seeds pointing at it the
+        way a ``Claim`` does — ``task_id`` is its only structural link, and
+        that is left untouched by design.
+
+        Raises ``ValueError`` on an unknown risk id — mirroring
+        ``resolve_risk``'s fail-closed contract.
+        """
+        risk = self.find_risk(rid)
+        if risk is None:
+            raise ValueError(f"unknown risk id: {rid!r}")
+        risk.text = text
+        return risk
+
     def find_target(self, target_id: str) -> Optional[CoverageTarget]:
         return next((tg for tg in self.targets if tg.id == target_id), None)
 

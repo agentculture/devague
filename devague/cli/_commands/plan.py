@@ -630,23 +630,27 @@ def cmd_plan_reject(args: argparse.Namespace) -> int:
 
 
 def cmd_plan_risk(args: argparse.Namespace) -> int:
-    """Record a new plan risk, or (``--resolve RID --decision TEXT``) close one
-    out — mirrors ``park --resolve`` (t5) on the risk subcommand.
+    """Record a new plan risk, (``--resolve RID --decision TEXT``) close one
+    out, or (``--amend RID --text TEXT``) correct one's text in place —
+    mirrors ``park --resolve`` (t5) on the risk subcommand.
 
-    ``--kind`` is optional at the parser level (so a bare ``--resolve`` call
-    does not need it), but the create path still requires it — refused here,
-    in the handler, rather than by argparse. The create path (positional text
-    + ``--kind`` + optional ``--task``) is otherwise unchanged.
+    ``--kind`` is optional at the parser level (so a bare ``--resolve``/
+    ``--amend`` call does not need it), but the create path still requires
+    it — refused here, in the handler, rather than by argparse. The create
+    path (positional text + ``--kind`` + optional ``--task``) is otherwise
+    unchanged.
     """
     plan = resolve_plan(args.plan)
     if args.resolve:
         return _cmd_plan_risk_resolve(args, plan)
+    if args.amend:
+        return _cmd_plan_risk_amend(args, plan)
     if not args.text or not args.kind:
         raise DevagueError(
             EXIT_USER_ERROR,
             "text and --kind are required to record a new risk",
-            'pass "<risk text>" --kind <kind>, or --resolve RID --decision "<text>" to '
-            "resolve an existing risk",
+            'pass "<risk text>" --kind <kind>, --amend RID --text "<corrected>" to correct '
+            'an existing risk in place, or --resolve RID --decision "<text>" to resolve one',
         )
     if args.task is not None:
         _require_task(plan, args.task)
@@ -687,6 +691,45 @@ def _cmd_plan_risk_resolve(args: argparse.Namespace, plan: Plan) -> int:
         )
     else:
         emit_result(f"{risk.id} -> resolved ({risk.resolution})", json_mode=False)
+    return 0
+
+
+def _cmd_plan_risk_amend(args: argparse.Namespace, plan: Plan) -> int:
+    """``plan risk --amend RID --text "<corrected>"`` — correct a risk's text
+    in place without touching its id, kind, task link, or resolution state
+    (issue #84 comment: a referenced task id rotated after tasks were
+    rejected and recreated during a scope change).
+
+    Fail-closed, same contract as :meth:`Plan.amend_risk`: a bare ``--amend``
+    without ``--text`` persists nothing, and an unknown id is refused.
+    """
+    if not args.amend_text:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "--text is required to amend a risk",
+            f'pass --text "<corrected text>" for {args.amend}',
+        )
+    try:
+        risk = plan.amend_risk(args.amend, args.amend_text)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current risks"
+        ) from exc
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(
+            {
+                "id": risk.id,
+                "kind": risk.kind,
+                "text": risk.text,
+                "task": risk.task_id,
+                "resolved": risk.resolved,
+                "resolution": risk.resolution,
+            },
+            json_mode=True,
+        )
+    else:
+        emit_result(f"{risk.id}: amended", json_mode=False)
     return 0
 
 
@@ -1053,6 +1096,17 @@ def register(sub: argparse._SubParsersAction) -> None:
         "--resolve", metavar="RID", help="Resolve an existing risk id instead of creating one."
     )
     prk.add_argument("--decision", help="The resolution text recorded with --resolve.")
+    prk.add_argument(
+        "--amend",
+        metavar="RID",
+        help="Correct an existing risk's text in place instead of creating one.",
+    )
+    prk.add_argument(
+        "--text",
+        dest="amend_text",
+        metavar="TEXT",
+        help="Corrected risk text, used with --amend.",
+    )
     _plan_opt(prk)
     prk.set_defaults(func=cmd_plan_risk)
 

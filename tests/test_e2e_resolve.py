@@ -225,6 +225,97 @@ def test_e2e_issue57_plan_risk_resolve_lifecycle(tmp_path, monkeypatch, capsys) 
     assert plan_path.exists()
 
 
+def test_e2e_issue84_plan_risk_amend_after_task_recreation_still_converges(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The issue #84 comment repro: a plan risk's TEXT names a task id that
+    later rotates (the referenced task was rejected and recreated during a
+    scope change). ``plan risk --amend RID --text TEXT`` corrects the stale
+    reference in place — same id, kind, and (once resolved) resolution state
+    — instead of leaving misleading text in the ledger or resolving the risk
+    just to record a corrected duplicate. The amend must not disturb an
+    already-resolved risk's resolution, and the plan must still converge
+    and export afterward.
+    """
+    _converging_frame(monkeypatch, tmp_path)
+    slug = store.current_slug()
+
+    assert main(["plan", "new", "--frame", slug]) == 0
+    assert main(["plan", "task", "install the scanner"]) == 0  # t1
+    args = ["plan", "task", "cover everything", "--accept", "all targets satisfied"]
+    for target in _PLAN_TARGETS:
+        args += ["--covers", target]
+    assert main(args) == 0  # t2
+
+    assert (
+        main(
+            [
+                "plan",
+                "risk",
+                "t1 installs and reports the counter only",
+                "--kind",
+                "out_of_scope",
+                "--task",
+                "t1",
+            ]
+        )
+        == 0
+    )  # r1
+
+    # simulate the scope-driven rebuild: t1 is rejected and recreated as t3,
+    # which stops covering the risk's stale text (but not the risk record
+    # itself) — the plan still converges (the risk is non-blocking).
+    assert main(["plan", "reject", "t1"]) == 0
+    assert (
+        main(
+            [
+                "plan",
+                "task",
+                "install the scanner (rebuilt)",
+                "--accept",
+                "scanner installed and reporting",
+            ]
+        )
+        == 0
+    )  # t3
+
+    capsys.readouterr()
+    assert main(["plan", "converge", "--json"]) == 0
+    assert _json_out(capsys)["ready_for_plan"] is True
+
+    capsys.readouterr()
+    rc = main(
+        ["plan", "risk", "--amend", "r1", "--text", "t3 installs and reports the counter only"]
+    )
+    assert rc == 0
+    assert "r1: amended" in capsys.readouterr().out
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.text == "t3 installs and reports the counter only"
+    assert (risk.id, risk.kind, risk.task_id) == ("r1", "out_of_scope", "t1")
+    assert risk.resolved is False
+
+    # now resolve it, and prove a subsequent amend leaves the resolution alone.
+    capsys.readouterr()
+    assert (
+        main(["plan", "risk", "--resolve", "r1", "--decision", "confirmed still out of scope"]) == 0
+    )
+    capsys.readouterr()
+    rc = main(
+        ["plan", "risk", "--amend", "r1", "--text", "t3 installs and reports the counter only (v2)"]
+    )
+    assert rc == 0
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.text == "t3 installs and reports the counter only (v2)"
+    assert risk.resolved is True
+    assert risk.resolution == "confirmed still out of scope"
+
+    assert main(["plan", "converge", "--json"]) == 0
+    assert main(["plan", "export"]) == 0
+    plan = plan_store.load(slug)
+    plan_path = Path("docs/plans") / f"{plan.created[:10]}-{slug}.md"
+    assert plan_path.exists()
+
+
 def test_e2e_issue48_52_hard_question_block_resolve_converge_lifecycle(
     tmp_path, monkeypatch, capsys
 ) -> None:
