@@ -593,14 +593,31 @@ def _cmd_plan_defer_undo(args: argparse.Namespace, plan: Plan) -> int:
 
 
 def _transition(args: argparse.Namespace, status: str) -> int:
+    """Transactional multi-id confirm/reject (issue #86): every id is validated
+    against the plan FIRST; if any is unknown, nothing is changed and the
+    message names the offender(s) — matching the frame-side contract
+    (``confirm.py`` ``_run``, issue #17). Plan tasks have no honesty
+    conditions / hard questions to cascade over (that is a frame-only
+    concept), so unlike the frame side there is nothing to cascade — only the
+    output shape (one ``"{id} -> {status}"`` line per id) mirrors it.
+    Single-id usage (still the common case) behaves exactly as before.
+    """
     plan = resolve_plan(args.plan)
-    if not plan.set_status(args.id, status):
-        raise DevagueError(EXIT_USER_ERROR, f"no such task: {args.id}", "run 'devague plan show'")
+    ids = list(args.ids)
+    unknown = [tid for tid in ids if plan.find_task(tid) is None]
+    if unknown:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"no such task: {', '.join(unknown)}",
+            "run 'devague plan show'; the batch is transactional — nothing was changed",
+        )
+    for tid in ids:
+        plan.set_status(tid, status)
     plan_store.save(plan)
     if getattr(args, "json", False):
-        emit_result({"id": args.id, "status": status}, json_mode=True)
+        emit_result({"ids": ids, "status": status}, json_mode=True)
     else:
-        emit_result(f"{args.id} -> {status}", json_mode=False)
+        emit_result("\n".join(f"{tid} -> {status}" for tid in ids), json_mode=False)
     return 0
 
 
@@ -1018,13 +1035,13 @@ def register(sub: argparse._SubParsersAction) -> None:
     _plan_opt(pdf)
     pdf.set_defaults(func=cmd_plan_defer)
 
-    pcf = psub.add_parser("confirm", help="Confirm a task (user-only).")
-    pcf.add_argument("id", help=_TASK_ID_HELP)
+    pcf = psub.add_parser("confirm", help="Confirm one or more tasks (user-only).")
+    pcf.add_argument("ids", nargs="+", help="One or more task ids (e.g. t1 t2 t3).")
     _plan_opt(pcf)
     pcf.set_defaults(func=cmd_plan_confirm)
 
-    prj = psub.add_parser("reject", help="Reject a task.")
-    prj.add_argument("id", help=_TASK_ID_HELP)
+    prj = psub.add_parser("reject", help="Reject one or more tasks.")
+    prj.add_argument("ids", nargs="+", help="One or more task ids (e.g. t1 t2 t3).")
     _plan_opt(prj)
     prj.set_defaults(func=cmd_plan_reject)
 

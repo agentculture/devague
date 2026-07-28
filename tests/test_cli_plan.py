@@ -378,6 +378,112 @@ def test_confirm_and_reject(tmp_path, monkeypatch, capsys) -> None:
     assert plan_store.load(slug).find_task("t1").status == "rejected"
 
 
+def test_confirm_single_id_unchanged(tmp_path, monkeypatch, capsys) -> None:
+    """The nargs='+' switch must not change single-id text-mode output."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a", "--origin", "llm"])  # t1, proposed
+    capsys.readouterr()
+    rc = main(["plan", "confirm", "t1"])
+    assert rc == 0
+    assert capsys.readouterr().out == "t1 -> confirmed\n"
+    assert plan_store.load(slug).find_task("t1").status == "confirmed"
+
+
+def test_confirm_multi_id_transactional_all_valid(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `plan confirm` gets the same multi-id, transactional contract
+    frame-side `confirm` already has (`confirm.py` `_run`, issue #17)."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a", "--origin", "llm"])  # t1, proposed
+    main(["plan", "task", "b", "--origin", "llm"])  # t2, proposed
+    capsys.readouterr()
+
+    rc = main(["plan", "confirm", "t1", "t2", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ids"] == ["t1", "t2"]
+    assert payload["status"] == "confirmed"
+    plan = plan_store.load(slug)
+    assert plan.find_task("t1").status == "confirmed"
+    assert plan.find_task("t2").status == "confirmed"
+
+
+def test_reject_multi_id_all_valid_applies_all_in_one_call(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `plan reject t1 t2 t3` — matching frame-side `reject t1 t2 t3`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1, confirmed (origin=user default)
+    main(["plan", "task", "b"])  # t2, confirmed
+    main(["plan", "task", "c"])  # t3, confirmed
+    capsys.readouterr()
+
+    rc = main(["plan", "reject", "t1", "t2", "t3"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "t1 -> rejected" in out
+    assert "t2 -> rejected" in out
+    assert "t3 -> rejected" in out
+    plan = plan_store.load(slug)
+    assert plan.find_task("t1").status == "rejected"
+    assert plan.find_task("t2").status == "rejected"
+    assert plan.find_task("t3").status == "rejected"
+
+
+def test_reject_multi_id_one_invalid_applies_none_and_says_why(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Issue #86: with three ids where one is invalid, the batch is
+    transactional — NOTHING is applied (not even the two valid ids) — and the
+    error names the offender rather than silently dropping it."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1, confirmed
+    main(["plan", "task", "b"])  # t2, confirmed
+    capsys.readouterr()
+
+    rc = main(["plan", "reject", "t1", "t2", "tX"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "no such task: tX" in err
+    assert "transactional" in err
+    plan = plan_store.load(slug)
+    assert plan.find_task("t1").status == "confirmed"  # untouched
+    assert plan.find_task("t2").status == "confirmed"  # untouched
+
+
+# ── argument-error hints inside the `plan` group (issue #86) ────────────────
+def test_plan_group_argument_error_hints_at_plan_explain(tmp_path, monkeypatch, capsys) -> None:
+    """An argparse-level error raised inside a `devague plan <move>` parser
+    (missing required args, invalid choice, ...) must point at
+    `devague plan explain <move>` instead of the generic `<prog> --help` — the
+    old hint pointed at `--help` text that does not explain the actual
+    problem."""
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["plan", "confirm"])  # missing required 'ids'
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "hint: run 'devague plan explain confirm'" in err
+
+    with pytest.raises(SystemExit) as exc:
+        main(["plan", "risk", "text", "--kind", "bogus"])  # invalid --kind choice
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "hint: run 'devague plan explain risk'" in err
+
+
+def test_top_level_argument_error_keeps_existing_hint(tmp_path, monkeypatch, capsys) -> None:
+    """Non-plan (flat verb) argument errors are unaffected by the plan-group
+    hint change — they keep their existing `<prog> --help` remediation."""
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["capture"])  # missing required 'text' and '--kind'
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "hint: run 'devague capture --help'" in err
+
+
 # ── risk ────────────────────────────────────────────────────────────────────
 def test_risk_recorded_and_unknown_task_errors(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_frame(monkeypatch, tmp_path)
