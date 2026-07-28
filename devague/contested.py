@@ -123,6 +123,47 @@ def _load_delivery_safely(slug: str) -> tuple[Optional[Delivery], Optional[str]]
         )
 
 
+def _delivery_for_frame(slug: str, frame_slug: str):
+    """Load ``slug``'s delivery ledger, but only if its plan targets ``frame_slug``.
+
+    Returns ``(delivery_or_None, diagnostics)``. A plan seeded from a different
+    frame, an unreadable plan, and a plan with no (or an unreadable) ledger all
+    return ``None`` — the caller skips the slug either way; the diagnostics say
+    which of those it was, when there is anything to say.
+    """
+    diagnostics: list[str] = []
+    plan, plan_diag = _load_plan_safely(slug)
+    if plan_diag:
+        diagnostics.append(plan_diag)
+    if plan is None or plan.frame_slug != frame_slug:
+        return None, diagnostics
+
+    delivery, delivery_diag = _load_delivery_safely(slug)
+    if delivery_diag:
+        diagnostics.append(delivery_diag)
+    return delivery, diagnostics
+
+
+def _markers_from_delivery(delivery, slug: str, confirmed_ids: set) -> list[ContestedMarker]:
+    """Every marker one delivery ledger contributes: each approved deviation's
+    ``--affects`` refs that name a confirmed claim id.
+    """
+    return [
+        ContestedMarker(
+            claim_id=ref,
+            deviation_id=dev.id,
+            what=dev.what,
+            reason=dev.reason,
+            classification=dev.classification,
+            plan_slug=slug,
+        )
+        for dev in delivery.deviations
+        if dev.status == "approved"
+        for ref in dev.affects
+        if ref in confirmed_ids
+    ]
+
+
 def find_contested_markers(
     frame: Frame,
 ) -> tuple[dict[str, list[ContestedMarker]], list[str]]:
@@ -150,33 +191,12 @@ def find_contested_markers(
         return markers, diagnostics
 
     for slug in slugs:
-        plan, plan_diag = _load_plan_safely(slug)
-        if plan_diag:
-            diagnostics.append(plan_diag)
-        if plan is None or plan.frame_slug != frame.slug:
-            continue
-
-        delivery, delivery_diag = _load_delivery_safely(slug)
-        if delivery_diag:
-            diagnostics.append(delivery_diag)
+        delivery, slug_diags = _delivery_for_frame(slug, frame.slug)
+        diagnostics.extend(slug_diags)
         if delivery is None:
             continue
-
-        for dev in delivery.deviations:
-            if dev.status != "approved":
-                continue
-            for ref in dev.affects:
-                if ref in confirmed_ids:
-                    markers.setdefault(ref, []).append(
-                        ContestedMarker(
-                            claim_id=ref,
-                            deviation_id=dev.id,
-                            what=dev.what,
-                            reason=dev.reason,
-                            classification=dev.classification,
-                            plan_slug=slug,
-                        )
-                    )
+        for marker in _markers_from_delivery(delivery, slug, confirmed_ids):
+            markers.setdefault(marker.claim_id, []).append(marker)
 
     for entries in markers.values():
         entries.sort(key=lambda m: (m.plan_slug, _numeric_suffix(m.deviation_id)))

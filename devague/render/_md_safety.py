@@ -140,9 +140,8 @@ def heading_safe(text: str) -> str:
 # conservative allowlist of common file extensions) lets a dunder *file name*
 # such as ``__init__.py`` wrap as a single token instead of splitting at the
 # dot — the exact shape named in the #87 MD050 follow-up comment.
-_IDENTIFIER_RE = re.compile(
-    r"[A-Za-z0-9_]*_[A-Za-z0-9_]*" r"(?:\.(?:py|md|rst|json|ya?ml|toml|cfg|ini|sh|js|ts|rb|go))?"
-)
+_IDENTIFIER_EXTENSIONS = "py|md|rst|json|ya?ml|toml|cfg|ini|sh|js|ts|rb|go"
+_IDENTIFIER_RE = re.compile(rf"[A-Za-z0-9_]*_[A-Za-z0-9_]*(?:\.(?:{_IDENTIFIER_EXTENSIONS}))?")
 
 # Markdown control characters that corrupt rendered document structure when a
 # verbatim field contains them (the #87 issue's fallback list: '*' opens
