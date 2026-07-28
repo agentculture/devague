@@ -101,6 +101,36 @@ def test_resolve_risk_rejects_already_resolved() -> None:
         p.resolve_risk(r.id, "second decision")
 
 
+# ── amend_risk (issue #84 comment, t12) ───────────────────────────────────────
+def test_amend_risk_replaces_text_preserves_id_kind_and_task() -> None:
+    p = _plan()
+    p.add_task("install the scanner")  # t1
+    r = p.add_risk("t1 installs and reports the counter only", "out_of_scope", task_id="t1")
+    amended = p.amend_risk(r.id, "t73 installs and reports the counter only")
+    assert amended is r
+    assert r.text == "t73 installs and reports the counter only"
+    assert (r.id, r.kind, r.task_id) == ("r1", "out_of_scope", "t1")
+    # unresolved before the amend stays unresolved after it.
+    assert r.resolved is False
+    assert r.resolution == ""
+
+
+def test_amend_risk_on_a_resolved_risk_keeps_it_resolved() -> None:
+    p = _plan()
+    r = p.add_risk("t53 installs the scanner", "out_of_scope")
+    p.resolve_risk(r.id, "SUPERSEDED by r14 — text referenced rejected task t53")
+    amended = p.amend_risk(r.id, "t73 installs the scanner")
+    assert amended.text == "t73 installs the scanner"
+    assert amended.resolved is True
+    assert amended.resolution == "SUPERSEDED by r14 — text referenced rejected task t53"
+
+
+def test_amend_risk_rejects_unknown_id() -> None:
+    p = _plan()
+    with pytest.raises(ValueError):
+        p.amend_risk("rX", "new text")
+
+
 # ── per-target deferral (issue #85, t9) ───────────────────────────────────────
 
 

@@ -565,6 +565,82 @@ def test_risk_resolve_already_resolved_refused(tmp_path, monkeypatch, capsys) ->
     assert plan_store.load(slug).find_risk("r1").resolution == "first decision"
 
 
+# ── risk --amend (issue #84 comment, t12) ─────────────────────────────────────
+def test_risk_amend_replaces_text_keeps_id_kind_and_task(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "install the scanner"])  # t1
+    main(
+        [
+            "plan",
+            "risk",
+            "t1 installs and reports the counter only",
+            "--kind",
+            "out_of_scope",
+            "--task",
+            "t1",
+        ]
+    )
+    capsys.readouterr()
+
+    rc = main(
+        ["plan", "risk", "--amend", "r1", "--text", "t73 installs and reports the counter only"]
+    )
+    assert rc == 0
+    assert "r1: amended" in capsys.readouterr().out
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.text == "t73 installs and reports the counter only"
+    assert (risk.kind, risk.task_id) == ("out_of_scope", "t1")
+    assert risk.resolved is False
+
+
+def test_risk_amend_keeps_resolved_state_and_resolution_and_json_parity(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "risk", "t53 installs the scanner", "--kind", "out_of_scope"])
+    main(["plan", "risk", "--resolve", "r1", "--decision", "confirmed out of scope"])
+    capsys.readouterr()
+
+    rc = main(["plan", "risk", "--amend", "r1", "--text", "t73 installs the scanner", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "id": "r1",
+        "kind": "out_of_scope",
+        "text": "t73 installs the scanner",
+        "task": None,
+        "resolved": True,
+        "resolution": "confirmed out of scope",
+    }
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.resolved is True
+    assert risk.resolution == "confirmed out of scope"
+
+
+def test_risk_amend_without_text_refused(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "risk", "scaling unknown", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+
+    rc = main(["plan", "risk", "--amend", "r1"])
+    assert rc == 1
+    assert "--text" in capsys.readouterr().err
+    assert plan_store.load(slug).find_risk("r1").text == "scaling unknown"
+
+
+def test_risk_amend_unknown_id_refused(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+
+    rc = main(["plan", "risk", "--amend", "rX", "--text", "whatever"])
+    assert rc == 1
+    assert "unknown" in capsys.readouterr().err
+
+
 # ── defer (issue #85, t9) ─────────────────────────────────────────────────────
 def test_defer_happy_path_and_json(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_frame(monkeypatch, tmp_path)
