@@ -4,6 +4,51 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**The fifteen-issue backlog sweep (0.21.0, issues #48 #49 #52 #79 #82 #83 #84 #85 #86 #87 #88 #90 #91 #92 #93).**
+One workforce fan-out (the
+`issue-backlog-sweep` plan, t1–t19) closing fifteen issues, three of which
+downstream repos were already working around by hand. New moves:
+**`devague interrogate <cN> --resolve <qN> [--decision]`** — nothing ever set
+`HardQuestion.resolved`, so one blocking question deadlocked `converge`
+*permanently* and two repos hand-edited frame JSON to escape (#48/#52);
+**`devague amend <cN> [--text] [--kind] [--reason]`** — correct a claim
+keeping its id, honesty conditions, hard questions, `instruction`, and
+inbound `scope --seeds` refs, recording the superseded pair on a new
+`Claim.revisions` trail and flipping a confirmed claim back to `proposed`
+(#84); **`devague scope --amend <sN> --finding`** (in-place finding
+correction — no revision trail, a deliberate asymmetry); **`devague plan
+defer <target-id> --reason` / `--undo`** — a documented per-target exclusion
+from the coverage gate so a milestone-scoped plan can converge at all, with a
+`## Deferred targets` section in the export (#85); and **`devague plan risk
+--amend <rN> --text`** (#84). Sharpened: `reject <cN>` cascades onto its
+honesty conditions and unresolved hard questions (`--json` gains `cascaded`),
+and `converge` stops warning about *rejected* assumptions (#83); `plan
+confirm` / `plan reject` are multi-id and transactional, and plan-group
+argument errors point at `devague plan explain <move>` (#86); `plan task
+--dep` / `plan depend --on` refuse self-deps and unknown ids at creation
+(#86); `plan cover` / `plan task --covers` validate against targets re-derived
+from the **live** frame, so a target the frame grew after seeding is coverable
+immediately (#90); `devague summary` scopes Planned Work / Actual Delivery to
+**confirmed** tasks plus one rejected-count line (#88). Export fidelity: all
+four park kinds render under `## Open parks`, resolved hard questions carry a
+`(resolved)` marker, hard questions on rejected claims are excluded, and a
+scope seed citing a rejected claim renders `(rejected)` (#93, #49). New
+`render/_md_safety.md_safe_text()` escapes every verbatim render site
+(`spec_md` / `plan_md` / `summary_md`) — underscore/dunder identifiers wrap in
+code spans, existing code spans pass through, idempotent, presentational only
+(#87). New read-only `devague/contested.py` joins confirmed claims to approved
+deviations' `--affects` across the plan-slug boundary: re-exported specs and
+`show` / `status` mark a claim contested by `dN` — the spec is *not* rewritten,
+it points forward to the ledger — and it fails open on a missing/corrupt/newer
+store (#92). Both `SCHEMA_VERSION` and `PLAN_SCHEMA_VERSION` are now **4**, and
+both stores check the declared version against the **raw** dict before parsing.
+Skills: `/scope` fans read-only exploration out to subagents — 4 or fewer
+surfaces inline, 5 or more fan out, defaulting to **sonnet**; subagents explore
+and report, the main agent runs every move (#79/#91) — and
+`assign-to-workforce` gains **`split-plan --write`**, a durable gate-2 artifact
+at `docs/plans/<created-date>-<slug>-split.md` whose owner/model annotations
+survive regeneration (#82).
+
 **The challenge skill lands — the seventh leg (0.19.0, #73).** New seventh
 origin skill **`/challenge`** (`.claude/skills/challenge/SKILL.md`) — a
 risk-scaled blind-spot discovery pass that runs after `/think` exports and
@@ -148,13 +193,32 @@ itself. The workflow:
    contract lives in `docs/llm-guidance.md` (#19).
 2. `devague capture --kind <kind> "<text>"` — add claims; LLM-proposed ones
    (`--origin llm`) land as `proposed` and require explicit user `confirm`.
+   Correct a claim in place with `devague amend <cN> [--text] [--kind]
+   [--reason]` (#84) — it keeps the id, so honesty conditions, hard questions,
+   `instruction`, and inbound `scope --seeds` refs all stay pointed at
+   something real; the superseded `(text, kind)` pair lands on
+   `Claim.revisions` and a confirmed claim flips back to `proposed`.
 3. `devague interrogate <claim-id>` — attach honesty conditions and hard
-   questions; honesty conditions from the LLM are also `proposed`.
+   questions; honesty conditions from the LLM are also `proposed`. A blocking
+   hard question is closed out with `devague interrogate <cN> --resolve <qN>
+   --decision "<text>"` (#48/#52) — a USER decision, the claim-level twin of
+   `park --resolve`; without it a blocking question deadlocks `converge`
+   forever.
 4. `devague confirm <id>` / `reject` / `park` — **all honesty conditions
    routed through the user**; the agent must not auto-confirm LLM proposals.
-5. `devague converge` — evaluates the convergence gate; lists remaining gaps.
-6. `devague export` — only succeeds after `converge` passes; writes a
-   buildable spec-md to `docs/specs/`.
+   Rejecting a claim cascades onto its still-live honesty conditions and
+   unresolved hard questions, echoing `(also rejected: h3, q1)` (#83).
+5. `devague scope "<surface>" --finding "<text>" [--seeds <cN|qN> …]` — record
+   pre-frame exploration as first-class provenance; `--seeds` takes claim ids
+   *or* claim-attached hard-question ids (#84), and `scope --amend <sN>
+   --finding` corrects a finding in place.
+6. `devague converge` — evaluates the convergence gate; lists remaining gaps.
+7. `devague export` — only succeeds after `converge` passes; writes a
+   buildable spec-md to `docs/specs/`. Verbatim claim text is markdown-escaped
+   at render time (`render/_md_safety.md_safe_text`, #87) — presentational
+   only, the stored JSON is untouched. A confirmed claim named by an approved
+   deviation's `--affects` renders a `contested by <dN>` marker (#92): the
+   spec is never rewritten, it points forward to the deviation ledger.
 
 Full design: `docs/superpowers/specs/2026-05-23-devague-working-backwards-design.md`.
 
@@ -170,27 +234,40 @@ verbs). The workflow:
    Derives **coverage targets** (the frame's confirmed claims + honesty
    conditions). Refuses an unconverged frame; refuses to clobber an existing plan.
 2. `devague plan task "<summary>" [--accept … --dep … --covers … --origin]` —
-   add tasks; `--origin llm` lands `proposed` (user must `confirm`). Refine with
-   `accept` / `depend` (or `depend --remove` to cut an edge, #68) / `cover` /
-   `instruct` / `amend` (edit a task's summary and/or replace/remove acceptance
-   criteria by index, #68). Amending or demoting a CONFIRMED task flips it back
-   to `proposed` and echoes that flip to stdout (#67).
+   add tasks; `--origin llm` lands `proposed` (user must `confirm` — and
+   `plan confirm` / `plan reject` take many ids in one transactional call, #86).
+   Refine with `accept` / `depend` (or `depend --remove` to cut an edge, #68) /
+   `cover` / `instruct` / `amend` (edit a task's summary and/or replace/remove
+   acceptance criteria by index, #68). Amending or demoting a CONFIRMED task
+   flips it back to `proposed` and echoes that flip to stdout (#67). `--dep` /
+   `depend --on` refuse a self-dependency or an unknown task id at creation
+   (#86); `cover` / `--covers` validate against targets re-derived from the
+   **live** frame, so a target the frame grew after seeding is coverable
+   straight away (#90).
 3. `devague plan risk "<text>" --kind <kind>` — park a genuine unknown as a
-   first-class plan risk instead of guessing.
-4. `devague plan converge` — re-evaluates the gate **against the live frame**
+   first-class plan risk instead of guessing (`--resolve` closes one out;
+   `--amend <rN> --text` corrects a stale one in place, #84).
+4. `devague plan defer <target-id> --reason "<text>"` — deliberately exclude a
+   coverage target from *this* plan's gate when it genuinely belongs to a later
+   one (`--undo` reverses it, #85). A deferred target drops out of the gate,
+   surfaces in `parked_items` labeled `deferred:`, and renders under
+   `## Deferred targets` in the export. This is the honest alternative to
+   faking coverage — never write a task that merely names a target.
+5. `devague plan converge` — re-evaluates the gate **against the live frame**
    (catches frame drift); lists gaps. A plan converges when every target is
-   covered by a confirmed task, every confirmed task has acceptance criteria, the
-   dependency graph is acyclic, and no blocking risk remains.
-5. `devague plan export` — only after `converge` passes; writes a buildable
+   covered by a confirmed task **or deliberately deferred**, every confirmed
+   task has acceptance criteria, the dependency graph is acyclic, and no
+   blocking risk remains.
+6. `devague plan export` — only after `converge` passes; writes a buildable
    plan-md (topologically ordered) to `docs/plans/<created-date>-<slug>.md`.
-6. `devague plan waves [--json]` — emit the plan's dependency graph as
+7. `devague plan waves [--json]` — emit the plan's dependency graph as
    deterministic **scheduling metadata** (`{plan, waves}`): ordered batches of
    task ids that an external operator *could* fan out. Read-only,
    convergence-agnostic (works on an in-progress plan), and explicitly **not
    orchestration** — Devague describes the graph; it does not spawn subagents,
    manage worktrees, mark tasks done, or pick a backend (#20). A cyclic or
    dangling graph is refused via the plan-convergence dependency blockers.
-7. `devague plan deliverables [--json]` — a read-only "end state" preview:
+8. `devague plan deliverables [--json]` — a read-only "end state" preview:
    the plan's confirmed announcement/after-state/success-signal claims
    verbatim from its live source frame, every terminal task (an active task no
    other active task depends on) with its acceptance criteria, and the
@@ -215,9 +292,13 @@ the devague CLI deterministic and non-orchestrating (#20).
 1. **Spec gate**: the exported frame/spec.
 2. **Implementation split plan gate**: the plan tasks map, per-task subagent +
    model assignment, and the go/no-go decision on assigning the plan to the
-   workforce. A mid-run deviation (recorded via `devague deviate` and the
-   cited `/deviate` skill) is **not** a fourth standing gate — it is the human
-   owner of this gate approving an amendment to it in-flight.
+   workforce. `split-plan --write` persists it as a durable artifact at
+   `docs/plans/<created-date>-<slug>-split.md` (#82) — the peer of the
+   exported spec and plan-md, which gate 2 previously lacked; hand-edited
+   `Owner` / `Model` cells are read back and survive regeneration. A mid-run
+   deviation (recorded via `devague deviate` and the cited `/deviate` skill)
+   is **not** a fourth standing gate — it is the human owner of this gate
+   approving an amendment to it in-flight.
 3. **Final PR gate**: human code review of the merged result.
 
 ### Worktree contention safety
@@ -274,7 +355,10 @@ skill and this convention, not in new CLI and not in a CI/CD runner.
 - **Operator/main agent**: drives execution of waves and merges each subagent's
   worktree (gated by TDD); owns the implementation split plan.
 - **Per-task subagents**: may be simpler or cheaper models; each builds a single
-  task test-first within its worktree.
+  task test-first within its worktree. The `/scope` leg uses the same idea
+  read-only: 5 or more candidate surfaces fan out one exploration subagent per
+  surface, defaulting to **sonnet** — and those subagents *never* run a
+  `devague` move, so provenance stays with the main agent (#79/#91).
 - **Human**: owns the three gates (spec, implementation split plan, final PR),
   including approving mid-run deviations against gate 2 via `/deviate`.
 
@@ -284,8 +368,12 @@ skill and this convention, not in new CLI and not in a CI/CD runner.
 tasks}`); the `assign-to-workforce` skill's `split-plan` subcommand is the
 consumer — it renders the implementation split plan (task map, per-task
 agent/model proposal, go/no-go) and a trailing End state section quoting
-`devague plan deliverables` verbatim (#70), then performs the fan-out itself.
-`devague deviate` and the cited `/deviate` skill are the consumer for
+`devague plan deliverables` verbatim (#70), optionally persists all of it plus
+an owner/model annotation table to
+`docs/plans/<created-date>-<slug>-split.md` with `--write` (#82), then
+performs the fan-out itself. The same `waves --json` payload is the **single
+source** for every per-task brief — no `plan show --json` or exported plan-md
+needed alongside it. `devague deviate` and the cited `/deviate` skill are the consumer for
 mid-run departures from that plan; `devague summary` and `/summarize-delivery`
 are the consumer for what actually shipped once the run ends. Devague itself
 never orchestrates any of this (#20) — its use across all four is shared via
@@ -358,18 +446,24 @@ that unless the user asks otherwise. The established sibling shape is:
   `DevagueError` + exit-code policy) and `_output.py` (strict stdout/stderr
   split, `--json` support).
 - `devague/cli/_commands/` — one module per verb, each exposing `register()`.
-  Frame verbs: `new`, `capture`, `interrogate`, `confirm`, `reject`, `park`,
-  `converge`, `export`, `status`, `show`, `list`, `learn`, `explain` (`status`
-  shares `cli/_status.py` with the plan engine), plus two more flat verbs,
-  `deviate` (`--list`, `--confirm`, `--reject`) and `summary` (`--pr`), backed
-  by `devague/delivery.py` + `devague/delivery_store.py`. The plan engine adds
+  Frame verbs: `new`, `capture`, `amend`, `interrogate`, `confirm`, `reject`,
+  `review`, `question`, `park`, `scope`, `converge`, `export`, `status`,
+  `show`, `list`, `learn`, `explain` (`status` shares `cli/_status.py` with
+  the plan engine), plus two more flat verbs, `deviate` (`--list`,
+  `--confirm`, `--reject`) and `summary` (`--pr`), backed by
+  `devague/delivery.py` + `devague/delivery_store.py`. The plan engine adds
   one module, `_commands/plan.py`, registering the nested `plan` subcommand
   group — `new` / `task` / `instruct` / `accept` / `amend` / `depend` (plus
-  `--remove`) / `cover` / `confirm` / `reject` / `risk` / `converge` / `export`
-  / `waves` / `deliverables` / `status` / `show` / `list` / `learn` / `explain`.
+  `--remove`) / `cover` / `defer` / `confirm` / `reject` / `risk` / `converge`
+  / `export` / `waves` / `deliverables` / `status` / `show` / `list` / `learn`
+  / `explain`.
 - Frame engine: `devague/frame.py`, `convergence.py`, `store.py`,
   `render/{spec_md,frame_md}.py`. Plan engine (its peer): `devague/plan.py`,
   `plan_convergence.py`, `plan_store.py`, `render/plan_md.py`, `cli/_plans.py`.
+  Delivery peer: `devague/delivery.py`, `delivery_store.py`,
+  `render/summary_md.py`. Cross-cutting: `devague/contested.py` (the read-only
+  claim↔deviation join, #92) and `render/_md_safety.py` (render-time markdown
+  escaping, #87) — both pure and read-only; neither ever mutates a store.
 - `pyproject.toml`, `CHANGELOG.md`, `tests/`, `docs/`, `culture.yaml`,
   `sonar-project.properties`, `uv.lock`.
 

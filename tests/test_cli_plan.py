@@ -85,15 +85,66 @@ def test_plan_new_happy_and_collision(tmp_path, monkeypatch, capsys) -> None:
 
 # ── task / accept / depend / cover ──────────────────────────────────────────
 def test_task_inline_flags_and_json(tmp_path, monkeypatch, capsys) -> None:
+    """`--dep` must reference an EXISTING task (issue #86) — this test used to
+    pin the broken behavior (`--dep t9` where t9 never existed, asserting
+    rc == 0). Flipped to depend on a real task (t1) instead, still exercising
+    every other inline flag (`--accept`/`--covers`/`--json`) together."""
     slug = _converged_frame(monkeypatch, tmp_path)
     main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "dep target"])  # t1 — a real task to depend on
     capsys.readouterr()
     rc = main(
-        ["plan", "task", "core", "--accept", "works", "--covers", "c1", "--dep", "t9", "--json"]
+        ["plan", "task", "core", "--accept", "works", "--covers", "c1", "--dep", "t1", "--json"]
     )
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["id"] == "t1" and payload["covers"] == ["c1"] and payload["deps"] == ["t9"]
+    assert payload["id"] == "t2" and payload["covers"] == ["c1"] and payload["deps"] == ["t1"]
+
+
+def test_task_dep_self_cycle_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `--dep` naming the id the about-to-be-created task will
+    itself receive (a batch-authoring mispredict) must refuse at creation
+    time, with the reporter's suggested error shape, not silently record a
+    self-cycle that only surfaces later at `plan waves`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "task", "core", "--dep", "t1"])  # this call would BE t1
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: task cannot depend on itself" in err
+    assert "hint: --dep t1 names the id this task will receive" in err
+    assert plan_store.load(slug).tasks == []  # nothing was persisted
+
+
+def test_task_dep_unknown_id_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: a typo'd `--dep` (naming a task id that does not exist at
+    all) must refuse at creation time with an actionable hint, rather than
+    silently recording a dangling dep that only surfaces later at `plan
+    waves`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "task", "core", "--dep", "t4"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: unknown task: t4" in err
+    assert "hint: --dep t4 does not match any existing task" in err
+    assert plan_store.load(slug).tasks == []  # nothing was persisted
+
+
+def test_task_dep_multiple_valid_and_invalid(tmp_path, monkeypatch, capsys) -> None:
+    """A valid `--dep` earlier in the list does not mask a later bad one, and
+    nothing is left half-created when one entry in the batch is invalid."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "root"])  # t1
+    capsys.readouterr()
+    rc = main(["plan", "task", "core", "--dep", "t1", "--dep", "ghost"])
+    assert rc == 1
+    assert "unknown task: ghost" in capsys.readouterr().err
+    plan = plan_store.load(slug)
+    assert len(plan.tasks) == 1  # only t1 exists — the second task was never created
 
 
 def test_task_unknown_cover_target_errors(tmp_path, monkeypatch, capsys) -> None:
@@ -119,6 +170,57 @@ def test_accept_depend_cover_moves(tmp_path, monkeypatch, capsys) -> None:
     assert payload["covers"] == ["c1"]
 
 
+def test_depend_self_cycle_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `depend <tN> --on <tN>` (an already-assigned task naming
+    itself) must refuse the same way the `plan task --dep` self-cycle does."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1
+    capsys.readouterr()
+    rc = main(["plan", "depend", "t1", "--on", "t1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: task cannot depend on itself" in err
+    assert "hint: --on t1 is the same task" in err
+    assert plan_store.load(slug).find_task("t1").deps == []
+
+
+def test_depend_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `depend <tN> --on <tM>` where <tM> does not exist must refuse
+    at authoring time with an actionable hint, rather than recording a dangling
+    dep that only surfaces later at `plan waves`/`plan converge`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1
+    capsys.readouterr()
+    rc = main(["plan", "depend", "t1", "--on", "t99"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "error: unknown task: t99" in err
+    assert "hint: --on t99 does not match any existing task" in err
+    assert plan_store.load(slug).find_task("t1").deps == []
+
+
+def test_depend_remove_repairs_preexisting_dangling_dep(tmp_path, monkeypatch, capsys) -> None:
+    """Design note: a plan authored before this fix existed (or hand-edited
+    JSON) can already carry a dangling dep that could no longer be CREATED
+    through the CLI today — `depend --remove` must still repair it. The
+    dangling dep is injected directly into the store to simulate that
+    pre-existing damage, since `plan task --dep`/`depend --on` now refuse to
+    create it."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1
+    capsys.readouterr()
+    plan = plan_store.load(slug)
+    plan.find_task("t1").deps.append("ghost")  # simulate pre-existing damage
+    plan_store.save(plan)
+
+    rc = main(["plan", "depend", "t1", "--on", "ghost", "--remove"])
+    assert rc == 0
+    assert plan_store.load(slug).find_task("t1").deps == []
+
+
 def test_moves_on_unknown_task_error(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_frame(monkeypatch, tmp_path)
     main(["plan", "new", "--frame", slug])
@@ -142,6 +244,128 @@ def test_cover_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
     assert "unknown coverage target" in capsys.readouterr().err
 
 
+# ── issue #90: cover/--covers validate against the LIVE frame ───────────────
+def test_status_recommends_cover_and_cover_succeeds_without_reconverge(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The verified #90 repro, inverted: a frame that grows a new confirmed claim
+    mid-run must not leave `plan status`'s recommended cover and `plan cover`
+    disagreeing about the same target in the same breath — `cover` must succeed
+    immediately, with no intervening `plan converge`."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0  # plan converged; targets snapshot = 12
+    capsys.readouterr()
+
+    # The frame legitimately grows: a new confirmed requirement claim + its
+    # confirmed honesty condition (c7 / h7) — the documented reopen/reconverge loop.
+    assert main(["capture", "--kind", "requirement", "a new requirement", "--origin", "user"]) == 0
+    capsys.readouterr()
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    assert main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"]) == 0
+    capsys.readouterr()
+    assert main(["converge"]) == 0  # the frame itself still converges
+    capsys.readouterr()
+
+    # `plan status` now recommends covering the new claim ...
+    rc = main(["plan", "status", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert any(new_claim_id in b for b in payload["blockers"])
+    assert any(new_claim_id in m for m in payload["required_next_moves"])
+
+    # ... and that exact cover succeeds immediately — no `plan converge` in between.
+    rc = main(["plan", "cover", "t1", "--target", new_claim_id])
+    assert rc == 0
+    task = plan_store.load(slug).find_task("t1")
+    assert new_claim_id in task.covers
+
+    # The refreshed live snapshot was persisted as a side effect of the successful
+    # cover, so the stored plan now knows about the new target too.
+    persisted = plan_store.load(slug)
+    assert persisted.find_target(new_claim_id) is not None
+
+
+def test_task_inline_covers_also_validates_against_live_frame(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The `plan task --covers` call site shares `_require_target`; a target that
+    only exists in the live frame (not yet in the stored snapshot) must be
+    accepted there too."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+    assert main(["capture", "--kind", "requirement", "another requirement"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"])
+    assert main(["converge"]) == 0
+    capsys.readouterr()
+
+    rc = main(["plan", "task", "cover the new one", "--covers", new_claim_id])
+    assert rc == 0
+    task = plan_store.load(slug).find_task("t2")
+    assert new_claim_id in task.covers
+
+
+def test_cover_unknown_target_still_refused_after_frame_grows(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """A target unknown to both the stored snapshot and the live-derived set is
+    still refused, even once the live-frame fallback exists."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+    assert main(["capture", "--kind", "requirement", "grows the frame"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"])
+    assert main(["converge"]) == 0
+    capsys.readouterr()
+
+    rc = main(["plan", "cover", "t1", "--target", "zzz"])
+    assert rc == 1
+    assert "unknown coverage target" in capsys.readouterr().err
+
+
+def test_cover_known_target_survives_frame_regression(tmp_path, monkeypatch, capsys) -> None:
+    """A target already in the plan's stored snapshot keeps working through `cover`
+    even after the source frame regresses below its own convergence gate — only a
+    target absent from the stored snapshot ever needs to consult the live frame."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    main(["plan", "task", "extra"])  # t2
+    capsys.readouterr()
+    main(["park", "scale?", "--kind", "unknown_blocking"])  # regress the frame
+    capsys.readouterr()
+
+    rc = main(["plan", "cover", "t2", "--target", "c1"])  # c1 already stored
+    assert rc == 0
+    assert plan_store.load(slug).find_task("t2").covers == ["c1"]
+
+
+def test_cover_new_target_refuses_with_reconverge_hint_when_frame_regressed(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Decision (b), park v4 / plan risk r2: when the source frame has regressed
+    below its own convergence gate, a target not yet in the stored snapshot cannot
+    be verified — `cover` refuses with the same reconverge hint `_live` already
+    gives `converge`/`status`/`export`, rather than mislabeling it 'unknown'."""
+    slug = _converged_plan(monkeypatch, tmp_path, capsys)
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+
+    # Grow the frame with a new confirmed requirement claim that has NO confirmed
+    # honesty condition yet — this alone regresses the frame below its own gate,
+    # and the new claim is not (and cannot yet be) in the plan's stored snapshot.
+    assert main(["capture", "--kind", "requirement", "an unresolved requirement"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    capsys.readouterr()
+
+    rc = main(["plan", "cover", "t1", "--target", new_claim_id])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "regressed below convergence" in err
+    assert "re-converge the frame first" in err
+
+
 # ── confirm / reject (user-only) ────────────────────────────────────────────
 def test_confirm_and_reject(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_frame(monkeypatch, tmp_path)
@@ -152,6 +376,112 @@ def test_confirm_and_reject(tmp_path, monkeypatch, capsys) -> None:
     assert json.loads(capsys.readouterr().out)["status"] == "confirmed"
     assert main(["plan", "reject", "t1"]) == 0
     assert plan_store.load(slug).find_task("t1").status == "rejected"
+
+
+def test_confirm_single_id_unchanged(tmp_path, monkeypatch, capsys) -> None:
+    """The nargs='+' switch must not change single-id text-mode output."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a", "--origin", "llm"])  # t1, proposed
+    capsys.readouterr()
+    rc = main(["plan", "confirm", "t1"])
+    assert rc == 0
+    assert capsys.readouterr().out == "t1 -> confirmed\n"
+    assert plan_store.load(slug).find_task("t1").status == "confirmed"
+
+
+def test_confirm_multi_id_transactional_all_valid(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `plan confirm` gets the same multi-id, transactional contract
+    frame-side `confirm` already has (`confirm.py` `_run`, issue #17)."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a", "--origin", "llm"])  # t1, proposed
+    main(["plan", "task", "b", "--origin", "llm"])  # t2, proposed
+    capsys.readouterr()
+
+    rc = main(["plan", "confirm", "t1", "t2", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ids"] == ["t1", "t2"]
+    assert payload["status"] == "confirmed"
+    plan = plan_store.load(slug)
+    assert plan.find_task("t1").status == "confirmed"
+    assert plan.find_task("t2").status == "confirmed"
+
+
+def test_reject_multi_id_all_valid_applies_all_in_one_call(tmp_path, monkeypatch, capsys) -> None:
+    """Issue #86: `plan reject t1 t2 t3` — matching frame-side `reject t1 t2 t3`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1, confirmed (origin=user default)
+    main(["plan", "task", "b"])  # t2, confirmed
+    main(["plan", "task", "c"])  # t3, confirmed
+    capsys.readouterr()
+
+    rc = main(["plan", "reject", "t1", "t2", "t3"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "t1 -> rejected" in out
+    assert "t2 -> rejected" in out
+    assert "t3 -> rejected" in out
+    plan = plan_store.load(slug)
+    assert plan.find_task("t1").status == "rejected"
+    assert plan.find_task("t2").status == "rejected"
+    assert plan.find_task("t3").status == "rejected"
+
+
+def test_reject_multi_id_one_invalid_applies_none_and_says_why(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Issue #86: with three ids where one is invalid, the batch is
+    transactional — NOTHING is applied (not even the two valid ids) — and the
+    error names the offender rather than silently dropping it."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "a"])  # t1, confirmed
+    main(["plan", "task", "b"])  # t2, confirmed
+    capsys.readouterr()
+
+    rc = main(["plan", "reject", "t1", "t2", "tX"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "no such task: tX" in err
+    assert "transactional" in err
+    plan = plan_store.load(slug)
+    assert plan.find_task("t1").status == "confirmed"  # untouched
+    assert plan.find_task("t2").status == "confirmed"  # untouched
+
+
+# ── argument-error hints inside the `plan` group (issue #86) ────────────────
+def test_plan_group_argument_error_hints_at_plan_explain(tmp_path, monkeypatch, capsys) -> None:
+    """An argparse-level error raised inside a `devague plan <move>` parser
+    (missing required args, invalid choice, ...) must point at
+    `devague plan explain <move>` instead of the generic `<prog> --help` — the
+    old hint pointed at `--help` text that does not explain the actual
+    problem."""
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["plan", "confirm"])  # missing required 'ids'
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "hint: run 'devague plan explain confirm'" in err
+
+    with pytest.raises(SystemExit) as exc:
+        main(["plan", "risk", "text", "--kind", "bogus"])  # invalid --kind choice
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "hint: run 'devague plan explain risk'" in err
+
+
+def test_top_level_argument_error_keeps_existing_hint(tmp_path, monkeypatch, capsys) -> None:
+    """Non-plan (flat verb) argument errors are unaffected by the plan-group
+    hint change — they keep their existing `<prog> --help` remediation."""
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        main(["capture"])  # missing required 'text' and '--kind'
+    assert exc.value.code == 1
+    err = capsys.readouterr().err
+    assert "hint: run 'devague capture --help'" in err
 
 
 # ── risk ────────────────────────────────────────────────────────────────────
@@ -233,6 +563,243 @@ def test_risk_resolve_already_resolved_refused(tmp_path, monkeypatch, capsys) ->
     assert rc == 1
     assert "already resolved" in capsys.readouterr().err
     assert plan_store.load(slug).find_risk("r1").resolution == "first decision"
+
+
+# ── risk --amend (issue #84 comment, t12) ─────────────────────────────────────
+def test_risk_amend_replaces_text_keeps_id_kind_and_task(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "install the scanner"])  # t1
+    main(
+        [
+            "plan",
+            "risk",
+            "t1 installs and reports the counter only",
+            "--kind",
+            "out_of_scope",
+            "--task",
+            "t1",
+        ]
+    )
+    capsys.readouterr()
+
+    rc = main(
+        ["plan", "risk", "--amend", "r1", "--text", "t73 installs and reports the counter only"]
+    )
+    assert rc == 0
+    assert "r1: amended" in capsys.readouterr().out
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.text == "t73 installs and reports the counter only"
+    assert (risk.kind, risk.task_id) == ("out_of_scope", "t1")
+    assert risk.resolved is False
+
+
+def test_risk_amend_keeps_resolved_state_and_resolution_and_json_parity(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "risk", "t53 installs the scanner", "--kind", "out_of_scope"])
+    main(["plan", "risk", "--resolve", "r1", "--decision", "confirmed out of scope"])
+    capsys.readouterr()
+
+    rc = main(["plan", "risk", "--amend", "r1", "--text", "t73 installs the scanner", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "id": "r1",
+        "kind": "out_of_scope",
+        "text": "t73 installs the scanner",
+        "task": None,
+        "resolved": True,
+        "resolution": "confirmed out of scope",
+    }
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.resolved is True
+    assert risk.resolution == "confirmed out of scope"
+
+
+def test_risk_amend_without_text_refused(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "risk", "scaling unknown", "--kind", "unknown_blocking"])
+    capsys.readouterr()
+
+    rc = main(["plan", "risk", "--amend", "r1"])
+    assert rc == 1
+    assert "--text" in capsys.readouterr().err
+    assert plan_store.load(slug).find_risk("r1").text == "scaling unknown"
+
+
+def test_risk_amend_unknown_id_refused(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+
+    rc = main(["plan", "risk", "--amend", "rX", "--text", "whatever"])
+    assert rc == 1
+    assert "unknown" in capsys.readouterr().err
+
+
+# ── defer (issue #85, t9) ─────────────────────────────────────────────────────
+def test_defer_happy_path_and_json(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--reason", "Milestone 3: worktree mechanics", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"id": "c1", "deferred": True, "reason": "Milestone 3: worktree mechanics"}
+    tg = plan_store.load(slug).find_target("c1")
+    assert tg.deferred is True
+    assert tg.deferred_reason == "Milestone 3: worktree mechanics"
+
+
+def test_defer_text_output(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--reason", "Milestone 3"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "c1" in out and "deferred" in out and "Milestone 3" in out
+
+
+def test_defer_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "zzz", "--reason", "whatever"])
+    assert rc == 1
+    assert "unknown coverage target" in capsys.readouterr().err
+
+
+def test_defer_missing_reason_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1"])
+    assert rc == 1
+    assert "--reason" in capsys.readouterr().err
+    assert plan_store.load(slug).find_target("c1").deferred is False
+
+
+def test_defer_already_deferred_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "defer", "c1", "--reason", "first"])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--reason", "second"])
+    assert rc == 1
+    assert "already deferred" in capsys.readouterr().err
+    assert plan_store.load(slug).find_target("c1").deferred_reason == "first"
+
+
+def test_defer_undo_happy_path(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "defer", "c1", "--reason", "first"])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--undo", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"id": "c1", "deferred": False}
+    tg = plan_store.load(slug).find_target("c1")
+    assert tg.deferred is False
+    assert tg.deferred_reason == ""
+
+
+def test_defer_undo_not_deferred_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--undo"])
+    assert rc == 1
+    assert "not deferred" in capsys.readouterr().err
+
+
+def test_defer_undo_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "zzz", "--undo"])
+    assert rc == 1
+    assert "unknown coverage target" in capsys.readouterr().err
+
+
+def test_defer_validates_against_live_frame(tmp_path, monkeypatch, capsys) -> None:
+    """`defer` shares `_require_target`'s live-frame fallback (#90): a target
+    that only exists in the live frame (not yet in the stored snapshot) can be
+    deferred directly, without an intervening `plan converge`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+    assert main(["capture", "--kind", "requirement", "a new requirement"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"])
+    assert main(["converge"]) == 0
+    capsys.readouterr()
+
+    rc = main(["plan", "defer", new_claim_id, "--reason", "later"])
+    assert rc == 0
+    persisted = plan_store.load(slug)
+    assert persisted.find_target(new_claim_id).deferred is True
+
+
+# ── end-to-end: converge, export, and status with deferred targets (issue #85) ──
+def test_plan_with_deferred_targets_converges_exports_and_status_distinguishes(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Acceptance criterion 1: a plan with deferred targets converges and
+    exports; the export names every deferred target with its reason; status
+    distinguishes deferred from uncovered. (The exact "90 covered / 12
+    deferred" shell-cli shape from #85 is exercised at the model layer in
+    tests/test_plan_convergence.py — this is the CLI-surface equivalent at a
+    smaller, CLI-practical scale.)
+    """
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    covered = _ALL_TARGETS[:8]
+    deferred = _ALL_TARGETS[8:]
+    args = ["plan", "task", "in-scope work", "--accept", "covers in-scope targets"]
+    for tid in covered:
+        args += ["--covers", tid]
+    main(args)
+    for tid in deferred:
+        main(["plan", "defer", tid, "--reason", f"out of scope: {tid}"])
+    capsys.readouterr()
+
+    rc = main(["plan", "converge", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ready_for_plan"] is True
+    assert payload["blockers"] == []
+    deferred_parked = [item for item in payload["parked_items"] if "deferred" in item]
+    assert len(deferred_parked) == len(deferred)
+    for tid in deferred:
+        assert any(tid in item for item in deferred_parked)
+
+    rc = main(["plan", "export"])
+    assert rc == 0
+    exported_plan = plan_store.load(slug)
+    text = (Path("docs/plans") / f"{exported_plan.created[:10]}-{slug}.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Deferred targets" in text
+    for tid in deferred:
+        assert f"`{tid}`" in text
+        assert f"out of scope: {tid}" in text
+
+    capsys.readouterr()
+    rc = main(["plan", "status"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "PASSED" in out
+    for tid in deferred:
+        assert tid in out and "deferred" in out
+    # Nothing about a deferred target is mislabeled as a plain uncovered gap.
+    assert "has no confirmed task" not in out
 
 
 # ── converge / export ───────────────────────────────────────────────────────
@@ -430,7 +997,16 @@ def test_waves_does_not_mutate_plan_state(tmp_path, monkeypatch, capsys) -> None
 
 
 def test_waves_dangling_dep_errors(tmp_path, monkeypatch, capsys) -> None:
-    _plan_with_deps(monkeypatch, tmp_path, capsys, [["t99"]])
+    """A dangling dep on a task id that never existed is still caught by
+    `plan waves`'s dependency-graph gate — but issue #86 means `plan task
+    --dep`/`depend --on` now refuse to CREATE one, so it is injected directly
+    into the store here to simulate a plan carrying pre-existing damage (from
+    before this fix, or hand-edited JSON)."""
+    slug = _plan_with_deps(monkeypatch, tmp_path, capsys, [[]])
+    plan = plan_store.load(slug)
+    plan.find_task("t1").deps.append("t99")
+    plan_store.save(plan)
+
     assert main(["plan", "waves", "--json"]) == 1
     assert "unknown task" in capsys.readouterr().err
 

@@ -23,11 +23,18 @@ devague --version
 - **Frame engine** (idea→spec) — start from the announcement ("pretend it
   shipped"), capture and pressure-test claims, park open vagueness, and `export`
   a spec only once the frame *converges*. Flat verbs: `devague new` /
-  `capture` / `interrogate` / `confirm` / `converge` / `export` / …
+  `capture` / `amend` / `interrogate` / `confirm` / `park` / `scope` /
+  `converge` / `export` / …
 - **Plan engine** (spec→plan) — seed a plan from a converged frame, cover every
   target with tasks that carry acceptance criteria and an acyclic dependency
   order, and `export` a plan only once it *converges*. Nested group:
-  `devague plan new` / `task` / `cover` / `converge` / `export` / …
+  `devague plan new` / `task` / `cover` / `defer` / `converge` / `export` / …
+
+Nothing gets deleted to make a gate go green. A parked unknown, a blocking
+hard question, and a coverage target that belongs to a later milestone each
+have an explicit close-out move — `park --resolve`, `interrogate <cN>
+--resolve <qN>`, and `plan defer` — that keeps the item on the record with
+the decision that closed it, and drops it out of the gate.
 
 Run `devague learn` (or `devague plan learn`) to learn the method, and `devague
 explain <move>` for any single move.
@@ -51,6 +58,11 @@ durable, explicitly non-authoritative artifact you can review out of band, then
 apply: each item is emitted with a `pending` marker — change it to `confirm` or
 `reject` and feed the file back with `confirm --from-review`. `pending` lines are
 never auto-confirmed; a batch is transactional (one bad id ⇒ nothing changes).
+Rejecting a claim sweeps its still-live honesty conditions and unresolved hard
+questions with it (`c4 -> rejected (also rejected: h3, q1)`), so rejected
+content leaves the review pool and the exported spec together. The plan side
+mirrors all of this: `devague plan confirm t1 t2 t3` / `plan reject …` are
+multi-id and transactional too.
 
 Open questions / pending decisions live as durable working state too:
 

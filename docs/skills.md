@@ -4,9 +4,10 @@ This is the canonical guide for **authoring the devague operator skills**
 in an agent runtime — what files they need, where they live, the entry-point
 shape, and the contract between a skill and devague's state. It is the long-form
 companion to `devague learn skills`, which surfaces a condensed, always-available
-version of the same recipe. (`devague learn skills` currently teaches the three
-CLI-driving skills; the recipe for the method-only `scope` skill joins it when
-its `devague scope` CLI move lands — see the #53 build plan, tasks t3/t10/t11.)
+version of the same recipe. (`devague learn skills` teaches all **seven** skills
+in flow order since 0.19.0 — three CLI-driving ones that ship a
+`scripts/<name>.sh` resolver, and four method-only ones that are a `SKILL.md`
+alone.)
 
 These skills are devague's **outbound** skills — devague is their
 origin/upstream (it dogfoods them to drive its own CLI), and guildmaster re-vendors
@@ -105,7 +106,8 @@ exec "${DEVAGUE[@]}" "$@"
 
 `assign-to-workforce` adds one orchestration layer on top of this resolver (a
 `split-plan` subcommand that renders `devague plan waves --json` as a human-facing
-table); the underlying `waves` call is still forwarded verbatim.
+table, and with `--write` also persists it as a durable gate-2 artifact); the
+underlying `waves` call is still forwarded verbatim.
 
 ## The skill ↔ devague contract
 
@@ -131,9 +133,17 @@ A skill drives the deterministic CLI and adds no business logic of its own:
   --instruction`, #53 t4; plan side: `plan task --instruction` / `plan instruct
   <tN>`, #53 t5). Setting or changing an instruction on an already-confirmed
   item flips it back to `proposed` — the user re-confirms, same as any other
-  proposed content. `assign-to-workforce` is meant to quote a task's
-  instruction and acceptance criteria verbatim into the per-subagent brief
-  (#53 t9/t13) — no operator paraphrasing.
+  proposed content. `assign-to-workforce` quotes a task's instruction and
+  acceptance criteria verbatim into the per-subagent brief, straight from the
+  `plan waves --json` payload (#53 t9/t13) — no operator paraphrasing.
+- **Correct in place; never delete to make a gate go green.** `devague amend`
+  (claim), `scope --amend` (finding), and `plan risk --amend` (risk text) fix
+  wrong content without churning ids — so honesty conditions, hard questions,
+  instructions, and inbound `--seeds` references stay pointed at something
+  real (#84). Closing something out is a separate, evidence-bearing move:
+  `park --resolve`, `interrogate <cN> --resolve <qN>`, `plan risk --resolve`,
+  and `plan defer` each keep the item on the record with the decision that
+  closed it.
 
 ## The operator skills
 
@@ -145,11 +155,11 @@ final PR review):
 
 | Skill | Leg | What it drives |
 |-------|-----|----------------|
-| `scope` | idea → explored scope (the optional opening leg) | read-only exploration; findings land via existing `devague` moves |
+| `scope` | idea → explored scope (the optional opening leg) | read-only exploration (inline, or fanned out to sonnet subagents at 5+ surfaces); findings land via existing `devague` moves, always run by the main agent |
 | `think` | idea → spec (working backwards) | the flat `devague <move>` verbs |
 | `challenge` | "a risk-scaled blind-spot discovery pass over a converged, exported frame BETWEEN /think and /spec-to-plan" | "pressure-test the spec through structured lenses, route every finding back through the existing deterministic moves as proposed-only content the human adjudicates" |
 | `spec-to-plan` | spec → plan (working forwards) | the `devague plan <move>` group |
-| `assign-to-workforce` | plan → parallel implementation | reads `devague plan waves` and `devague plan deliverables` (read-only) |
+| `assign-to-workforce` | plan → parallel implementation | reads `devague plan waves` and `devague plan deliverables` (read-only); `split-plan --write` persists the gate-2 artifact |
 | `deviate` | execution-time — an in-flight fan-out diverges from the confirmed plan | the `devague deviate` move (`--list [--json]`, `--confirm`/`--reject`), backed by the delivery store |
 | `summarize-delivery` | execution → accountability artifact (the delivery-side closure leg) | starts from `devague summary` / `devague deviate --list`; reads plan / git / PR / test evidence (read-only) |
 
@@ -162,13 +172,32 @@ unknown), then seed the `/think` frame with `boundary` / `non_goal` /
 ideas skip straight to `/think` (no wizard). From the sharper end-to-end method
 spec ([devague#53](https://github.com/agentculture/devague/pull/53)).
 
+**How the exploration step runs (new in 0.21.0, #79/#91).** The candidate
+count decides the shape: **4 or fewer** surfaces are explored inline and
+serially by the main agent, exactly as before — spinning up subagents to read
+three files costs more than it saves. **5 or more** fan out one **read-only
+exploration subagent per surface** (or per tight cluster of related surfaces),
+defaulting every subagent to the smaller tier, **sonnet** — a default, not a
+ceiling: escalate one subagent when that specific surface genuinely needs
+synthesis, never the whole survey. The load-bearing rule of the fan-out is
+that **subagents explore and report; they never run a `devague` move**. Each
+returns a touched / not-touched / unknown verdict with the file, line, or
+command output that grounds it, and the main agent alone runs every `capture`
+/ `scope` / `question` / `park` call from that reported evidence — so
+provenance and the anti-fabrication contract stay in one place instead of
+being scattered across subagent transcripts the user never sees. The recorded
+finding still cites the actual surface, never "a subagent explored this".
+
 The skill ships no entry-point script of its own, but the CLI surface it
 records into is live: `Frame.scope_entries` / `ScopeEntry` (`id`, `surface`,
-`finding`, `seeds`) shipped in #53 task t1, and the deterministic
-`devague scope` move that writes it (`devague scope "<surface>"
---finding "<text>" [--seeds <claim-id> ...]`, plus `scope --list [--json]`)
-shipped in #53 task t3; this skill's `devague learn skills` authoring recipe
-lands with tasks t10/t11.
+`finding`, `seeds`) and the deterministic `devague scope` move that writes it
+— `devague scope "<surface>" --finding "<text>" [--seeds <claim-id or
+hard-question-id> ...]`, plus `scope --list [--json]` and, since 0.21.0,
+`scope --amend <sN> --finding "<text>"` to correct a finding in place (#84).
+`--seeds` accepts claim ids (`c*`) **and** claim-attached hard-question ids
+(`q*`, #84) — the latter is the branch this skill's routing table sends a
+"genuinely unknown, needs a user decision" finding down, whose provenance link
+was previously unrecordable. An unknown seed id is refused with a hint.
 
 - Source:
   [`.claude/skills/scope/`](https://github.com/agentculture/devague/blob/main/.claude/skills/scope/SKILL.md)
@@ -180,6 +209,12 @@ Start from the announcement ("pretend it shipped — what would you announce?"),
 build an Announcement Frame by capturing and classifying claims, pressure-test
 them with honesty conditions and hard questions, park genuine unknowns as
 first-class open vagueness, and `export` a spec only once the frame **converges**.
+Since 0.21.0 the two moves that used to have no exit exist: `devague amend <cN>`
+corrects a claim without losing its id (and its honesty conditions, hard
+questions, `instruction`, and inbound scope seeds), and `devague interrogate
+<cN> --resolve <qN> --decision "<text>"` closes out a blocking hard question —
+before that, one blocking question deadlocked `converge` permanently
+(#84, #48/#52).
 
 - Source:
   [`.claude/skills/think/`](https://github.com/agentculture/devague/blob/main/.claude/skills/think/SKILL.md)
@@ -237,6 +272,17 @@ downstream fan-out can run wide waves. The per-task `instruction` field and the
 acceptance criteria remain the testable contract, instructions the working
 guidance carried verbatim to the workforce.
 
+Since 0.21.0: `plan confirm` / `plan reject` take many ids in one transactional
+call like the frame side, and argument errors inside the group point at
+`devague plan explain <move>` (#86); `--dep` / `depend --on` refuse a
+self-dependency or unknown id at creation rather than surfacing it later as a
+`waves` cycle (#86); `cover` / `--covers` validate against targets re-derived
+from the **live** frame, so a target the frame grew after seeding is coverable
+straight away (#90); and `plan defer <target-id> --reason "<text>"` deliberately
+excludes a target that belongs to a later milestone, which is what makes a
+milestone-scoped plan converge honestly instead of being covered by a task that
+merely names it (#85).
+
 - Source:
   [`.claude/skills/spec-to-plan/`](https://github.com/agentculture/devague/blob/main/.claude/skills/spec-to-plan/SKILL.md)
   (`SKILL.md` + `scripts/spec-to-plan.sh`).
@@ -253,8 +299,11 @@ task ids restart at `t1`, and reads as deletable scratch space to anyone else)
 and never inside the repo (where `git add -A` sweeps checkouts into the PR and
 `git clean -fdx` destroys live agent work). Exactly three human gates; the final PR uses the `cicd`
 skill (`agex pr open`). Each subagent's brief quotes its task's fields verbatim
-from `plan show --json` / the exported plan-md — including the per-task
-`instruction` — never an operator paraphrase. The `split-plan` subcommand
+from the **`devague plan waves --json` payload** — the single source, whose
+top-level `tasks` object carries each task's `summary`, `instruction`,
+`acceptance_criteria`, and `covers`, so a brief needs no external context and
+never an operator paraphrase (neither `plan show --json` nor the exported
+plan-md is read alongside it). The `split-plan` subcommand
 renders the implementation split plan as a four-column Wave / Task / Model /
 Task summary table (real, editable model tokens; 72-character summary
 truncation, #69) with has-instruction and acceptance-criteria-count markers,
@@ -262,6 +311,26 @@ and a trailing **End state** section quoting `devague plan deliverables`
 verbatim (#70) — so gate 2's go/no-go sees what the plan actually produces, not
 just its task map. Degrades gracefully to a one-line version hint on a
 `devague` too old to have the `deliverables` verb.
+
+**The durable gate-2 artifact (`split-plan --write`, new in 0.21.0, #82).**
+The exported spec (`docs/specs/*.md`) and the exported plan
+(`docs/plans/*.md`) both persist; gate 2 previously survived only in
+conversation. `--write` closes that gap by persisting the same content to
+`docs/plans/<created-date>-<slug>-split.md` — beside the plan-md, using the
+same date-prefix convention derived from the plan's own `created` timestamp,
+so re-running updates that one file in place instead of spawning a dated
+duplicate. The file carries the full per-wave/per-task content quoted verbatim
+from `plan waves --json` (one `## Wave N` heading per wave, one
+`### <task-id> — <summary>` per task), a `Task | Owner | Model` assignment
+table that the script **reads back** before regenerating — so a human's edited
+Owner/Model cell survives the next `--write`, matched by task id, rather than
+resetting to the `sonnet` default — and the same End state section. It is an
+**artifact-only** change: no plan-schema change, no new `devague` verb, and
+`plan waves` / `show` / `deliverables` stay read-only exactly as before. Only
+the assignment table is meant to be hand-edited; the wave/task sections above
+it are fully regenerated every run. Present the file (or plain `split-plan`'s
+stdout twin) at the go/no-go either way — `--write` keeps a committed record
+of what was approved, it does not replace the live review.
 
 - Source:
   [`.claude/skills/assign-to-workforce/`](https://github.com/agentculture/devague/blob/main/.claude/skills/assign-to-workforce/SKILL.md)

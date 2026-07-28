@@ -20,12 +20,26 @@ see [`llm-guidance.md`](llm-guidance.md) (also surfaced in `devague learn`).
 
 ## Versioning
 
-Every frame carries an integer `schema_version` (currently `3`). It is written
+Every frame carries an integer `schema_version` (currently `4`). It is written
 on save and checked on load: a frame whose `schema_version` is newer than this
 devague supports is rejected, fail-closed, with an actionable error. A 0.4.0
 frame predates the field and loads as the current schema, so existing frames
 keep working.
 
+The check runs against the **raw** loaded dict, *before* the domain object is
+constructed (issue-backlog-sweep t2). Constructing first would surface a
+genuinely newer file as an opaque `TypeError` from a nested dataclass that
+does not recognise a key yet, instead of the intended fail-closed
+`IncompatibleSchemaError` with its upgrade hint. For the same reason, nested
+`HardQuestion` / `Vagueness` loading is tolerant of unknown keys rather than
+splatting the raw dict. The plan store carries the identical guard.
+
+> **v4 (issue-backlog-sweep t4/t6).** Bumped to add `HardQuestion.resolution`
+> (#48/#52) and `Claim.revisions` (#84) — see *HardQuestion* and *Claim* under
+> Entities. A v3 frame predates both: it loads with `resolution` defaulted to
+> `""` and `revisions` to `[]`, so no question loads as answered and no claim
+> loads with a fabricated revision trail.
+>
 > **v3 (resolve-parked-vagueness t1).** Bumped to add `Vagueness.resolved`,
 > `Vagueness.resolution`, and `Vagueness.resolution_claim_id` — see *Vagueness*
 > under Entities. A v2 frame predates all three: it loads with `resolved`
@@ -73,6 +87,21 @@ A discrete statement that may become part of the spec.
 - `links` — related claim ids.
 - `instruction` — optional verbatim text: how to verify or implement this
   claim; `""` means none (v2, #53 t1). See *Instructions* below.
+- `revisions` — list of ClaimRevision: the `(text, kind)` pairs this claim has
+  superseded, oldest first (v4, #84). Empty for a claim that has never been
+  amended — the common case, and every claim predating the field. Written only
+  by `Frame.amend_claim`.
+
+### ClaimRevision
+
+A superseded `(text, kind)` pair, recorded when a claim is amended (v4, #84).
+Deliberately a *lightweight* evidence marker, not an audit log: it captures
+only the two fields `amend` can change plus an optional operator-authored
+reason, and carries no timestamp or actor (no other Frame entity does either).
+
+- `text` — the claim text that was replaced.
+- `kind` — the claim kind that was replaced.
+- `reason` — optional operator note on why it was amended; `""` means none.
 
 ### HonestyCondition
 
@@ -90,8 +119,23 @@ An unresolved question against a claim.
 
 - `id` — `q1`, `q2`, …
 - `text` — the question.
-- `resolved` — boolean.
-- `blocking` — boolean; a blocking, unresolved question holds back convergence.
+- `resolved` — boolean; `False` until closed via `Frame.resolve_hard_question`
+  (v4, issue-backlog-sweep t4). That is the **only** mutator — before it
+  shipped, nothing in the codebase ever set this field, so a blocking question
+  deadlocked `converge` permanently (#48/#52).
+- `resolution` — the optional free-text answer recorded with `--decision`;
+  `""` means none (v4). Unlike `park --resolve`'s required `--decision`, the
+  note is optional here; the resolution *state* is what clears the gate.
+- `blocking` — boolean; a blocking, unresolved question holds back convergence
+  unless its parent claim has been `rejected` (a claim decided against makes
+  its open questions moot — a pure status check, not a resolution, so a
+  rejected claim's question can still be resolved later without erroring).
+
+Two independent counters mint `qN` ids — claim-attached hard questions (here)
+and the separate durable `.devague/questions/<slug>.md` artifact driven by
+`devague question` — and both start at `q1`. `Frame.find_hard_question` and
+`Frame.resolve_hard_question` only ever search claim-attached questions; the
+claim id is what disambiguates which namespace is meant.
 
 ### Vagueness
 
@@ -121,15 +165,30 @@ pre-frame leg (the `/scope` skill, #53). Lives on the frame as
 - `surface` — what was explored (a file, a subsystem, a doc — the operating
   agent's read-only survey, never devague's own code).
 - `finding` — what was learned about that surface.
-- `seeds` — claim ids this finding seeded (typically `boundary` / `non_goal` /
-  `assumption` claims that cite what was actually explored); an unknown claim
-  id is refused at construction, the same fail-closed rule as everywhere else.
+- `seeds` — the ids this finding seeded (typically `boundary` / `non_goal` /
+  `assumption` claims that cite what was actually explored). A seed may be a
+  **claim id** (`c*`) or a **claim-attached hard-question id** (`q*`, #84 —
+  the branch the `/scope` routing table sends a "genuinely unknown, needs a
+  user decision" finding down, whose provenance link was previously
+  unrecordable). An id resolving to neither is refused at construction, the
+  same fail-closed rule as everywhere else.
 
 The domain model (`Frame.add_scope_entry`) and its round-trip through
-`schema_version` 2 ship in #53 task t1, and the CLI move that records one —
-`devague scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]`, plus
-`scope --list [--json]` to read them back — ships in #53 task t3. An unknown
-seed claim id is refused with a hint and nothing is persisted.
+`schema_version` 2 shipped in #53 task t1; the CLI move that records one —
+`devague scope "<surface>" --finding "<text>" [--seeds <c*|q*> ...]`, plus
+`scope --list [--json]` to read them back — shipped in #53 task t3. An unknown
+seed id is refused with a hint and nothing is persisted.
+
+`scope --amend <sN> --finding "<text>"` (#84) replaces an entry's `finding` in
+place: same `id`, same `surface`, same `seeds`, nothing else changes. It is
+deliberately asymmetric with `amend` on a claim — a scope entry carries no
+`status`/`origin` to protect, so there is **no revision trail** here. The
+alternative it replaces was recording a second entry saying "supersedes s18",
+which left both the wrong finding and its correction in the exported spec.
+
+A seed that cites a **rejected** claim renders with a `(rejected)` marker in
+the exported spec rather than as a bare dead reference, and a `q*` seed
+renders as `(question)` — or `(question, resolved)` once answered (#84).
 
 ## Vocabulary
 
@@ -205,15 +264,22 @@ serializes it under `ready_for_spec`; the plan CLI under `ready_for_plan`.
 
 - `ready_for_spec` (bool) — the gate: true when there are no blockers.
 - `blockers` (list) — what holds convergence back.
-- `warnings` (list) — surfaced but non-blocking (e.g. an unconfirmed assumption).
-- `parked_items` (list) — tracked, non-blocking open vagueness.
-- `required_next_moves` (list) — the recommended move per blocker.
+- `warnings` (list) — surfaced but non-blocking (e.g. a still-`proposed`
+  assumption; a **rejected** assumption no longer warns — that decision is
+  already made and neither confirming nor re-rejecting it is a useful next
+  move, #83).
+- `parked_items` (list) — tracked, non-blocking open vagueness (plus, on the
+  plan side, deliberately deferred coverage targets, labeled `deferred:`).
+- `required_next_moves` (list) — the recommended move per blocker. For a
+  blocking hard question this now names the executable move —
+  `devague interrogate <cN> --resolve <qN> --decision "<how it was decided>"`,
+  flagged as a USER decision — rather than prose advice (#48/#52).
 
 A frame converges when there are confirmed `announcement` / `audience` /
 `after_state` claims, a `before_state` or `why_it_matters`, a `boundary`, a
 `success_signal`, a confirmed honesty condition on every spec-affecting claim,
-and no unresolved blocking vagueness or blocking hard question. `export` is gated
-on `ready_for_spec`.
+and no unresolved blocking vagueness or unresolved blocking hard question on a
+non-rejected claim. `export` is gated on `ready_for_spec`.
 
 ### Structural sharpness warnings (soft rollout)
 
@@ -245,8 +311,11 @@ the exit code is non-zero and `stderr` carries a `hint:` line.
 |---|---|---|---|
 | `new "<text>"` | announcement text | frame slug | creates a frame; seeds a confirmed `announcement` claim |
 | `capture --kind K "<text>" [--origin]` | kind, text, origin | `{id, kind, origin, status}` | adds a claim (`llm` → `proposed`, else `confirmed`) |
+| `amend <cN> [--text "<text>"] [--kind K] [--reason "<why>"]` | claim id, new text and/or kind, optional reason | `{id, kind, text, origin, status, flipped}` | corrects a claim **in place** — id, honesty conditions, hard questions, `instruction`, and inbound scope `seeds` all survive; appends the superseded pair to `revisions`; flips a **confirmed** claim to `proposed` (v4, #84). `origin` is never touched |
 | `interrogate <cN> [--honesty/--hard-question/--risk/--contradicts]` | claim id + attachment | `{added: [...]}` | attaches a honesty condition / question (`llm` honesty → `proposed`) |
-| `confirm <id>` / `reject <id>` | claim or honesty id | `{id, status}` | the **only** path to `confirmed` / `rejected` — user-only |
+| `interrogate <cN> --resolve <qN> [--decision "<text>"]` | claim id, hard-question id, optional resolution note | `{claim, id, resolved, resolution}` | closes out that claim's hard question (v4, #48/#52) — the **only** path to `HardQuestion.resolved`; user-only, the claim-level twin of `park --resolve`; mutually exclusive with every add-flag above |
+| `scope "<surface>" --finding "<text>" [--seeds <c*\|q*> …]` | surface, finding, optional seed ids | `{id, surface, finding, seeds}` | records a scope-exploration finding (v2, #53 t3); `--amend <sN> --finding "<text>"` replaces a finding in place (#84) |
+| `confirm <id> [<id>…]` / `reject <id> [<id>…]` | claim or honesty ids | `{confirmed, rejected, cascaded}` | the **only** path to `confirmed` / `rejected` — user-only, transactional; rejecting a claim cascades onto its still-live honesty conditions and unresolved hard questions (`cascaded`, echoed as `(also rejected: h3, q1)`, #83) |
 | `park "<text>" --kind K` | text, vagueness kind | `{id, kind}` | adds first-class open vagueness |
 | `park --resolve VID --decision "<text>" [--claim CN]` | vagueness id, decision text, optional deciding claim id | `{id, resolved, resolution, resolution_claim_id}` | closes out a parked item (v3, resolve-parked-vagueness t5) — the **only** path to `Vagueness.resolved`; user-only, mirrors `question --resolve` |
 | `converge` | — | the convergence result | promotes/demotes frame `status` |
@@ -259,7 +328,13 @@ claim kind / origin / status or vagueness kind (rejected at construction);
 unknown claim or honesty id on `confirm`/`reject`; `park --resolve` without
 `--decision`; positional park text passed together with `--resolve`; an
 unknown or already-resolved vagueness id on `park --resolve`; an unknown
-`--claim` id on `park --resolve`; an invalid `--frame` slug; a missing frame;
+`--claim` id on `park --resolve`; an unknown claim id on `amend`, or `amend`
+with neither `--text` nor `--kind`, or an unknown `--kind`; an unknown claim
+id, an unknown or wrong-claim hard-question id, or an already-resolved
+question on `interrogate --resolve`, and `--resolve` combined with any
+add-flag; an unknown `--seeds` id on `scope` (resolving to neither a claim nor
+a claim-attached hard question); an unknown entry id or a missing `--finding`
+on `scope --amend`; an invalid `--frame` slug; a missing frame;
 a malformed or hand-edited frame file (including one whose embedded slug
 doesn't match the requested slug, or whose `schema_version` is not an
 integer); a frame whose `schema_version` is too new.
@@ -271,10 +346,12 @@ explicit user `confirm` before they affect convergence. Nothing auto-confirms,
 `converge` never mutates a claim's status, and no fixed prompt sequence is
 imposed — the CLI stays a move-driven state tracker.
 
-The same guarantee extends to instructions once t4/t5 land: setting or
-changing one on an already-confirmed item demotes it back to `proposed` (see
-*Instructions* above) — content changes route through the user exactly like
-new proposals.
+The same guarantee extends to instructions (#53 t4/t5): setting or changing one
+on an already-confirmed item demotes it back to `proposed` (see *Instructions*
+above) — content changes route through the user exactly like new proposals. It
+extends to `amend` the same way (#84): correcting a confirmed claim's text or
+kind flips it back to `proposed` rather than editing an approved statement
+under the user.
 
 It also extends to deviation records (see *The delivery peer* below): an
 `llm`-origin deviation lands `proposed` and requires an explicit user
@@ -303,6 +380,38 @@ models, v3, resolve-parked-vagueness t2). It reuses the same structured
 convergence result, serialized under `ready_for_plan`. See
 `docs/superpowers/specs/2026-05-23-devague-spec-to-plan-design.md`.
 
+### CoverageTarget
+
+One thing the plan must deliver, derived from the source frame at
+`plan new` (every confirmed claim and confirmed honesty condition).
+
+- `id` — the frame id it mirrors: a claim id (`c*`) or honesty id (`h*`).
+- `kind` — a claim kind, or `"honesty"` for an honesty condition.
+- `text` — the target text, copied from the frame.
+- `deferred` — boolean; `False` unless `plan defer` deliberately excluded this
+  target from *this* plan's gate (v4, #85). Written only by
+  `Plan.defer_target` / `Plan.undefer_target`.
+- `deferred_reason` — why it is out of scope for this plan; `""` when not
+  deferred (v4). `plan defer` requires a reason — a deferral without one is
+  refused, the same evidence-bearing rule as `park --resolve --decision`.
+
+A deferred target drops out of the coverage blocker, surfaces in
+`parked_items` labeled `deferred:` (so it is visible, never silently
+dropped), and renders under a `## Deferred targets` section in the exported
+plan-md. This is the honest alternative to a task that merely *names* a
+target: before it existed, a milestone-scoped plan could not converge at all
+unless it faked coverage of work belonging to a later plan.
+
+The stored `targets` list is a **snapshot** taken at `plan new`, while
+`converge` / `status` / `export` re-derive targets from the live frame. `cover`
+and `task --covers` therefore check the snapshot first (the common, no-I/O
+case) and fall back to the live frame, refreshing and persisting the snapshot
+on a hit (#90) — otherwise `status` could recommend covering a target that
+`cover` then refused as unknown, and a frame that legitimately grew a claim
+mid-run could never converge again. If the source frame has itself regressed
+below its own gate, the frame-drift error surfaces as-is rather than being
+reworded into "unknown coverage target".
+
 ### Moves
 
 All plan moves take `--json` and `--plan <slug>` (default: the current plan).
@@ -318,12 +427,15 @@ seeded surfaces as a clean error (frame drift) rather than a stale pass.
 | `instruct <tN> "<text>"` | task id, instruction text | `{id, instruction, status, flipped}` | sets/replaces the task's instruction; flips a **confirmed** task back to `proposed` (see *The re-confirm rule* below) |
 | `accept <tN> "<text>"` | task id, criterion text | `{id, acceptance}` | appends an acceptance criterion; does not change `status` |
 | `amend <tN> [--summary "<text>"] [--accept-replace <n> "<text>" …] [--accept-remove <n> …]` | task id, optional summary replacement, index-addressed acceptance-criterion edits | `{id, summary, acceptance_criteria, status, flipped}` | edits the summary and/or acceptance criteria in place; flips a **confirmed** task back to `proposed`; refuses outright on a **rejected** task |
-| `depend <tN> --on <tM>` | dependent task id, dependency task id | `{id, deps}` | appends a dependency edge; does not change `status` |
+| `depend <tN> --on <tM>` | dependent task id, dependency task id | `{id, deps}` | appends a dependency edge; does not change `status`; refuses a self-dependency or an unknown `<tM>` at creation (#86) |
 | `depend <tN> --on <tM> --remove` | dependent task id, dependency task id | `{id, deps, status, flipped}` | cuts exactly that one edge; flips a **confirmed** task back to `proposed`; refuses if the task did not depend on `<tM>` |
-| `cover <tN> --target <c*\|h*>` | task id, coverage target id | `{id, covers}` | marks a task as covering a coverage target; does not change `status` |
-| `confirm <tN>` / `reject <tN>` | task id | `{id, status}` | the **only** path to `confirmed` / `rejected` — user-only |
+| `cover <tN> --target <c*\|h*>` | task id, coverage target id | `{id, covers}` | marks a task as covering a coverage target; does not change `status`; the target is validated against the stored snapshot first, then the **live** frame (#90) |
+| `defer <target-id> --reason "<text>"` | coverage target id, reason | `{id, deferred, reason}` | deliberately excludes a target from *this* plan's gate (v4, #85); `--reason` is required |
+| `defer <target-id> --undo` | coverage target id | `{id, deferred}` | reverses a prior deferral, returning the target to the active gate; refuses a target that was never deferred |
+| `confirm <tN> [<tN>…]` / `reject <tN> [<tN>…]` | one or more task ids | `{ids, status}` | the **only** path to `confirmed` / `rejected` — user-only and **transactional**: every id is validated first, so one bad id changes nothing (#86). Plan tasks have no attachments to cascade over, unlike the frame side |
 | `risk "<text>" --kind K [--task <tN>]` | risk text, vagueness kind, optional task ref | `{id, kind, task}` | records a first-class PlanRisk |
 | `risk --resolve RID --decision "<text>"` | risk id, decision text | `{id, resolved, resolution}` | closes out a plan risk (v3, resolve-parked-vagueness t6) — the **only** path to `PlanRisk.resolved`; user-only, mirrors `park --resolve` (no `--claim` analog — risks link tasks via `--task`, not a deciding claim) |
+| `risk --amend RID --text "<corrected>"` | risk id, corrected text | `{id, kind, text, task, resolved, resolution}` | corrects a risk's text in place (#84) — the plan-side twin of the frame's `amend`; `kind`, `task_id`, and resolution state are untouched |
 | `converge` | — | the convergence result (`ready_for_plan`) | promotes/demotes plan `status`; re-evaluates against the live source frame |
 | `export [--format plan-md]` | — | `{path, format}` | writes the buildable plan; requires `ready_for_plan` |
 | `waves [--json]` | — | `{plan, waves, tasks}` | none — read-only, convergence-agnostic (see below) |
@@ -336,15 +448,21 @@ unknown task id on `instruct` / `accept` / `amend` / `depend` / `cover` /
 `confirm` / `reject`; an unknown coverage target on `cover` or
 `task --covers`; `amend` called against a **rejected** task, or with neither
 `--summary` nor an acceptance edit, or with an out-of-range acceptance index;
-`depend --remove` naming an edge the task does not have; an unsound
+`depend --remove` naming an edge the task does not have; a self-dependency or
+an unknown dependency id on `task --dep` / `depend --on`; an unsound
 dependency graph (a cycle, or a dependency on a missing/rejected task) on
 `waves`; `new` against an unconverged frame or over an existing plan; a
 source frame that has regressed below its own convergence on `converge` /
-`export` / `status` (frame drift); `risk --resolve` without `--decision`;
-positional risk text passed together with `--resolve`; an unknown or
-already-resolved risk id on `risk --resolve`; an invalid `--plan` / `--frame`
-slug; a missing plan; a malformed or hand-edited plan file; a plan whose
-`schema_version` is too new.
+`export` / `status` (frame drift, also surfaced as-is by `cover` / `defer`
+when the id is absent from the stored snapshot); `risk --resolve` without
+`--decision`; positional risk text passed together with `--resolve`; an
+unknown or already-resolved risk id on `risk --resolve`; an unknown risk id or
+a missing `--text` on `risk --amend`; `defer` without `--reason`, an unknown
+target id, an already-deferred target on `defer`, or a never-deferred target
+on `defer --undo`; an invalid `--plan` / `--frame` slug; a missing plan; a
+malformed or hand-edited plan file; a plan whose `schema_version` is too new.
+An argument error raised inside the `plan` group points at
+`devague plan explain <move>` rather than the generic `--help` (#86).
 
 ### The re-confirm rule
 
@@ -385,8 +503,10 @@ what is useful *before* convergence, at the assign-to-workforce go/no-go
 (issue #20: Devague describes state, it does not gate the human's decision).
 
 Plans carry the same persistence contract as frames. Every plan has an integer
-`schema_version` (currently `3`, `PLAN_SCHEMA_VERSION`), written on save and
-checked on load: `plan_store.load` **fails closed** with a clean `DevagueError`
+`schema_version` (currently `4`, `PLAN_SCHEMA_VERSION`), written on save and
+checked on load — against the **raw** dict before the domain object is built,
+the same hardening the frame store carries: `plan_store.load` **fails closed**
+with a clean `DevagueError`
 (exit code 1, upgrade hint) when a plan declares a `schema_version` newer than
 this devague supports. A pre-0.7.0 plan with no `schema_version` key loads
 silently as the current schema. Loaded `Task.origin` / `Task.status` and
@@ -401,6 +521,12 @@ slug (so a tampered file can't silently redirect a later `save`), and parse
 non-integer value is rejected rather than coerced. These guards are symmetric
 across the frame and plan persistence twins.
 
+> **v4 (issue-backlog-sweep t9).** `PLAN_SCHEMA_VERSION` bumped to add
+> `CoverageTarget.deferred` and `CoverageTarget.deferred_reason` (#85) — see
+> *CoverageTarget* above. A v3 plan predates both: every target loads with
+> `deferred` defaulted to `False` and `deferred_reason` to `""`, so nothing
+> loads as silently out of scope.
+>
 > **v3 (resolve-parked-vagueness t2).** `PLAN_SCHEMA_VERSION` bumped to add
 > `PlanRisk.resolved` and `PlanRisk.resolution` — the plan-side twin of the
 > frame's v3 Vagueness bump. A v2 plan predates both: it loads with `resolved`
@@ -510,6 +636,64 @@ announcement, the wave/task map, approved deviations, and a pointer to the
 are pure functions of `(Plan, Optional[Frame], Delivery)`: read-only, no I/O
 beyond the initial loads, and deterministic — rendering twice yields
 byte-identical output.
+
+Planned Work and Actual Delivery are scoped to **confirmed** tasks (#88), plus
+one line recording how many tasks were rejected during planning. A `rejected`
+task is planning history, and a `proposed` task is still under adjudication —
+folding either into an accountability artifact about what shipped would report
+an open or reversed decision as a closed one. A plan with 19 confirmed and 68
+rejected tasks emitted 87 rows before this.
+
+## Render-time contracts
+
+Two things happen only at render time. Neither touches the stored JSON, and
+neither appears in any `--json` payload — a `--json` view mirrors the
+underlying data verbatim, exactly as the stores hold it.
+
+### Markdown safety (#87)
+
+`devague/render/_md_safety.py` composes two passes over every field of
+verbatim claim / task / instruction / deviation text, at every verbatim site
+in `spec_md.py`, `plan_md.py`, and `summary_md.py`:
+
+- `md_safe_text()` — underscore- and dunder-bearing identifiers are wrapped in
+  code spans rather than backslash-escaped (fixing MD037 and MD050 in one
+  move, since Markdown never parses inside a code span); the remaining
+  markdown control characters (`*`, `[`, `]`, a stray backtick, a leading
+  `#`) are backslash-escaped; text already inside a matched backtick pair is
+  left byte-for-byte untouched. Pure and **idempotent**:
+  `md_safe_text(md_safe_text(x)) == md_safe_text(x)`.
+- `autolink_urls()` / `heading_safe()` — bare URLs are wrapped in `<…>`
+  (MD034), and heading text additionally has MD026 trailing punctuation
+  stripped.
+
+The exported artifacts therefore pass `markdownlint-cli2` without the author
+having to hand-escape claim text, and the frame/plan JSON round-trips
+unchanged.
+
+### Contested claims (#92)
+
+`devague/contested.py` derives, read-only and at render time, the claims an
+approved deviation has contested. A frame outlives the plans seeded from it
+and carries no reverse pointer to them, so the join enumerates plan slugs,
+keeps the plans whose `frame_slug` matches, loads each one's delivery ledger,
+and matches every **approved** deviation's `--affects` refs back onto the
+frame's **confirmed** claims.
+
+- The exported spec renders a nested "⚠ contested by `dN`" bullet under the
+  claim (with the deviation's `classification` and `reason`); `show` and
+  `status` render `contested: <claim> by <deviation>` lines, and both gain a
+  `contested` key under `--json`.
+- **The spec is never rewritten.** Per the maintainer ruling on #92, the
+  artifact points *forward* to the ledger rather than being edited to match
+  execution — "deviate is the marking of the change".
+- **Fails open.** This is the first time frame-side read paths reach across to
+  the plan and delivery stores at all, so a plan file or delivery ledger that
+  is missing, truncated, or declares a newer schema degrades to "no markers
+  derived from that source" plus a human-readable diagnostic on stderr —
+  never a crash and never a blocked `export` / `show` / `status`. A plan with
+  no delivery ledger yet (the common case) is not a diagnostic at all.
+- Nothing here mutates a claim, a plan, or a ledger, and no id is invented.
 
 ### Schema versioning
 

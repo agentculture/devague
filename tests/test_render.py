@@ -219,7 +219,7 @@ def test_spec_md_wraps_bare_url_in_claim_bullet() -> None:
 
 def test_spec_md_wraps_bare_url_in_follow_up_text() -> None:
     out = render.render(_hostile_frame(), "spec-md")
-    assert "- follow up at <https://example.com/todo>" in out
+    assert "- [follow_up] follow up at <https://example.com/todo>" in out
 
 
 def test_spec_md_hostile_input_is_markdownlint_clean() -> None:
@@ -291,19 +291,25 @@ def test_spec_md_renders_resolved_vagueness_section_with_resolution_verbatim() -
     assert "- [follow_up] follow up on docs — resolved: docs updated in t8" in out
 
 
-def test_spec_md_resolved_follow_up_is_excluded_from_open_follow_up_section() -> None:
-    # The only vagueness item of kind follow_up/out_of_scope is resolved — the
-    # "Open / follow-up" section must not fabricate it as still open.
+def test_spec_md_resolved_follow_up_is_excluded_from_open_parks_section() -> None:
+    # The only vagueness item of kind follow_up is resolved — the open-parks
+    # section must not fabricate it as still open. Its resolved form (with
+    # the "— resolved:" suffix) belongs only in "## Resolved vagueness", so
+    # checking the bare (unsuffixed) bullet form is absent distinguishes the
+    # two without depending on any particular heading name.
     out = render.render(_resolved_vagueness_frame(), "spec-md")
-    assert "## Open / follow-up" not in out
+    assert "- [follow_up] follow up on docs\n" not in out
 
 
-def test_spec_md_still_open_nonblocking_park_stays_unlisted() -> None:
-    # Unchanged pre-existing behavior: spec_md never rendered unknown_blocking/
-    # unknown_nonblocking kinds unless resolved — the still-open nonblocking
-    # item here has no resolution, so it stays absent from the exported spec.
+def test_spec_md_open_nonblocking_park_renders_labeled_by_kind() -> None:
+    # #93/#49 (flipped): spec_md previously never rendered unknown_blocking/
+    # unknown_nonblocking kinds unless resolved, so this exact still-open,
+    # unresolved nonblocking park silently vanished from the exported spec —
+    # precisely the residual-risk kind that legitimately coexists with a
+    # converged frame. It now renders, grouped/labeled by kind.
     out = render.render(_resolved_vagueness_frame(), "spec-md")
-    assert "scale unknown" not in out
+    assert "## Open parks" in out
+    assert "- [unknown_nonblocking] scale unknown" in out
 
 
 def test_spec_md_resolved_vagueness_is_markdownlint_clean() -> None:
@@ -383,3 +389,168 @@ def test_resolved_blocking_park_spec_passes_real_markdownlint_cli2(tmp_path: Pat
         check=False,
     )
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+# ── issue-backlog-sweep t3: all four park kinds, resolved hard questions, ────
+# rejected-claim exclusion, dead-seed flagging (#93, #49, #83, #84 c33) ───────
+
+
+def _all_four_park_kinds_frame() -> Frame:
+    f = Frame(slug="allkinds", title="All Park Kinds")
+    f.add_claim("announcement", "Shipped all four park kinds", origin="user")
+    f.add_vagueness("residual risk one", "unknown_nonblocking")
+    f.add_vagueness("residual risk two", "unknown_blocking")
+    f.add_vagueness("explicitly out of scope", "out_of_scope")
+    f.add_vagueness("later follow-up", "follow_up")
+    return f
+
+
+def test_spec_md_lists_every_open_park_kind_labeled_by_kind() -> None:
+    # Acceptance criterion 1: a frame carrying open parks of all four kinds
+    # exports a spec listing each park, labeled by kind.
+    out = render.render(_all_four_park_kinds_frame(), "spec-md")
+    assert "## Open parks" in out
+    assert "- [unknown_nonblocking] residual risk one" in out
+    assert "- [unknown_blocking] residual risk two" in out
+    assert "- [out_of_scope] explicitly out of scope" in out
+    assert "- [follow_up] later follow-up" in out
+
+
+def test_spec_md_all_four_park_kinds_is_markdownlint_clean() -> None:
+    assert_markdownlint_clean(render.render(_all_four_park_kinds_frame(), "spec-md"))
+
+
+def test_spec_md_resolved_hard_question_renders_with_resolved_marker() -> None:
+    # Acceptance criterion 2 (part 1, #49): a converged frame has no
+    # unresolved blocking hard question, yet the pre-fix renderer showed every
+    # hard question as if still open. A resolved one now carries a marker
+    # instead of reading as a live blocker.
+    f = Frame(slug="resolvedhq", title="Resolved HQ")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "will this scale?", blocking=True)
+    q.resolved = True
+    out = render.render(f, "spec-md")
+    assert "## Hard questions" in out
+    assert "- will this scale? (resolved)" in out
+    assert "(blocking)" not in out
+
+
+def test_spec_md_resolved_hard_question_renders_its_decision_text() -> None:
+    # Acceptance criterion 2 (part 1 continued, #49): the issue asked for
+    # resolved questions to render "with a pointer to the claim/decision that
+    # answered them", not just a flag. When `interrogate --resolve --decision`
+    # recorded one, the export quotes it — the same shape a resolved park
+    # already renders ("— resolved: <decision>").
+    f = Frame(slug="resolvedhq2", title="Resolved HQ With Decision")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "MCP or HTTP transport?", blocking=True)
+    f.resolve_hard_question(ann.id, q.id, "MCP — decided with the user on 2026-07-28")
+    out = render.render(f, "spec-md")
+    assert "- MCP or HTTP transport? (resolved: MCP — decided with the user on 2026-07-28)" in out
+    assert "(blocking)" not in out
+
+
+def test_spec_md_resolved_hard_question_without_decision_keeps_bare_marker() -> None:
+    # A question resolved with no `--decision` text (the flag is optional)
+    # still renders the bare marker — never an empty "(resolved: )".
+    f = Frame(slug="resolvedhq3", title="Resolved HQ No Decision")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "will this scale?", blocking=True)
+    f.resolve_hard_question(ann.id, q.id)
+    out = render.render(f, "spec-md")
+    assert "- will this scale? (resolved)" in out
+    assert "(resolved: )" not in out
+
+
+def test_spec_md_hard_question_on_rejected_claim_is_absent_issue_83_repro() -> None:
+    # Acceptance criterion 2 (part 2): the #83 repro shape — capture,
+    # interrogate --risk, reject, converge, export — must never leak the
+    # rejected claim's hard question into the exported spec.
+    f = Frame(slug="repro83", title="Repro 83")
+    f.add_claim("announcement", "Shipped", origin="user")
+    c = f.add_claim("boundary", "the policy gate must receive rewritten args", origin="llm")
+    f.set_status(c.id, "confirmed")
+    f.add_hard_question(c, "risk: a hook could launder a denied command", blocking=False)
+    f.set_status(c.id, "rejected")
+    out = render.render(f, "spec-md")
+    assert "## Hard questions" not in out
+    assert "launder a denied command" not in out
+
+
+def test_spec_md_hard_question_on_non_rejected_claim_still_renders() -> None:
+    # Control for the #83 fix: only the rejected claim's questions are
+    # dropped — a confirmed claim's still keep rendering.
+    f = Frame(slug="control83", title="Control 83")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    f.add_hard_question(ann, "an ordinary open question", blocking=False)
+    out = render.render(f, "spec-md")
+    assert "## Hard questions" in out
+    assert "- an ordinary open question" in out
+
+
+def test_spec_md_scope_seed_citing_rejected_claim_renders_rejected_marker() -> None:
+    # Acceptance criterion 3 (#84's fourth criterion, c33/h26): a scope entry
+    # whose seeds cite a claim that was later rejected must render a visible
+    # rejected marker, not a bare dead id.
+    f = Frame(slug="deadseed", title="Dead Seed")
+    f.add_claim("announcement", "Shipped", origin="user")
+    c = f.add_claim("boundary", "will be rejected", origin="user")
+    f.add_scope_entry("some/surface.py", "a finding", seeds=[c.id])
+    f.set_status(c.id, "rejected")
+    out = render.render(f, "spec-md")
+    assert f"`{c.id}` (rejected)" in out
+
+
+def test_spec_md_scope_seed_citing_live_claim_stays_a_bare_id() -> None:
+    # Control for criterion 3: a seed citing a claim that is still confirmed
+    # (never rejected) keeps rendering as the plain backticked id.
+    f = Frame(slug="liveseed", title="Live Seed")
+    f.add_claim("announcement", "Shipped", origin="user")
+    c = f.add_claim("boundary", "stays confirmed", origin="user")
+    f.add_scope_entry("some/surface.py", "a finding", seeds=[c.id])
+    out = render.render(f, "spec-md")
+    assert f"`{c.id}`" in out
+    assert f"`{c.id}` (rejected)" not in out
+
+
+# ── issue-backlog-sweep t7: scope --seeds accepts question ids (#84's ────────
+# "smaller, related gap") — the seeded question must render, distinguishably
+# from a claim seed, in the exported scope-exploration section ─────────────-
+
+
+def test_spec_md_scope_seed_citing_hard_question_renders_question_marker() -> None:
+    f = Frame(slug="qseed", title="Question Seed")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "will this scale?", blocking=True)
+    f.add_scope_entry("some/surface.py", "a finding that seeded a question", seeds=[q.id])
+    out = render.render(f, "spec-md")
+    assert f"`{q.id}` (question)" in out
+
+
+def test_spec_md_scope_seed_citing_resolved_hard_question_renders_resolved_marker() -> None:
+    # A resolved question seed is distinguished from a still-open one — the
+    # answer is part of what the scope entry seeded.
+    f = Frame(slug="qseedresolved", title="Question Seed Resolved")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "will this scale?", blocking=True)
+    f.add_scope_entry("some/surface.py", "a finding that seeded a question", seeds=[q.id])
+    f.resolve_hard_question(ann.id, q.id, "yes, load-tested at 10x")
+    out = render.render(f, "spec-md")
+    assert f"`{q.id}` (question, resolved)" in out
+    assert f"`{q.id}` (question)\n" not in out  # not the still-open form
+
+
+def test_spec_md_rendering_never_mutates_park_or_hard_question_state() -> None:
+    # Acceptance criterion 4 (#87 h18/c22): escaping and the new park/hard-
+    # question rendering are presentational only — the frame's own fields
+    # (what `show --json` reads) must be untouched by a spec-md render.
+    f = _all_four_park_kinds_frame()
+    ann = f.claims[0]
+    f.add_hard_question(ann, "_underscored_risk_ with a leading # too", blocking=True)
+    before_vagueness = [(v.kind, v.text, v.resolved) for v in f.open_vagueness]
+    before_hq = [(q.text, q.resolved, q.blocking) for c in f.claims for q in c.hard_questions]
+    render.render(f, "spec-md")
+    after_vagueness = [(v.kind, v.text, v.resolved) for v in f.open_vagueness]
+    after_hq = [(q.text, q.resolved, q.blocking) for c in f.claims for q in c.hard_questions]
+    assert before_vagueness == after_vagueness
+    assert before_hq == after_hq

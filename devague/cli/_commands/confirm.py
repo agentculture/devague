@@ -6,6 +6,10 @@ Accepts one or more ids in a single call, or a reviewed decision set via
 id is validated first, and if any is unknown nothing is changed. Confirmation
 stays a user-only action, and ``--from-review`` applies only what the file
 explicitly marks — ``pending`` lines are never auto-confirmed. See issue #17.
+
+Rejecting a claim cascades onto its still-live honesty conditions/hard
+questions via ``Frame.reject`` (issue #83) — confirm has no mirrored
+"un-reject" cascade; see that method's docstring for why.
 """
 
 from __future__ import annotations
@@ -38,14 +42,24 @@ def _run(args: argparse.Namespace, confirm_ids: list[str], reject_ids: list[str]
         )
     for item_id in confirm_ids:
         frame.set_status(item_id, "confirmed")
-    for item_id in reject_ids:
-        frame.set_status(item_id, "rejected")
+    # Rejecting a CLAIM cascades onto its still-live honesty conditions/hard
+    # questions (Frame.reject, issue #83); collect what each id took with it
+    # so the echo can report it (`c21 -> rejected (also rejected: h3, q1)`).
+    cascaded: dict[str, list[str]] = {item_id: frame.reject(item_id) for item_id in reject_ids}
     store.save(frame)
     if getattr(args, "json", False):
-        emit_result({"confirmed": confirm_ids, "rejected": reject_ids}, json_mode=True)
+        emit_result(
+            {"confirmed": confirm_ids, "rejected": reject_ids, "cascaded": cascaded},
+            json_mode=True,
+        )
     else:
         lines = [f"{i} -> confirmed" for i in confirm_ids]
-        lines += [f"{i} -> rejected" for i in reject_ids]
+        for item_id in reject_ids:
+            extra = cascaded[item_id]
+            if extra:
+                lines.append(f"{item_id} -> rejected (also rejected: {', '.join(extra)})")
+            else:
+                lines.append(f"{item_id} -> rejected")
         emit_result("\n".join(lines), json_mode=False)
     return 0
 

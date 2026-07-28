@@ -2,150 +2,206 @@
   "slug": "resolve-parked-vagueness",
   "title": "resolve parked vagueness",
   "frame_slug": "resolve-parked-vagueness",
-  "schema_version": 2,
+  "schema_version": 4,
   "status": "exported",
   "created": "2026-07-17T10:18:49Z",
-  "updated": "2026-07-17T10:26:48Z",
+  "updated": "2026-07-28T07:49:59Z",
   "targets": [
     {
       "id": "c1",
       "kind": "announcement",
-      "text": "devague ships a resolve move for parked vagueness: a blocking park can now be resolved or reclassified through CLI moves alone, closing issues 45, 55, 57, and 60"
+      "text": "devague ships a resolve move for parked vagueness: a blocking park can now be resolved or reclassified through CLI moves alone, closing issues 45, 55, 57, and 60",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h1",
       "kind": "honesty",
-      "text": "the shipped release clears a decided blocking park via CLI moves alone \u2014 issue 57's repro converges with zero .devague JSON edits"
+      "text": "the shipped release clears a decided blocking park via CLI moves alone \u2014 issue 57's repro converges with zero .devague JSON edits",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c2",
       "kind": "requirement",
-      "text": "the Vagueness dataclass (devague/frame.py:106) gains resolution state \u2014 e.g. a resolved flag plus resolution text \u2014 kept in frame state for the evidence trail rather than deleted; add_vagueness today only appends and set_status (frame.py:226) routes only claim and honesty ids, so v-ids are unaddressable by any move"
+      "text": "the Vagueness dataclass (devague/frame.py:106) gains resolution state \u2014 e.g. a resolved flag plus resolution text \u2014 kept in frame state for the evidence trail rather than deleted; add_vagueness today only appends and set_status (frame.py:226) routes only claim and honesty ids, so v-ids are unaddressable by any move",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h2",
       "kind": "honesty",
-      "text": "a resolved Vagueness keeps its text, kind, and claim_id plus the resolution on the record, and round-trips save-load identical"
+      "text": "a resolved Vagueness keeps its text, kind, and claim_id plus the resolution on the record, and round-trips save-load identical",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c3",
       "kind": "requirement",
-      "text": "the convergence gate (devague/convergence.py:100-102) stops counting a resolved vagueness as a blocker, and suggest_move (convergence.py:188) names an actually executable move instead of today's 're-park it as non-blocking' hint, which only appends a second item while the first keeps blocking \u2014 the acceptance bar issue 45 sets explicitly"
+      "text": "the convergence gate (devague/convergence.py:100-102) stops counting a resolved vagueness as a blocker, and suggest_move (convergence.py:188) names an actually executable move instead of today's 're-park it as non-blocking' hint, which only appends a second item while the first keeps blocking \u2014 the acceptance bar issue 45 sets explicitly",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h3",
       "kind": "honesty",
-      "text": "after park --resolve, converge no longer lists the item as a blocker and the blocking-vagueness hint names park --resolve verbatim \u2014 an executable move, issue 45's acceptance bar"
+      "text": "after park --resolve, converge no longer lists the item as a blocker and the blocking-vagueness hint names park --resolve verbatim \u2014 an executable move, issue 45's acceptance bar",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c4",
       "kind": "requirement",
-      "text": "a new user-only resolve surface for v-ids that mirrors the existing `question --resolve <qid> --decision \"<text>\"` shape (devague/cli/_commands/question.py) \u2014 resolving is a user decision like confirm (issue 55), validated fail-closed with a hint on an unknown v-id, with stdout result, --json, and the existing exit-code contract"
+      "text": "a new user-only resolve surface for v-ids that mirrors the existing `question --resolve <qid> --decision \"<text>\"` shape (devague/cli/_commands/question.py) \u2014 resolving is a user decision like confirm (issue 55), validated fail-closed with a hint on an unknown v-id, with stdout result, --json, and the existing exit-code contract",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h4",
       "kind": "honesty",
-      "text": "an unknown v-id is refused with a hint and nothing is persisted; output follows the existing stdout/--json/exit-code contract; resolving stays a user-decided move like confirm"
+      "text": "an unknown v-id is refused with a hint and nothing is persisted; output follows the existing stdout/--json/exit-code contract; resolving stays a user-decided move like confirm",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c5",
       "kind": "requirement",
-      "text": "SCHEMA_VERSION bumps 2 to 3 (devague/frame.py:15) because adding fields to Vagueness breaks old loaders \u2014 from_dict does Vagueness(**v) (frame.py:284), so an old CLI reading a new frame raises TypeError; the documented fail-closed policy and the v2 scope_entries precedent both say bump; docs/spec-contract.md's Vagueness entity section gains the resolved state"
+      "text": "SCHEMA_VERSION bumps 2 to 3 (devague/frame.py:15) because adding fields to Vagueness breaks old loaders \u2014 from_dict does Vagueness(**v) (frame.py:284), so an old CLI reading a new frame raises TypeError; the documented fail-closed policy and the v2 scope_entries precedent both say bump; docs/spec-contract.md's Vagueness entity section gains the resolved state",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h5",
       "kind": "honesty",
-      "text": "a v3 frame on a v2-only binary fails closed with the schema_version error, never a Vagueness(**v) TypeError; v2 frames without the new fields still load with defaults"
+      "text": "a v3 frame on a v2-only binary fails closed with the schema_version error, never a Vagueness(**v) TypeError; v2 frames without the new fields still load with defaults",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c6",
       "kind": "requirement",
-      "text": "renderers keep a resolved vagueness on the record as provenance instead of dropping it \u2014 render/frame_md.py:56-60 lists every open_vagueness item flat, and render/spec_md.py:111 routes only follow_up/out_of_scope kinds into the spec; a resolved item should render with its resolution text so the exported spec shows the answered unknown (the provenance issue 45's comment asks for)"
+      "text": "renderers keep a resolved vagueness on the record as provenance instead of dropping it \u2014 render/frame_md.py:56-60 lists every open_vagueness item flat, and render/spec_md.py:111 routes only follow_up/out_of_scope kinds into the spec; a resolved item should render with its resolution text so the exported spec shows the answered unknown (the provenance issue 45's comment asks for)",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h6",
       "kind": "honesty",
-      "text": "an exported spec from a frame with a resolved blocking park renders the unknown together with its resolution text, and the export passes markdownlint"
+      "text": "an exported spec from a frame with a resolved blocking park renders the unknown together with its resolution text, and the export passes markdownlint",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c7",
       "kind": "requirement",
-      "text": "every surface that teaches park also teaches the resolve close-out: devague/cli/_commands/learn.py (move table line 26, operating rules line 107), docs/llm-guidance.md (park rows in the fabrication table, lines 109-130), and .claude/skills/think/SKILL.md (move table line 82, rules lines 209-210) \u2014 otherwise operators keep learning the trap issues 45/55/57/60 all fell into"
+      "text": "every surface that teaches park also teaches the resolve close-out: devague/cli/_commands/learn.py (move table line 26, operating rules line 107), docs/llm-guidance.md (park rows in the fabrication table, lines 109-130), and .claude/skills/think/SKILL.md (move table line 82, rules lines 209-210) \u2014 otherwise operators keep learning the trap issues 45/55/57/60 all fell into",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h7",
       "kind": "honesty",
-      "text": "learn, docs/llm-guidance.md, and the think skill each name park --resolve wherever they teach park; issue 57's prefer-question workaround guidance is retired"
+      "text": "learn, docs/llm-guidance.md, and the think skill each name park --resolve wherever they teach park; issue 57's prefer-question workaround guidance is retired",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c9",
       "kind": "boundary",
-      "text": "the resolve move is deterministic recording only \u2014 no LLM calls in the CLI (issue 20), and hand-editing .devague state stays forbidden; the fix removes the last reason operators had to hand-edit (the workaround all four issues document), it does not legitimize state edits"
+      "text": "the resolve move is deterministic recording only \u2014 no LLM calls in the CLI (issue 20), and hand-editing .devague state stays forbidden; the fix removes the last reason operators had to hand-edit (the workaround all four issues document), it does not legitimize state edits",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h8",
       "kind": "honesty",
-      "text": "the diff adds no LLM call and no subprocess to the CLI; resolution text is authored by the user/operator, never generated in-CLI"
+      "text": "the diff adds no LLM call and no subprocess to the CLI; resolution text is authored by the user/operator, never generated in-CLI",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c13",
       "kind": "requirement",
-      "text": "the plan engine ships the twin in the same PR: PlanRisk (devague/plan.py:60) gains the same resolution state, `plan risk --resolve <rN>` the same user-only surface, plan_convergence.py:136 skips resolved risks, the hint at plan_convergence.py:172 names the executable move, and PLAN_SCHEMA_VERSION bumps 2 to 3 (PlanRisk(**r) at plan.py:310 has the same old-loader crash shape as the frame side)"
+      "text": "the plan engine ships the twin in the same PR: PlanRisk (devague/plan.py:60) gains the same resolution state, `plan risk --resolve <rN>` the same user-only surface, plan_convergence.py:136 skips resolved risks, the hint at plan_convergence.py:172 names the executable move, and PLAN_SCHEMA_VERSION bumps 2 to 3 (PlanRisk(**r) at plan.py:310 has the same old-loader crash shape as the frame side)",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h9",
       "kind": "honesty",
-      "text": "plan converge drops a resolved blocking risk; the plan hint at plan_convergence.py:172 names plan risk --resolve verbatim; a v3 plan fails closed on a v2-only binary"
+      "text": "plan converge drops a resolved blocking risk; the plan hint at plan_convergence.py:172 names plan risk --resolve verbatim; a v3 plan fails closed on a v2-only binary",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c14",
       "kind": "audience",
-      "text": "operators driving /think and /spec-to-plan (the agents making CLI moves), the humans who own confirms, and the downstream AgentCulture repos that filed the four reports \u2014 colleague, lobes-cli, league-of-agents, and devague's own dogfooding"
+      "text": "operators driving /think and /spec-to-plan (the agents making CLI moves), the humans who own confirms, and the downstream AgentCulture repos that filed the four reports \u2014 colleague, lobes-cli, league-of-agents, and devague's own dogfooding",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h10",
       "kind": "honesty",
-      "text": "devague learn output alone teaches the close-out (park --resolve and plan risk --resolve) \u2014 an operator never needs to read source to escape a decided blocking park"
+      "text": "devague learn output alone teaches the close-out (park --resolve and plan risk --resolve) \u2014 an operator never needs to read source to escape a decided blocking park",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c15",
       "kind": "after_state",
-      "text": "a parked blocking unknown, once decided, is closed through `park --resolve` (frames) or `plan risk --resolve` (plans): the item stays on record with its resolution text, drops out of the convergence gate, the converge hints name executable moves, and no operator ever hand-edits .devague state again"
+      "text": "a parked blocking unknown, once decided, is closed through `park --resolve` (frames) or `plan risk --resolve` (plans): the item stays on record with its resolution text, drops out of the convergence gate, the converge hints name executable moves, and no operator ever hand-edits .devague state again",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h11",
       "kind": "honesty",
-      "text": "no .devague hand-edit remains necessary anywhere in the vagueness lifecycle: park, decide, resolve, converge, export all work through moves"
+      "text": "no .devague hand-edit remains necessary anywhere in the vagueness lifecycle: park, decide, resolve, converge, export all work through moves",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c16",
       "kind": "why_it_matters",
-      "text": "four independent reports in five weeks (issues 45, 55, 57, 60) show the method punishing correct behavior: honest parking leads to a permanently blocked frame, and the only escape is the exact out-of-band state mutation the move-driven design exists to prevent \u2014 one repo has the hand-edit in committed history (league-of-agents 0c71282)"
+      "text": "four independent reports in five weeks (issues 45, 55, 57, 60) show the method punishing correct behavior: honest parking leads to a permanently blocked frame, and the only escape is the exact out-of-band state mutation the move-driven design exists to prevent \u2014 one repo has the hand-edit in committed history (league-of-agents 0c71282)",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h12",
       "kind": "honesty",
-      "text": "each of the four issues is closed with a comment naming the shipped release and the move that replaces its documented workaround"
+      "text": "each of the four issues is closed with a comment naming the shipped release and the move that replaces its documented workaround",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c17",
       "kind": "success_signal",
-      "text": "all 4 issues close against the shipped release; issue 57's repro script (park blocking, decide, resolve, converge) passes through moves alone with 0 hand-edits of .devague state; test coverage stays >= 95%"
+      "text": "all 4 issues close against the shipped release; issue 57's repro script (park blocking, decide, resolve, converge) passes through moves alone with 0 hand-edits of .devague state; test coverage stays >= 95%",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h13",
       "kind": "honesty",
-      "text": "the stated numbers are verified before close: 4 issues closed, the repro converges with 0 hand-edits, coverage >= 95% in CI"
+      "text": "the stated numbers are verified before close: 4 issues closed, the repro converges with 0 hand-edits, coverage >= 95% in CI",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "c18",
       "kind": "requirement",
-      "text": "every secondary reader of open vagueness and plan risks handles resolved items consistently, not just the gate: _parked_items in convergence.py:151 and plan_convergence.py:141 (whose output feeds converge/status parked_items), and render/deliverables_md.py:72-81 (plan deliverables' surviving-open-items section, which reads frame.open_vagueness and plan risks directly) \u2014 a resolved item must stop being advertised as open everywhere, or status and deliverables contradict the spec"
+      "text": "every secondary reader of open vagueness and plan risks handles resolved items consistently, not just the gate: _parked_items in convergence.py:151 and plan_convergence.py:141 (whose output feeds converge/status parked_items), and render/deliverables_md.py:72-81 (plan deliverables' surviving-open-items section, which reads frame.open_vagueness and plan risks directly) \u2014 a resolved item must stop being advertised as open everywhere, or status and deliverables contradict the spec",
+      "deferred": false,
+      "deferred_reason": ""
     },
     {
       "id": "h14",
       "kind": "honesty",
-      "text": "with a resolved blocking item on a frame and a resolved blocking risk on a plan: converge/status parked_items and plan deliverables' open-items section show neither as open \u2014 verified by tests against those exact surfaces"
+      "text": "with a resolved blocking item on a frame and a resolved blocking risk on a plan: converge/status parked_items and plan deliverables' open-items section show neither as open \u2014 verified by tests against those exact surfaces",
+      "deferred": false,
+      "deferred_reason": ""
     }
   ],
   "tasks": [
@@ -363,7 +419,9 @@
       "id": "r1",
       "text": "the updated think skill reaches downstream mesh repos only on guildmaster's next re-broadcast sync \u2014 until then vendored copies still teach the one-way park; known cadence cost, not a blocker",
       "kind": "follow_up",
-      "task_id": null
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
     }
   ]
 }

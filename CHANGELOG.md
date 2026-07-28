@@ -5,6 +5,164 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-07-28
+
+The fifteen-issue backlog sweep (the `issue-backlog-sweep` plan, tasks t1–t19)
+— one devague-orchestrated workforce fan-out closing issues #48, #49, #52, #79, #82, #83, #84, #85, #86, #87, #88, #90, #91, #92, and #93.
+Three of those were hard blockers downstream repos were already working around
+by hand: hand-editing frame JSON (#48/#52), excluding generated artifacts from
+markdownlint entirely (#87), and writing a second plan renderer (#85). All
+three workarounds are verified deletable in
+`docs/deliveries/2026-07-28-issue-backlog-sweep-closure-map.md`.
+
+### Added
+
+- **`devague interrogate <cN> --resolve <qN> [--decision "<text>"]`** — close
+  out a claim's blocking hard question (#48, #52). Nothing in the codebase
+  ever set `HardQuestion.resolved`, so a single blocking question deadlocked
+  `converge` permanently and two downstream repos had to hand-edit
+  `.devague/frames/*.json` to get past it. This is a USER decision, like
+  `confirm` and `park --resolve`: the answer is recorded verbatim on the new
+  `HardQuestion.resolution`, the question stays on the record with a
+  `(resolved)` marker in the export, and the convergence hint now names the
+  executable move instead of prose advice. A blocking question on a
+  **rejected** claim also stops blocking — the claim was decided against, so
+  the question is moot (#52's third fix).
+- **`devague amend <cN> [--text "<text>"] [--kind K] [--reason "<why>"]`** —
+  correct a claim without id churn (#84). Reject-and-recapture cost the claim
+  its id, and with it every honesty condition, hard question, `instruction`,
+  and inbound `scope --seeds` reference. `amend` keeps all of them, appends
+  the superseded `(text, kind)` pair to a new `Claim.revisions` trail, and
+  flips a confirmed claim back to `proposed` — the same re-confirm rule
+  `interrogate --instruction` already applies. `origin` is never touched.
+- **`devague scope --amend <sN> --finding "<text>"`** — replace a scope
+  entry's finding in place, instead of recording a second entry that says
+  "supersedes s18" and leaving the reader to notice the word (#84).
+  Deliberately asymmetric with claim `amend`: a scope entry carries no
+  status/origin to protect, so there is no revision trail.
+- **`devague plan defer <target-id> --reason "<text>"` / `--undo`** — a
+  deliberate, documented per-target exclusion from the coverage gate (#85). A
+  milestone-scoped plan previously could not converge at all: every target
+  derived from the frame had to be covered, so the gate rewarded tasks that
+  merely *named* a target. A deferred target drops out of the gate, surfaces
+  in `parked_items` labeled `deferred:`, and renders under a
+  `## Deferred targets` section in the exported plan-md.
+- **`devague plan risk --amend <rN> --text "<corrected>"`** — the plan half of
+  #84: correct a stale risk's text in place.
+- **Contested-by-deviation markers (`devague/contested.py`)** — a read-only
+  derivation joining a frame's confirmed claims to approved deviations'
+  `--affects` refs across the plan-slug boundary (#92). A re-exported spec
+  renders a `contested by` marker naming the `dN` id under the claim, and
+  `show` / `status` gain `contested:` lines (`--json` gains a `contested`
+  key). The spec is **not** rewritten — it points forward to the ledger, per
+  the issue's ruling that "deviate is the marking of the change". Fails open:
+  a missing, corrupt, or newer-schema plan/delivery file degrades to "no
+  markers from that source" plus a stderr diagnostic, never a crash.
+- **`assign-to-workforce split-plan --write`** — persist the gate-2
+  implementation split plan to `docs/plans/<created-date>-<slug>-split.md`
+  (#82), beside the plan-md it describes. Unlike the exported spec and plan,
+  gate 2 previously survived only in conversation. The file carries the full
+  per-wave/per-task content quoted verbatim from `plan waves --json`, a
+  `Task | Owner | Model` assignment table the script **reads back** so
+  hand-edited cells survive regeneration, and the same End state section as
+  plain `split-plan`. Artifact-only — no plan-schema change and no new
+  `devague` verb.
+
+### Changed
+
+- **`devague reject <cN>` now cascades** onto the claim's still-live honesty
+  conditions and unresolved hard questions, echoing
+  `c21 -> rejected (also rejected: h3, q1)`; `--json` gains a `cascaded` key
+  (#83). Rejected content was reaching the exported spec and staying in the
+  `devague review` pool as if it still awaited a decision. `converge` also
+  stops warning about a **rejected** assumption — that decision is already
+  made, and the warning offered no useful next move.
+- **`devague plan confirm` / `plan reject` take multiple ids in one
+  transactional call**, matching the frame side (#86); argument errors raised
+  inside the `plan` group now point at `devague plan explain <move>` instead
+  of the generic `--help`.
+- **`plan task --dep` and `plan depend --on` validate at creation** — a
+  self-dependency and an unknown task id are both refused up front (#86),
+  instead of surfacing much later as a `waves` cycle or dangling-dep error.
+- **`plan cover` and `plan task --covers` validate against targets re-derived
+  from the LIVE frame** (#90). The stored target snapshot was frozen at
+  seeding while `converge` / `status` / `export` re-derived from the live
+  frame, so `status` could recommend covering a target that `cover` then
+  refused as unknown — and a frame that legitimately grew a claim mid-run
+  could never converge again. The stored snapshot is still checked first (no
+  I/O in the common case) and is refreshed and persisted on a live hit.
+- **Verbatim text is markdown-escaped at render time** (#87):
+  `devague/render/_md_safety.py` gains `md_safe_text()`, composed at every
+  verbatim site in `spec_md.py`, `plan_md.py`, and `summary_md.py`.
+  Underscore- and dunder-bearing identifiers wrap in code spans rather than
+  backslash-escaping — one move that fixes both MD037 and MD050 — other
+  markdown control characters escape, text already inside a code span passes
+  through byte-for-byte, and the transform is idempotent. Presentational
+  only: the store JSON and every `--json` payload are unchanged.
+- **`devague summary` scopes Planned Work and Actual Delivery to CONFIRMED
+  tasks** (#88), plus one line recording how many tasks were rejected during
+  planning. A plan with 19 confirmed and 68 rejected tasks emitted 87 rows,
+  which made the delivery artifact unusable. A `proposed` task is excluded
+  too — it is still under adjudication, and folding it into either list would
+  report an open decision as a closed one.
+- **Frame and plan `schema_version` bump 3 → 4** — `HardQuestion.resolution`,
+  `Claim.revisions`, and `CoverageTarget.deferred` / `.deferred_reason`. Both
+  stores now check the declared version against the **raw** dict *before*
+  constructing the domain object, so a genuinely newer file fails closed with
+  the upgrade hint instead of an opaque `TypeError` from a nested dataclass,
+  and nested `HardQuestion` / `Vagueness` loading tolerates unknown keys. A v3
+  file loads with every new field defaulted.
+- **The `scope` skill fans read-only exploration out to subagents** (#79,
+  #91): **4 or fewer** candidate surfaces are explored inline and serially;
+  **5 or more** fan out one read-only subagent per surface (or tight cluster),
+  defaulting every subagent to the smaller tier, **sonnet** — a default, not a
+  ceiling. Subagents explore and report; they never run a `devague` move. The
+  main agent runs every `capture` / `scope` / `question` / `park` call itself,
+  from the subagents' reported evidence, so provenance and the
+  anti-fabrication contract stay in one place.
+- **`devague scope --seeds` accepts claim-attached hard-question ids (`q*`)**
+  as well as claim ids (#84's "smaller, related gap") — the branch the
+  `/scope` routing table sends a "genuinely unknown, needs a user decision"
+  finding down, whose provenance link was previously unrecordable. A question
+  seed renders as `(question)`, or `(question, resolved)` once answered.
+- Teaching surfaces swept in lockstep with the moves: `devague learn` /
+  `learn skills`, `devague explain` / `plan explain`, `README.md`,
+  `CLAUDE.md`, `docs/spec-contract.md`, `docs/llm-guidance.md`,
+  `docs/skills.md`, `docs/skill-sources.md`, and the `think` / `scope` /
+  `spec-to-plan` / `assign-to-workforce` skills. The `spec-to-plan` moves table
+  had gone stale across several releases — it still taught `plan reject` as
+  single-id ("loop for batches") and never gained `amend`, `defer`,
+  `deliverables`, `depend --remove`, or `risk --amend`. Since guildmaster
+  re-broadcasts that skill to the mesh, the stale row was actively teaching the
+  workaround #86 removed. `tests/test_spec_to_plan_skill.py` now pins the moves
+  table against `devague plan --help`.
+
+### Fixed
+
+- **Export fidelity** (#93, #49, #83). All four park kinds now render under
+  `## Open parks`; the old filter surfaced only `follow_up` / `out_of_scope`
+  and silently dropped every open `unknown_nonblocking` item — exactly the
+  kind that legitimately coexists with a converged frame, so the artifact
+  claimed more certainty than the frame held. A resolved hard question now
+  carries a `(resolved)` marker — or `(resolved: <decision>)` when
+  `interrogate --resolve --decision` recorded one, the "pointer to the
+  claim/decision that answered them" #49 actually asked for — instead of
+  rendering as an open `(blocking)` one. Hard questions attached to a rejected
+  claim are dropped entirely. And a scope-entry seed citing a rejected claim
+  renders a `(rejected)` marker instead of a bare dead reference.
+- **URLs containing underscores survive the escaper** (#94). `md_safe_text()`
+  and `autolink_urls()` were introduced without knowing about each other, and
+  the renderers compose them in **opposite** orders — `spec_md.py` runs
+  `autolink_urls(md_safe_text(text))` while `plan_md.py` / `summary_md.py` run
+  `md_safe_text(autolink_urls(text))`. Both were wrong for a URL carrying an
+  underscore: the plan order backticked inside the link
+  (`<https://e.com/`some_path`>`) and the spec order truncated it at the first
+  underscore (`<https://e.com/>`some_path``), silently pointing a committed
+  artifact's link at the wrong address. `md_safe_text` now carves out URLs —
+  bare or already `<…>`-wrapped — exactly as it already carved out code spans,
+  so both orders produce identical, intact links. Caught by end-to-end
+  verification (t19), not by any task's own acceptance criteria.
+
 ## [0.20.1] - 2026-07-20
 
 ### Changed

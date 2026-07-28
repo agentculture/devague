@@ -151,3 +151,28 @@ def test_from_review_rejects_ids_and_file_together(tmp_path, monkeypatch, capsys
     rc = main(["confirm", "c2", "--from-review", str(store.review_path(slug))])
     assert rc == 1
     assert "not both" in capsys.readouterr().err
+
+
+# --- reject cascade (issue #83): review stops listing orphaned attachments ---
+
+
+def test_review_lists_zero_orphans_after_reject_cascades(tmp_path, monkeypatch, capsys) -> None:
+    # Before the #83 fix: rejecting c2 left h1 (its honesty condition) still
+    # `proposed`, so it kept showing up in `devague review` as an item
+    # awaiting a decision, attached to a claim that no longer exists. The
+    # cascade in Frame.reject now flips h1 to `rejected` too, so review's
+    # proposed-only listing (h.status == "proposed") naturally excludes it.
+    _seed_proposed(monkeypatch, tmp_path)  # c2 proposed, h1 proposed (on c1)
+    main(["capture", "--kind", "boundary", "risky boundary", "--origin", "llm"])  # c3
+    main(["interrogate", "c3", "--honesty", "must hold"])  # h2, proposed, on c3
+    capsys.readouterr()
+    assert main(["reject", "c3"]) == 0
+    echo = capsys.readouterr().out
+    assert "h2" in echo  # the cascade was echoed
+    capsys.readouterr()
+    assert main(["review", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    orphan_ids = [h["id"] for h in payload["proposed_honesty"]]
+    assert "h2" not in orphan_ids
+    # h1 (attached to c1, which was never rejected) is untouched and unrelated.
+    assert "h1" in orphan_ids

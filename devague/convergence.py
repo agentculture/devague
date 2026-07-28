@@ -102,6 +102,14 @@ def _missing_open_uncertainty(frame: Frame) -> list[str]:
     resolution text, but it has already been resolved through the ``park
     --resolve`` move, so it must not keep blocking convergence
     (resolve-parked-vagueness t3, #45/#55/#57).
+
+    A blocking hard question is cleared the same way, via
+    ``Frame.resolve_hard_question`` (``interrogate <cN> --resolve <qN>``,
+    decision c36, issues #48/#52). It also stops blocking if its parent claim
+    has been explicitly ``rejected`` — the claim itself was decided against,
+    so an unresolved question on it is moot (issue #52's fix (3)); this is a
+    pure claim-status check, not a resolution, so a rejected claim's question
+    can still be resolved later without erroring.
     """
     missing = [
         f"blocking vagueness {v.id} unresolved"
@@ -111,6 +119,7 @@ def _missing_open_uncertainty(frame: Frame) -> list[str]:
     missing += [
         f"blocking hard question {q.id} on {c.id} unresolved"
         for c in frame.claims
+        if c.status != "rejected"
         for q in c.hard_questions
         if q.blocking and not q.resolved
     ]
@@ -118,11 +127,19 @@ def _missing_open_uncertainty(frame: Frame) -> list[str]:
 
 
 def _assumption_warnings(frame: Frame) -> list[str]:
-    """Unconfirmed assumptions are soft: a warning, never a blocker (#5, h14)."""
+    """Unconfirmed assumptions are soft: a warning, never a blocker (#5, h14).
+
+    Only a still-*proposed* assumption is "unconfirmed" in the actionable
+    sense this warning describes (confirm it, or it ships as a stated
+    assumption). A *rejected* assumption was explicitly decided against —
+    confirming it would reverse that decision and re-rejecting it is a
+    no-op, so the warning would be pure noise with no useful next move;
+    skip it (issue #83).
+    """
     return [
         f"assumption {c.id} is unconfirmed — confirm it or it ships as a stated assumption"
         for c in frame.claims
-        if c.kind == "assumption" and c.status != "confirmed"
+        if c.kind == "assumption" and c.status == "proposed"
     ]
 
 
@@ -205,9 +222,10 @@ def suggest_move(blocker: str) -> str:
         return f'devague park --resolve {vid} --decision "<the decision>"'
     m = re.search(r"blocking hard question (q\d+) on (c\d+)", blocker)
     if m:
+        qid, cid = m.group(1), m.group(2)
         return (
-            f"resolve {m.group(1)} on {m.group(2)}: answer it, then "
-            f"capture/confirm the resulting claim"
+            f"this is a USER decision: devague interrogate {cid} --resolve {qid} "
+            f'--decision "<how it was decided>"'
         )
     return "devague show     # inspect and decide"
 

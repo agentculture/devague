@@ -54,12 +54,15 @@ install hint. Every move — including `status` — is forwarded verbatim as
 | `task "<summary>"` | Add a task. `--accept "<crit>"`, `--dep <tN>`, `--covers <c*/h*>` (each repeatable), `--instruction "<text>"` (verbatim working guidance, at creation); `--origin llm` lands it `proposed`. |
 | `instruct <tN> "<text>"` | Add/update a task's working instruction. Changing it on an already-`confirmed` task flips it back to `proposed` — the user re-confirms (the plan side's mirror of the frame side's `interrogate --instruction` re-confirm rule). |
 | `accept <tN> "<crit>"` | Add an acceptance criterion to a task. |
-| `depend <tN> --on <tM>` | Record that task `tN` depends on `tM`. |
-| `cover <tN> --target <c*/h*>` | Mark a task as covering a coverage target. |
-| `confirm <tN>` / `reject <tN>` | Resolve a task. **User-only decision.** Takes **one task id per call** — loop for batches (unlike the frame engine's transactional multi-id `confirm`; parity is a recorded follow-up in the 2026-07-01 plan, devague#53). |
-| `risk "<text>" --kind <kind>` | Record a first-class plan risk (`--task <tN>` to attach). |
-| `converge` | Evaluate the gate against the **live** source frame; list remaining gaps, plus non-blocking warnings (e.g. a confirmed task with no instruction). |
+| `amend <tN>` | Edit a task's summary (`--summary`) and/or replace/remove an acceptance criterion by index. May flip a `confirmed` task back to `proposed`; refuses on a rejected task. |
+| `depend <tN> --on <tM>` | Record that task `tN` depends on `tM`; `--remove` cuts one edge. Both a self-dependency and an unknown task id are refused **at creation** with an actionable hint (devague#86) — the same checks `task --dep` applies. |
+| `cover <tN> --target <c*/h*>` | Mark a task as covering a coverage target. Validated against the **live** source frame, exactly as `converge` derives it — so a target the frame grew after seeding can be covered straight away (devague#90). |
+| `defer <target-id> --reason "<text>"` | Deliberately exclude a coverage target from this plan's gate (`--undo` reverses it). The honest way to scope a plan to a milestone: deferred targets stop blocking `converge` and render in the exported plan's **Deferred targets** section with their reason (devague#85). An `out_of_scope` *risk* does **not** excuse a target — only `defer` does. |
+| `confirm <tN> [<tN>…]` / `reject <tN> [<tN>…]` | Resolve one or more tasks in one **transactional** call — all ids valid or nothing changes. **User-only decision.** Matches the frame engine's multi-id `confirm`/`reject` (parity landed for devague#86). |
+| `risk "<text>" --kind <kind>` | Record a first-class plan risk (`--task <tN>` to attach). `--resolve <rN> --decision "<text>"` closes one out; `--amend <rN> --text "<text>"` corrects a risk's text in place, preserving its id, kind, task link, and resolution state (devague#84). |
+| `converge` | Evaluate the gate against the **live** source frame; list remaining gaps, plus non-blocking warnings (e.g. a confirmed task with no instruction). Deferred targets are excluded from the gate. |
 | `export` | Write the buildable plan to `docs/plans/` — only after `converge` passes. |
+| `deliverables` | Read-only "end state" preview: the source frame's confirmed announcement/after-state/success-signal claims, every terminal task with its acceptance criteria, and the surviving open items. Never refuses — useful before convergence too. |
 | `waves` | Emit deterministic dependency waves — `{plan, waves}` plus a top-level `tasks` object keyed by task id (per-task summary/instruction/acceptance criteria/covers — see *The `waves --json` payload* below) — scheduling + subagent-brief metadata only, *not* orchestration. Read-only, works on an in-progress plan; refuses a cyclic/dangling graph. Devague describes the graph; an operator decides how to run it (#20). |
 | `status` | Read-only: where the plan stands + the recommended next move, re-checked against the live frame (`--json` too). |
 | `show` / `list` | Render a plan / list plans (`--json` for raw state). |
@@ -106,6 +109,16 @@ These are the point of the method — convergence must mean something.
 - **Cover every target; criteria on every task.** The gate requires every
   coverage target to be covered by a confirmed task, and every confirmed task to
   carry at least one acceptance criterion. Don't hand-wave a task as "done-ish."
+- **Never fake coverage to satisfy the gate — `defer` instead.** If a target is
+  deliberately out of scope (a later milestone, a separately reviewed change),
+  do **not** write a task that merely *mentions* it so coverage goes green. That
+  is the exact dishonesty devague#85 was filed about: a task claiming a target it
+  does not deliver looks perfectly healthy to the gate. Run
+  `devague plan defer <target-id> --reason "<why>"` — the target stops blocking
+  `converge` and is named, with its reason, in the exported plan's **Deferred
+  targets** section, so the exclusion is visible to a reviewer instead of implied
+  by absence. Deferring is a scoping decision: surface it to the user, don't take
+  it unilaterally.
 - **Keep the graph honest.** Dependencies must reference real tasks and form an
   acyclic graph; the gate rejects dangling deps and cycles.
 - **Park real unknowns as risks; don't paper over them.** A genuinely unknown

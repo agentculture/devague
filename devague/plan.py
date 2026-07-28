@@ -29,7 +29,10 @@ from devague.frame import (
 # plan-engine peer of frame.SCHEMA_VERSION). v2 (#53 t2) adds Task.instruction.
 # v3 (resolve-parked-vagueness t2) adds PlanRisk.resolved/resolution — the
 # plan-side twin of frame.SCHEMA_VERSION's Vagueness.resolved/resolution bump.
-PLAN_SCHEMA_VERSION = 3
+# v4 (issue-backlog-sweep t2) is reserved for t9's per-target deferral state; t2
+# itself only bumps the number and hardens plan_store.load's check-before-parse
+# order (the plan-side twin of the same frame.SCHEMA_VERSION v4 hardening).
+PLAN_SCHEMA_VERSION = 4
 
 TASK_STATUSES = ("proposed", "confirmed", "rejected")
 # Risks reuse the frame's open-vagueness kinds: a plan risk is the task-level peer of
@@ -88,6 +91,14 @@ class CoverageTarget:
     id: str
     kind: str  # a claim kind, or "honesty" for an honesty condition
     text: str
+    # Per-target deferral (issue #85, schema v4): a coverage target the operator
+    # has deliberately excluded from THIS plan's gate — typically because it
+    # belongs to a later milestone plan — with the reason recorded so the
+    # exclusion is visible in the exported artifact instead of silently implied
+    # by absence. False/"" means "not deferred"; never fabricated when absent.
+    # Set/cleared only via ``Plan.defer_target`` / ``Plan.undefer_target``.
+    deferred: bool = False
+    deferred_reason: str = ""
 
 
 @dataclass
@@ -188,8 +199,74 @@ class Plan:
         risk.resolution = resolution
         return risk
 
+    def amend_risk(self, rid: str, text: str) -> PlanRisk:
+        """Correct a risk's ``text`` in place (issue #84 comment): the common
+        case is a risk whose prose names a task id that later rotated (the
+        referenced task was rejected and recreated with a new id during a
+        scope change) — the risk is still substantively correct, only the id
+        it mentions went stale.
+
+        Preserves ``id``, ``kind``, ``task_id``, AND resolution state
+        (``resolved``/``resolution``) verbatim — a resolved risk that gets
+        its text corrected stays resolved; only ``text`` changes. Unlike
+        ``Frame.amend_claim`` (the frame-side sibling move, #84 t6), this is
+        a plain in-place replace with no revision trail: this engine's own
+        precedent for editing an already-recorded entity, ``amend_task``,
+        does not keep one either, and a ``PlanRisk`` has no honesty
+        conditions / hard questions / scope-entry seeds pointing at it the
+        way a ``Claim`` does — ``task_id`` is its only structural link, and
+        that is left untouched by design.
+
+        Raises ``ValueError`` on an unknown risk id — mirroring
+        ``resolve_risk``'s fail-closed contract.
+        """
+        risk = self.find_risk(rid)
+        if risk is None:
+            raise ValueError(f"unknown risk id: {rid!r}")
+        risk.text = text
+        return risk
+
     def find_target(self, target_id: str) -> Optional[CoverageTarget]:
         return next((tg for tg in self.targets if tg.id == target_id), None)
+
+    def defer_target(self, target_id: str, reason: str) -> CoverageTarget:
+        """Deliberately exclude ``target_id`` from this plan's coverage gate (issue
+        #85): a milestone-scoped plan should not have to fake coverage of a target
+        that genuinely belongs to a later plan just to satisfy the gate.
+
+        Mirrors ``resolve_risk``'s / ``Frame.resolve_vagueness``'s fail-closed
+        contract: an unknown target id raises, and deferring an already-deferred
+        target raises rather than silently overwriting its recorded reason — call
+        ``undefer_target`` first to change your mind, so the reversal is itself an
+        explicit, auditable move rather than a quiet edit. The caller (the CLI
+        ``plan defer`` move) is responsible for validating ``target_id`` against
+        the live frame first (the same seam ``cover`` already uses), so by the
+        time this runs the target is guaranteed to exist in ``self.targets``.
+        """
+        target = self.find_target(target_id)
+        if target is None:
+            raise ValueError(f"unknown coverage target: {target_id!r}")
+        if target.deferred:
+            raise ValueError(f"coverage target {target_id!r} is already deferred")
+        target.deferred = True
+        target.deferred_reason = reason
+        return target
+
+    def undefer_target(self, target_id: str) -> CoverageTarget:
+        """Reverse a prior ``defer_target`` call, returning the target to the
+        active coverage gate.
+
+        Fails closed on an unknown id and on a target that was never deferred —
+        the same "no silent no-op" contract as every other resolve/undo move here.
+        """
+        target = self.find_target(target_id)
+        if target is None:
+            raise ValueError(f"unknown coverage target: {target_id!r}")
+        if not target.deferred:
+            raise ValueError(f"coverage target {target_id!r} is not deferred")
+        target.deferred = False
+        target.deferred_reason = ""
+        return target
 
     @staticmethod
     def _validate_acceptance_index(task: Task, index: int) -> None:

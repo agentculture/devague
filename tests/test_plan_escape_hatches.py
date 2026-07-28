@@ -163,10 +163,19 @@ def test_depend_remove_flip_emits_stderr_note_in_text_mode(tmp_path, monkeypatch
 
 
 def test_converge_stops_reporting_removed_edge(tmp_path, monkeypatch, capsys) -> None:
+    """A dangling dep on an unknown task id used to be creatable through
+    `plan task --dep` directly; issue #86 makes the CLI refuse that at
+    creation time now, so the dangling dep is injected straight into the
+    store here — simulating a plan that already carries this damage from
+    before the fix (or from hand-edited JSON) — to verify `depend --remove`
+    still repairs it."""
     slug = _seeded_plan(monkeypatch, tmp_path, capsys)
     main(["plan", "task", "a"])  # t1
-    main(["plan", "task", "b", "--dep", "ghost"])  # t2, dangles on an unknown task
+    main(["plan", "task", "b"])  # t2
     capsys.readouterr()
+    plan = plan_store.load(slug)
+    plan.find_task("t2").deps.append("ghost")  # simulate pre-existing damage
+    plan_store.save(plan)
 
     rc = main(["plan", "converge", "--json"])
     assert rc == 0

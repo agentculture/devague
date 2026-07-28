@@ -56,12 +56,21 @@ PLAN_MOVES = {
         "Record that a task depends on another (--on); --remove cuts one edge "
         "(may flip confirmed -> proposed)."
     ),
-    "cover": "Mark a task as covering a coverage target (c*/h*).",
-    "confirm": "Confirm a task (user-only — no fabricated rigor).",
-    "reject": "Reject a task.",
+    "cover": (
+        "Mark a task as covering a coverage target (c*/h*); validated against "
+        "the live source frame, so a target the frame grew after seeding can "
+        "be covered right away."
+    ),
+    "defer": (
+        "Deliberately exclude a coverage target from this plan's gate "
+        "(--reason TEXT), or --undo to reverse it."
+    ),
+    "confirm": "Confirm one or more tasks, transactionally (user-only — no fabricated rigor).",
+    "reject": "Reject one or more tasks, transactionally.",
     "risk": (
         "Record a first-class plan risk instead of papering over it, "
-        "or --resolve RID --decision TEXT to close one out."
+        "--resolve RID --decision TEXT to close one out, or --amend RID --text "
+        "TEXT to correct an existing risk's text in place."
     ),
     "converge": "Check whether the plan can export, against the live frame.",
     "export": "Write the buildable plan — only once the plan converges.",
@@ -105,8 +114,35 @@ def _load_source_frame(slug: str) -> Frame:
         ) from None
 
 
+def _merge_deferred_state(old_targets: list, new_targets: list) -> list:
+    """Carry persisted per-target deferral state across a live-frame re-derive
+    (issue #85).
+
+    :func:`targets_from_frame` builds brand-new ``CoverageTarget`` instances from
+    the frame every time — deriving them fresh is exactly what makes frame drift
+    detectable — but that also means the freshly derived objects know nothing
+    about deferral, which lives only on the plan's own record (``plan.targets``,
+    persisted via ``plan_store``). Without this, every ``converge``/``export``/
+    ``status`` call would silently drop a recorded deferral the moment it
+    re-derives targets from the live frame. A deferred target the live re-derive
+    no longer contains (the underlying claim was rejected, say) simply has
+    nothing to carry forward — its deferral becomes moot, not resurrected as a
+    phantom target.
+    """
+    deferred = {tg.id: (tg.deferred, tg.deferred_reason) for tg in old_targets if tg.deferred}
+    for tg in new_targets:
+        if tg.id in deferred:
+            tg.deferred, tg.deferred_reason = deferred[tg.id]
+    return new_targets
+
+
 def _live(plan: Plan):
-    """Re-load the source frame and re-derive targets; guard against frame drift."""
+    """Re-load the source frame and re-derive targets; guard against frame drift.
+
+    Re-derived targets are freshly built by :func:`targets_from_frame` and so
+    start with no deferral state; :func:`_merge_deferred_state` carries the
+    plan's persisted deferrals across the re-derive (issue #85) before returning.
+    """
     frame = _load_source_frame(plan.frame_slug)
     fres = evaluate_frame(frame)
     if not fres.ready:
@@ -115,7 +151,8 @@ def _live(plan: Plan):
             f"source frame '{frame.slug}' has regressed below convergence",
             f"re-converge the frame first: devague converge --frame {frame.slug}",
         )
-    return frame, targets_from_frame(frame)
+    targets = _merge_deferred_state(plan.targets, targets_from_frame(frame))
+    return frame, targets
 
 
 def _live_frame_and_targets(plan: Plan):
@@ -130,9 +167,15 @@ def _live_frame_and_targets(plan: Plan):
     corrupt source frame still raises via :func:`_load_source_frame` — there is
     no state to synthesize from at all, which is a different failure than "not
     converged yet."
+
+    Like :func:`_live`, deferred state is carried across the re-derive (issue
+    #85) — otherwise a previously deferred target would count as a fresh
+    blocker here, making the ``converged`` bool this feeds disagree with what
+    ``converge``/``status``/``export`` report for the exact same plan.
     """
     frame = _load_source_frame(plan.frame_slug)
-    return frame, targets_from_frame(frame)
+    targets = _merge_deferred_state(plan.targets, targets_from_frame(frame))
+    return frame, targets
 
 
 def _require_task(plan: Plan, tid: str):
@@ -143,11 +186,84 @@ def _require_task(plan: Plan, tid: str):
 
 
 def _require_target(plan: Plan, target_id: str) -> None:
-    if plan.find_target(target_id) is None:
+    """Validate ``target_id`` against the plan's coverage targets (issue #90).
+
+    ``converge``/``status``/``export`` all re-derive targets from the **live**
+    source frame via :func:`_live`, so when a frame legitimately grows a new
+    confirmed claim/honesty condition mid-run, ``status`` immediately recommends
+    covering that new id. Checking only the (possibly stale) *stored* snapshot
+    here would make that exact recommended cover refuse as "unknown coverage
+    target" — two moves disagreeing about the same id in the same breath, and a
+    plan that grew could never converge again.
+
+    So: the stored snapshot is checked first (the common, no-I/O case — nothing
+    changed since the plan last converged). Only when ``target_id`` is absent
+    there do we consult the live frame; a hit refreshes and persists ``plan.targets``
+    so the stored copy catches up without a separate ``plan converge`` (the caller's
+    own ``plan_store.save`` right after this call carries the refreshed snapshot).
+
+    Decision (recorded as park v4 / plan risk r2): if the source frame has itself
+    regressed below its own convergence gate, :func:`_live` raises — that error is
+    let through here as-is rather than caught and reworded into "unknown coverage
+    target". A target absent from the stored snapshot when the frame is unhealthy
+    is genuinely unverifiable (it may be a real, newly-grown target that just
+    hasn't been re-converged, or a plain typo — there is no way to tell from a
+    frame that cannot currently be evaluated), so surfacing the real cause — "the
+    frame has regressed, re-converge it first" — is more honest than silently
+    blaming the target id for a problem that lives in the frame, not the plan.
+    A target already known to the stored snapshot is unaffected by any of this:
+    it never touches the live frame, so it keeps working through a frame
+    regression exactly as it did before this fix.
+    """
+    if plan.find_target(target_id) is not None:
+        return
+    _frame, live_targets = _live(plan)  # raises as-is on a regressed source frame
+    if not any(tg.id == target_id for tg in live_targets):
         raise DevagueError(
             EXIT_USER_ERROR,
             f"unknown coverage target: {target_id}",
             "run 'devague plan show' to see targets (c*/h*)",
+        )
+    plan.targets = live_targets  # persist the refreshed snapshot on success
+
+
+def _require_dep_target(
+    plan: Plan, subject_id: str, dep_id: str, *, flag: str, self_hint: str
+) -> None:
+    """Validate a dependency edge at authoring time — a self-cycle or an unknown
+    task id is refused the moment ``--dep``/``--on`` is given (issue #86),
+    instead of surfacing only much later as a ``plan converge``/``plan waves``
+    dependency-graph blocker, after the authoring context (which id was
+    actually meant) is long gone. The reporter hit the self-cycle case twice in
+    one session: the task id is assigned BY ``plan task``, so an author who
+    predicts the next id wrongly in ``--dep`` records a task that depends on
+    itself, invisible until ``plan waves`` reports a bare ``dependency cycle:
+    tN -> tN``.
+
+    Shared by both add paths: ``plan task --dep`` (``subject_id`` is the
+    about-to-be-assigned id, predicted via ``Plan._next`` before the task
+    exists) and ``plan depend <tN> --on <tM>``'s add path (``subject_id`` is
+    the already-assigned ``<tN>``). Neither call site invokes this on the
+    ``depend --remove`` path — removing an edge must keep working on an
+    already-broken graph (a self-cycle or dangling dep recorded before this
+    check existed, e.g. by an older devague or by hand-edited JSON), so a plan
+    upgrading with pre-existing damage stays repairable.
+
+    Deliberately narrow: a two-or-more-task cycle (a depends on b depends on
+    a) is NOT caught here — both tasks already exist and neither equals the
+    other, so this passes them through. That check already lives in
+    :mod:`devague.plan_convergence` (``converge``/``waves``) and is left
+    alone; this is creation-time feedback for the two mistakes a human can
+    make in a single keystroke, not a replacement for the gate.
+    """
+    if dep_id == subject_id:
+        raise DevagueError(EXIT_USER_ERROR, "task cannot depend on itself", self_hint)
+    if plan.find_task(dep_id) is None:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"unknown task: {dep_id}",
+            f"{flag} {dep_id} does not match any existing task; "
+            "run 'devague plan show' to see current tasks",
         )
 
 
@@ -221,6 +337,13 @@ def cmd_plan_task(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     for tid in args.covers or []:
         _require_target(plan, tid)
+    # The task id is assigned BY this call (`add_task` below); validate every
+    # `--dep` against the id it is *about* to receive, before creating anything
+    # (issue #86) — mirrors how `--covers` is validated above, before mutation.
+    next_id = Plan._next(plan.tasks, "t")
+    for dep in args.dep or []:
+        self_hint = f"--dep {dep} names the id this task will receive; depend on an existing task"
+        _require_dep_target(plan, next_id, dep, flag="--dep", self_hint=self_hint)
     task = plan.add_task(args.summary, origin=args.origin)
     task.instruction = args.instruction or ""
     for crit in args.accept or []:
@@ -358,6 +481,13 @@ def cmd_plan_depend(args: argparse.Namespace) -> int:
     task = _require_task(plan, args.id)
     if args.remove:
         return _cmd_plan_depend_remove(args, plan, task)
+    _require_dep_target(
+        plan,
+        args.id,
+        args.on,
+        flag="--on",
+        self_hint=f"--on {args.on} is the same task; depend on a different, existing task",
+    )
     plan.add_dep(task, args.on)
     plan_store.save(plan)
     if getattr(args, "json", False):
@@ -409,15 +539,90 @@ def cmd_plan_cover(args: argparse.Namespace) -> int:
     return 0
 
 
-def _transition(args: argparse.Namespace, status: str) -> int:
+def cmd_plan_defer(args: argparse.Namespace) -> int:
+    """``plan defer <target-id> --reason "<text>"`` — deliberately exclude a
+    coverage target from this plan's gate, or ``--undo`` to reverse a prior
+    deferral (issue #85: a milestone-scoped plan should not have to fake
+    coverage of a target that genuinely belongs to a later plan just to make
+    the gate go green).
+
+    Mirrors ``plan risk --resolve``'s shape and house style: the target is
+    validated the same way ``cover`` validates one (:func:`_require_target` —
+    stored snapshot first, live frame fallback, refreshing the persisted
+    snapshot on a live hit), and the create/undo paths share one subcommand the
+    way risk's create/resolve paths do.
+    """
     plan = resolve_plan(args.plan)
-    if not plan.set_status(args.id, status):
-        raise DevagueError(EXIT_USER_ERROR, f"no such task: {args.id}", "run 'devague plan show'")
+    _require_target(plan, args.id)  # may refresh + persist plan.targets in-memory
+    if args.undo:
+        return _cmd_plan_defer_undo(args, plan)
+    if not args.reason:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "--reason is required to defer a coverage target",
+            f'pass --reason "<why this is out of scope>", '
+            f"or --undo to reverse a prior defer for {args.id}",
+        )
+    try:
+        target = plan.defer_target(args.id, args.reason)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current targets"
+        ) from exc
     plan_store.save(plan)
     if getattr(args, "json", False):
-        emit_result({"id": args.id, "status": status}, json_mode=True)
+        emit_result(
+            {"id": target.id, "deferred": target.deferred, "reason": target.deferred_reason},
+            json_mode=True,
+        )
     else:
-        emit_result(f"{args.id} -> {status}", json_mode=False)
+        emit_result(f"{target.id} -> deferred ({target.deferred_reason})", json_mode=False)
+    return 0
+
+
+def _cmd_plan_defer_undo(args: argparse.Namespace, plan: Plan) -> int:
+    """``plan defer <target-id> --undo`` — reverse a prior deferral, returning
+    the target to the active coverage gate."""
+    try:
+        target = plan.undefer_target(args.id)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current targets"
+        ) from exc
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result({"id": target.id, "deferred": target.deferred}, json_mode=True)
+    else:
+        emit_result(f"{target.id} -> no longer deferred", json_mode=False)
+    return 0
+
+
+def _transition(args: argparse.Namespace, status: str) -> int:
+    """Transactional multi-id confirm/reject (issue #86): every id is validated
+    against the plan FIRST; if any is unknown, nothing is changed and the
+    message names the offender(s) — matching the frame-side contract
+    (``confirm.py`` ``_run``, issue #17). Plan tasks have no honesty
+    conditions / hard questions to cascade over (that is a frame-only
+    concept), so unlike the frame side there is nothing to cascade — only the
+    output shape (one ``"{id} -> {status}"`` line per id) mirrors it.
+    Single-id usage (still the common case) behaves exactly as before.
+    """
+    plan = resolve_plan(args.plan)
+    ids = list(args.ids)
+    unknown = [tid for tid in ids if plan.find_task(tid) is None]
+    if unknown:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"no such task: {', '.join(unknown)}",
+            "run 'devague plan show'; the batch is transactional — nothing was changed",
+        )
+    for tid in ids:
+        plan.set_status(tid, status)
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result({"ids": ids, "status": status}, json_mode=True)
+    else:
+        emit_result("\n".join(f"{tid} -> {status}" for tid in ids), json_mode=False)
     return 0
 
 
@@ -430,23 +635,27 @@ def cmd_plan_reject(args: argparse.Namespace) -> int:
 
 
 def cmd_plan_risk(args: argparse.Namespace) -> int:
-    """Record a new plan risk, or (``--resolve RID --decision TEXT``) close one
-    out — mirrors ``park --resolve`` (t5) on the risk subcommand.
+    """Record a new plan risk, (``--resolve RID --decision TEXT``) close one
+    out, or (``--amend RID --text TEXT``) correct one's text in place —
+    mirrors ``park --resolve`` (t5) on the risk subcommand.
 
-    ``--kind`` is optional at the parser level (so a bare ``--resolve`` call
-    does not need it), but the create path still requires it — refused here,
-    in the handler, rather than by argparse. The create path (positional text
-    + ``--kind`` + optional ``--task``) is otherwise unchanged.
+    ``--kind`` is optional at the parser level (so a bare ``--resolve``/
+    ``--amend`` call does not need it), but the create path still requires
+    it — refused here, in the handler, rather than by argparse. The create
+    path (positional text + ``--kind`` + optional ``--task``) is otherwise
+    unchanged.
     """
     plan = resolve_plan(args.plan)
     if args.resolve:
         return _cmd_plan_risk_resolve(args, plan)
+    if args.amend:
+        return _cmd_plan_risk_amend(args, plan)
     if not args.text or not args.kind:
         raise DevagueError(
             EXIT_USER_ERROR,
             "text and --kind are required to record a new risk",
-            'pass "<risk text>" --kind <kind>, or --resolve RID --decision "<text>" to '
-            "resolve an existing risk",
+            'pass "<risk text>" --kind <kind>, --amend RID --text "<corrected>" to correct '
+            'an existing risk in place, or --resolve RID --decision "<text>" to resolve one',
         )
     if args.task is not None:
         _require_task(plan, args.task)
@@ -487,6 +696,45 @@ def _cmd_plan_risk_resolve(args: argparse.Namespace, plan: Plan) -> int:
         )
     else:
         emit_result(f"{risk.id} -> resolved ({risk.resolution})", json_mode=False)
+    return 0
+
+
+def _cmd_plan_risk_amend(args: argparse.Namespace, plan: Plan) -> int:
+    """``plan risk --amend RID --text "<corrected>"`` — correct a risk's text
+    in place without touching its id, kind, task link, or resolution state
+    (issue #84 comment: a referenced task id rotated after tasks were
+    rejected and recreated during a scope change).
+
+    Fail-closed, same contract as :meth:`Plan.amend_risk`: a bare ``--amend``
+    without ``--text`` persists nothing, and an unknown id is refused.
+    """
+    if not args.amend_text:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "--text is required to amend a risk",
+            f'pass --text "<corrected text>" for {args.amend}',
+        )
+    try:
+        risk = plan.amend_risk(args.amend, args.amend_text)
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR, str(exc), "run 'devague plan show' to see current risks"
+        ) from exc
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(
+            {
+                "id": risk.id,
+                "kind": risk.kind,
+                "text": risk.text,
+                "task": risk.task_id,
+                "resolved": risk.resolved,
+                "resolution": risk.resolution,
+            },
+            json_mode=True,
+        )
+    else:
+        emit_result(f"{risk.id}: amended", json_mode=False)
     return 0
 
 
@@ -712,9 +960,9 @@ def cmd_plan_learn(args: argparse.Namespace) -> int:
         "criteria, the dependency graph is acyclic, and no blocking risk remains.\n\n"
         "Moves:\n"
         + "\n".join(f"  {name:<9} {desc}" for name, desc in PLAN_MOVES.items())
-        + "\n\nTo author the six operator skills (scope / think / spec-to-plan / "
-        "assign-to-workforce /\ndeviate / summarize-delivery) in your own runtime, "
-        "run 'devague learn skills'\n(with user consent)."
+        + "\n\nTo author the seven operator skills (scope / think / challenge / "
+        "spec-to-plan /\nassign-to-workforce / deviate / summarize-delivery) in "
+        "your own runtime, run 'devague learn skills'\n(with user consent)."
     )
     if getattr(args, "json", False):
         emit_result(
@@ -824,13 +1072,24 @@ def register(sub: argparse._SubParsersAction) -> None:
     _plan_opt(pc)
     pc.set_defaults(func=cmd_plan_cover)
 
-    pcf = psub.add_parser("confirm", help="Confirm a task (user-only).")
-    pcf.add_argument("id", help=_TASK_ID_HELP)
+    pdf = psub.add_parser(
+        "defer", help="Deliberately exclude a coverage target from this plan's gate."
+    )
+    pdf.add_argument("id", help="Coverage target id (c*/h*).")
+    pdf.add_argument("--reason", help="Why this target is out of scope for this plan.")
+    pdf.add_argument(
+        "--undo", action="store_true", help="Reverse a prior defer instead of creating one."
+    )
+    _plan_opt(pdf)
+    pdf.set_defaults(func=cmd_plan_defer)
+
+    pcf = psub.add_parser("confirm", help="Confirm one or more tasks (user-only).")
+    pcf.add_argument("ids", nargs="+", help="One or more task ids (e.g. t1 t2 t3).")
     _plan_opt(pcf)
     pcf.set_defaults(func=cmd_plan_confirm)
 
-    prj = psub.add_parser("reject", help="Reject a task.")
-    prj.add_argument("id", help=_TASK_ID_HELP)
+    prj = psub.add_parser("reject", help="Reject one or more tasks.")
+    prj.add_argument("ids", nargs="+", help="One or more task ids (e.g. t1 t2 t3).")
     _plan_opt(prj)
     prj.set_defaults(func=cmd_plan_reject)
 
@@ -842,6 +1101,17 @@ def register(sub: argparse._SubParsersAction) -> None:
         "--resolve", metavar="RID", help="Resolve an existing risk id instead of creating one."
     )
     prk.add_argument("--decision", help="The resolution text recorded with --resolve.")
+    prk.add_argument(
+        "--amend",
+        metavar="RID",
+        help="Correct an existing risk's text in place instead of creating one.",
+    )
+    prk.add_argument(
+        "--text",
+        dest="amend_text",
+        metavar="TEXT",
+        help="Corrected risk text, used with --amend.",
+    )
     _plan_opt(prk)
     prk.set_defaults(func=cmd_plan_risk)
 

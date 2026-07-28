@@ -13,7 +13,14 @@ from typing import Optional
 # on a frame whose schema_version is newer/unknown (see #5, honesty condition h15).
 # v2 (#53 t1) adds Frame.scope_entries and Claim/HonestyCondition.instruction.
 # v3 (resolve-parked-vagueness t1) adds Vagueness.resolved / Vagueness.resolution.
-SCHEMA_VERSION = 3
+# v4 (issue-backlog-sweep t2) is reserved for t4's HardQuestion resolution field;
+# t2 itself only bumps the number, hardens store.load's check-before-parse order,
+# and makes HardQuestion/Vagueness loading tolerant of unknown keys like Claim.
+# Claim.revisions (t6, issue #84 — the `amend` move) is added WITHOUT a bump:
+# it is purely additive with a `default_factory=list`, and `from_dict` below
+# loads it tolerantly (`c.get("revisions", [])`), so a v4 frame written before
+# t6 still loads cleanly with an empty revision trail.
+SCHEMA_VERSION = 4
 
 CLAIM_KINDS = (
     "announcement",
@@ -77,6 +84,30 @@ class HardQuestion:
     text: str
     resolved: bool = False
     blocking: bool = False
+    # v3 frames (and earlier) predate this field (issue-backlog-sweep t4, #48/#52);
+    # default to "" for a not-yet-resolved (or resolved-with-no-note) question.
+    # Set only via Frame.resolve_hard_question — mirrors Vagueness.resolution.
+    resolution: str = ""
+
+
+@dataclass
+class ClaimRevision:
+    """A superseded ``(text, kind)`` pair, recorded when a claim is amended.
+
+    ``amend`` corrects a claim WITHOUT churning its id (issue #84) — but the
+    frame is meant to be an evidence trail, so the value it had before the
+    amend is kept here rather than silently overwritten. This is
+    deliberately a *lightweight* marker, not a full audit log: it captures
+    only the two fields ``Frame.amend_claim`` can change, plus an optional
+    operator-authored ``reason``, and carries no timestamp or actor (no
+    other Frame entity does either). A full revision history keyed by time
+    would be a schema change; this is not one — it is a plain list field
+    with a ``default_factory``, so older frames simply load with ``[]``.
+    """
+
+    text: str
+    kind: str
+    reason: str = ""
 
 
 @dataclass
@@ -93,6 +124,11 @@ class Claim:
     # implement this claim. Empty string means "no instruction" — never
     # fabricated or defaulted to prose (#53 t1, c10/h3).
     instruction: str = ""
+    # Prior (text, kind) pairs superseded by `Frame.amend_claim` (t6, #84), in
+    # chronological order (most recent supersession last). Empty for a claim
+    # that has never been amended — the common case, and every claim
+    # predating t6.
+    revisions: list[ClaimRevision] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.kind not in CLAIM_KINDS:
@@ -183,8 +219,78 @@ class Frame:
     def find_claim(self, cid: str) -> Optional[Claim]:
         return next((c for c in self.claims if c.id == cid), None)
 
+    def amend_claim(
+        self,
+        claim_id: str,
+        *,
+        text: Optional[str] = None,
+        kind: Optional[str] = None,
+        reason: str = "",
+    ) -> tuple[Claim, bool]:
+        """Correct a claim's ``text`` and/or ``kind`` in place (issue #84).
+
+        Unlike reject-and-recapture, amending never changes the claim's id,
+        so its honesty conditions, hard questions, ``instruction``, and any
+        scope-entry ``seeds`` that cite this id all keep pointing at
+        something real — the whole point of the move. ``origin`` is never
+        touched here: correcting what a claim says is not the same fact as
+        who originally proposed it, and there is no flag that can reach it.
+
+        Amending a claim that is currently ``confirmed`` flips it back to
+        ``proposed`` — the same re-confirm rule ``interrogate --instruction``
+        already applies to a change of that weight (the issue calls this
+        "good behaviour and the right precedent"). Returns ``(claim,
+        flipped)`` so the caller can echo the transition the same way
+        ``interrogate.py``'s ``_apply_instruction`` does; ``flipped`` is
+        ``False`` for a claim that was already ``proposed``/``rejected``.
+
+        The superseded ``(text, kind)`` pair is appended to
+        ``claim.revisions`` (with ``reason``, if given) rather than
+        discarded — the frame is an evidence trail, not just current state.
+
+        Raises ``ValueError`` if the claim id is unknown, if neither
+        ``text`` nor ``kind`` is given (nothing to amend), or if ``kind``
+        names an unknown claim kind.
+        """
+        claim = self.find_claim(claim_id)
+        if claim is None:
+            raise ValueError(f"unknown claim id: {claim_id!r}")
+        if text is None and kind is None:
+            raise ValueError("amend requires a new text and/or a new kind")
+        if kind is not None and kind not in CLAIM_KINDS:
+            raise ValueError(f"unknown claim kind: {kind!r}")
+        claim.revisions.append(ClaimRevision(text=claim.text, kind=claim.kind, reason=reason))
+        if text is not None:
+            claim.text = text
+        if kind is not None:
+            claim.kind = kind
+        flipped = claim.status == "confirmed"
+        if flipped:
+            claim.status = "proposed"
+        return claim, flipped
+
     def find_honesty(self, hid: str) -> Optional[HonestyCondition]:
         return next((h for h in self._all_honesty() if h.id == hid), None)
+
+    def find_hard_question(self, qid: str) -> Optional[HardQuestion]:
+        """Look up a claim-attached hard question by id, across every claim.
+
+        Mirrors ``find_claim``/``find_honesty`` — added so ``add_scope_entry``
+        can validate a ``q*`` seed and ``render.spec_md`` can render one
+        (issue #84's "smaller, related gap": ``scope --seeds`` refused
+        question ids even though the ``/scope`` routing table sends a
+        "needs a user decision" finding to ``question`` rather than
+        ``capture``, leaving that branch's provenance unlinkable). Two
+        independent things mint ``qN`` ids in this tool — claim-attached
+        hard questions (this method) and the separate durable
+        ``.devague/questions/`` artifact driven by ``devague question`` —
+        and they can collide (both start counting at ``q1``) because they
+        are independent counters. This method only ever searches
+        ``Frame.claims[*].hard_questions``, the same restriction
+        ``resolve_hard_question`` documents; it cannot disambiguate the two
+        namespaces, only search the one it is documented to search.
+        """
+        return next((q for q in self._all_hard_questions() if q.id == qid), None)
 
     def add_honesty(self, claim: Claim, text: str, origin: str = "llm") -> HonestyCondition:
         status = "confirmed" if origin == "user" else "proposed"
@@ -245,12 +351,54 @@ class Frame:
         v.resolution_claim_id = claim_id
         return v
 
+    def resolve_hard_question(self, claim_id: str, qid: str, resolution: str = "") -> HardQuestion:
+        """Mark a claim's hard question resolved — a USER decision, like confirm.
+
+        Owned by ``devague interrogate <cN> --resolve <qN> [--decision TEXT]``
+        (decision c36, issues #48/#52): claim-attached hard questions and the
+        durable ``.devague/questions/`` file independently assign their own
+        ``qN`` ids, so the claim id is what disambiguates which one is meant —
+        this method only ever searches ``claim_id``'s own ``hard_questions``.
+        Fails closed on an unknown claim id, a question id that doesn't exist
+        (or doesn't belong to that claim), and an already-resolved question,
+        rather than silently no-op'ing — the same contract as
+        :meth:`resolve_vagueness`. ``resolution`` is optional free text (unlike
+        ``park --resolve``'s required ``--decision``) recorded verbatim on
+        ``HardQuestion.resolution``.
+        """
+        claim = self.find_claim(claim_id)
+        if claim is None:
+            raise ValueError(f"unknown claim id: {claim_id!r}")
+        q = next((q for q in claim.hard_questions if q.id == qid), None)
+        if q is None:
+            raise ValueError(f"no such hard question {qid!r} on claim {claim_id!r}")
+        if q.resolved:
+            raise ValueError(f"hard question {qid!r} is already resolved")
+        q.resolved = True
+        q.resolution = resolution
+        return q
+
     def add_scope_entry(
         self, surface: str, finding: str, seeds: Optional[list[str]] = None
     ) -> ScopeEntry:
+        """Record a scope-exploration finding, optionally citing what it seeded.
+
+        ``seeds`` may name a claim id (``c*``) or a claim-attached hard
+        question id (``q*``, issue #84's "smaller, related gap") —
+        validated against :meth:`find_claim` first and
+        :meth:`find_hard_question` second, so an id resolving to either is
+        accepted. This is the branch the ``/scope`` skill's routing table
+        sends a "genuinely unknown, needs a user decision" finding down (the
+        ``question`` move rather than ``capture``); before this, that
+        finding's provenance link was unrecordable. Any id resolving to
+        neither is refused (the error text says "claim" for both cases —
+        this is the one seam that already validated seed ids before ``q*``
+        was accepted, and the CLI's accompanying hint, "run 'devague show'
+        to see valid claim ids", is unchanged).
+        """
         seed_ids = list(seeds) if seeds else []
         for sid in seed_ids:
-            if self.find_claim(sid) is None:
+            if self.find_claim(sid) is None and self.find_hard_question(sid) is None:
                 raise ValueError(f"unknown seed claim id: {sid!r}")
         entry = ScopeEntry(
             id=self._next(self.scope_entries, "s"),
@@ -259,6 +407,33 @@ class Frame:
             seeds=seed_ids,
         )
         self.scope_entries.append(entry)
+        return entry
+
+    def find_scope_entry(self, sid: str) -> Optional[ScopeEntry]:
+        return next((e for e in self.scope_entries if e.id == sid), None)
+
+    def amend_scope_entry(self, entry_id: str, finding: str) -> ScopeEntry:
+        """Replace a scope entry's ``finding`` in place (issue #84).
+
+        Before this move, correcting a scope finding meant recording a
+        *second* entry that says "supersedes s18" — the exported spec then
+        carries both the wrong entry and its correction, and the reader has
+        to notice the word "supersedes". Amending replaces the finding in
+        place instead: same id, same ``surface``, same ``seeds`` — nothing
+        else about the entry changes. (Unlike ``amend_claim``, a scope entry
+        carries no ``status``/``origin`` to protect and nothing else in the
+        method's contract calls for a revision trail here — see the CLI
+        module for that decision.)
+
+        Raises ``ValueError`` if the entry id is unknown or ``finding`` is
+        empty.
+        """
+        entry = self.find_scope_entry(entry_id)
+        if entry is None:
+            raise ValueError(f"unknown scope entry id: {entry_id!r}")
+        if not finding:
+            raise ValueError("amend requires a new finding")
+        entry.finding = finding
         return entry
 
     def set_status(self, item_id: str, status: str) -> bool:
@@ -271,6 +446,61 @@ class Frame:
             honesty.status = status
             return True
         return False
+
+    def reject(self, item_id: str) -> list[str]:
+        """Reject a claim or honesty condition, cascading a claim's rejection
+        onto its still-live attachments (issue #83).
+
+        Rejected content must never keep looking "live": rendering already
+        excludes a rejected claim's attachments (spec-md), and the
+        convergence gate already stops treating a rejected claim's unresolved
+        blocking hard question as an open blocker. This method closes the
+        remaining gap — the review pool and the honesty condition's own
+        recorded status — by flipping every honesty condition still attached
+        to the claim (``status != "rejected"``) to ``"rejected"`` too, so
+        ``devague review`` (which only lists ``proposed`` items) stops
+        surfacing them as awaiting a decision that no longer matters.
+
+        Hard questions have no independent status field to flip (only
+        ``resolved``/``resolution``, a genuine answer — not the same thing as
+        "the parent claim was rejected"), so this leaves them structurally
+        untouched; every call site that matters already keys off the parent
+        claim's own ``status`` (``convergence._missing_open_uncertainty``,
+        ``render.spec_md._hard_questions``).
+
+        Returns the ids of honesty conditions and hard questions this call
+        swept along, in "what it took with it" order (honesty ids first,
+        then hard-question ids, each in their claim's own attachment order) —
+        for the caller to echo (e.g. ``c21 -> rejected (also rejected: h3,
+        q1)``). The cascade fires only on the transition *into* ``rejected``:
+        rejecting an already-rejected claim again returns ``[]`` rather than
+        re-claiming credit for a cascade a prior call already performed
+        (idempotent, no double-reporting — the ids "already rejected" stay
+        that way whether or not this call runs). Rejecting a bare honesty
+        condition id is a plain status flip with no cascade (honesty
+        conditions carry no sub-attachments of their own) and also returns
+        ``[]``. Raises ``ValueError`` if ``item_id`` names neither a claim
+        nor a honesty condition — callers are expected to pre-validate the id
+        first (mirrors ``set_status``'s bool-return contract; see
+        ``cli/_commands/confirm.py``'s ``_exists`` pre-check, which every
+        current caller already runs before touching the frame).
+        """
+        claim = self.find_claim(item_id)
+        if claim is not None:
+            cascaded: list[str] = []
+            if claim.status != "rejected":
+                for h in claim.honesty_conditions:
+                    if h.status != "rejected":
+                        h.status = "rejected"
+                        cascaded.append(h.id)
+                cascaded += [q.id for q in claim.hard_questions if not q.resolved]
+            claim.status = "rejected"
+            return cascaded
+        honesty = self.find_honesty(item_id)
+        if honesty is not None:
+            honesty.status = "rejected"
+            return []
+        raise ValueError(f"unknown claim or honesty id: {item_id!r}")
 
 
 def to_dict(frame: Frame) -> dict:
@@ -312,14 +542,50 @@ def from_dict(d: dict) -> Frame:
                 )
                 for h in c.get("honesty_conditions", [])
             ],
-            hard_questions=[HardQuestion(**q) for q in c.get("hard_questions", [])],
+            hard_questions=[
+                HardQuestion(
+                    id=q["id"],
+                    text=q["text"],
+                    resolved=q.get("resolved", False),
+                    blocking=q.get("blocking", False),
+                    resolution=q.get("resolution", ""),
+                )
+                # Tolerant of unknown keys the same way Claim is above (t2, issue
+                # #53 issue-backlog-sweep): a v3-or-older frame predates
+                # ``resolution`` (t4) and must not raw-TypeError on load.
+                for q in c.get("hard_questions", [])
+            ],
             links=list(c.get("links", [])),
             # v1 frames predate this field (#53 t1); default to "no instruction".
             instruction=c.get("instruction", ""),
+            revisions=[
+                ClaimRevision(
+                    text=r["text"],
+                    kind=r["kind"],
+                    reason=r.get("reason", ""),
+                )
+                # Pre-t6 frames (#84) predate this field entirely; default to
+                # an empty trail, the same tolerant pattern as hard_questions
+                # above.
+                for r in c.get("revisions", [])
+            ],
         )
         for c in d.get("claims", [])
     ]
-    vag = [Vagueness(**v) for v in d.get("open_vagueness", [])]
+    vag = [
+        Vagueness(
+            id=v["id"],
+            text=v["text"],
+            kind=v["kind"],
+            claim_id=v.get("claim_id"),
+            resolved=v.get("resolved", False),
+            resolution=v.get("resolution", ""),
+            resolution_claim_id=v.get("resolution_claim_id"),
+        )
+        # Tolerant of unknown keys the same way Claim is above (t2) — see the
+        # hard_questions comment just above for why this matters.
+        for v in d.get("open_vagueness", [])
+    ]
     scope_entries = [
         ScopeEntry(
             id=s["id"],

@@ -31,8 +31,8 @@ from typing import Optional
 
 from devague.delivery import Delivery, DeviationRecord
 from devague.frame import Frame
-from devague.plan import Plan, dependency_waves
-from devague.render._md_safety import autolink_urls, heading_safe
+from devague.plan import Plan, Task, dependency_waves
+from devague.render._md_safety import autolink_urls, heading_safe, md_safe_text
 
 RUN_STATUS_PLACEHOLDER = "<complete | partial | failed>"
 
@@ -45,6 +45,51 @@ NO_TASKS_PLACEHOLDER = "(no tasks recorded on this plan)"
 # dependency on the CLI layer — the same layering plan_md.py/spec_md.py already
 # keep. Mirrors cli/_paths.py's UNDATED_PREFIX sentinel and date-validity check.
 _UNDATED_PREFIX = "0000-00-00"
+
+
+def _verbatim(text: str) -> str:
+    """Render-time markdown safety for one field of free-form verbatim prose
+    (task summaries, deviation ``what``/``reason``, announcement/after-state
+    claim text): autolink any bare URL (MD034), then escape/wrap markdown
+    control characters and underscore-bearing identifiers (MD037/MD050, #87's
+    ``md_safe_text``). Never applied to the JSON (``--json``) views
+    (:func:`summary_data`/:func:`pr_data`) — those mirror the underlying data
+    verbatim, the same way the frame/plan JSON stores are never touched by
+    rendering (#87's round-trip-safety rule)."""
+    return md_safe_text(autolink_urls(text))
+
+
+def _confirmed_tasks(plan: Plan) -> list[Task]:
+    """The tasks a delivery summary is scoped to (#88).
+
+    A ``rejected`` task is planning history — visible in ``devague plan
+    show``, never padded into an accountability artifact about what shipped.
+    A ``proposed`` task is still under adjudication: neither the confirmed
+    contract nor an explicit rejection, so folding it into either list (or
+    into the rejected count below) would misrepresent an open decision as a
+    closed one. Both statuses are therefore silently excluded from Planned
+    Work / Actual Delivery / :func:`summary_data` — only a confirmed task is
+    part of the contract this artifact reports against.
+    """
+    return [t for t in plan.tasks if t.status == "confirmed"]
+
+
+def _rejected_task_ids(plan: Plan) -> list[str]:
+    return [t.id for t in plan.tasks if t.status == "rejected"]
+
+
+def _rejected_count_line(plan: Plan) -> Optional[str]:
+    """A single line preserving the fact of rejection without padding the
+    Planned Work / Actual Delivery listings with it (#88's suggested
+    resolution). ``None`` when nothing was rejected — a clean plan gets no
+    noise line at all.
+    """
+    n = len(_rejected_task_ids(plan))
+    if not n:
+        return None
+    noun = "task" if n == 1 else "tasks"
+    verb = "was" if n == 1 else "were"
+    return f"{n} {noun} {verb} rejected during planning — see `devague plan show`."
 
 
 def _escape_table_cell(text: str) -> str:
@@ -105,39 +150,53 @@ def _intent_lines(plan: Plan, frame: Optional[Frame]) -> list[str]:
         return lines
     ann = _confirmed_claim_text(frame, "announcement")
     if ann:
-        lines.append("> " + autolink_urls(ann))
+        lines.append("> " + _verbatim(ann))
     else:
         lines.append("(no confirmed announcement recorded in the source frame)")
     afters = _confirmed_claim_texts(frame, "after_state")
     if afters:
         lines.append("")
-        lines.append("After: " + "; ".join(autolink_urls(a) for a in afters))
+        lines.append("After: " + "; ".join(_verbatim(a) for a in afters))
     lines.append("")
     return lines
 
 
 def _planned_work_lines(plan: Plan) -> list[str]:
+    """Confirmed tasks only (#88) — the confirmed contract, not planning
+    history (rejected) or open proposals (proposed). A single line preserves
+    the rejected count without padding the list; see :func:`_confirmed_tasks`
+    and :func:`_rejected_count_line`."""
     lines = ["## Planned Work", ""]
-    if not plan.tasks:
+    confirmed = _confirmed_tasks(plan)
+    if not confirmed:
         lines.append(NO_TASKS_PLACEHOLDER)
+    else:
+        for t in confirmed:
+            lines.append(f"- `{t.id}` — {_verbatim(t.summary)}")
+    rejected_line = _rejected_count_line(plan)
+    if rejected_line:
+        # Blank line first: MD032 wants a list (when `confirmed` is non-empty)
+        # surrounded by blank lines, and this plain sentence is not itself a
+        # list item.
         lines.append("")
-        return lines
-    for t in plan.tasks:
-        mark = "" if t.status == "confirmed" else f" _({t.status})_"
-        lines.append(f"- `{t.id}` — {autolink_urls(t.summary)}{mark}")
+        lines.append(rejected_line)
     lines.append("")
     return lines
 
 
 def _actual_delivery_lines(plan: Plan) -> list[str]:
+    """One row per confirmed task (#88) — a rejected or still-proposed task is
+    never paired with a ``<fill: status>`` placeholder, which would invite
+    recording a planning decision (or an open one) as a delivery failure."""
     lines = ["## Actual Delivery", ""]
-    if not plan.tasks:
+    confirmed = _confirmed_tasks(plan)
+    if not confirmed:
         lines.append(NO_TASKS_PLACEHOLDER)
         lines.append("")
         return lines
     lines.append("| Plan task | Status | What actually landed |")
     lines.append("|-----------|--------|----------------------|")
-    for t in plan.tasks:
+    for t in confirmed:
         lines.append(f"| `{t.id}` | `<fill: status>` | `<fill: what landed>` |")
     lines.append("")
     return lines
@@ -152,7 +211,7 @@ def _mid_work_lines(delivery: Delivery) -> list[str]:
         lines.append("")
         return lines
     for d in approved:
-        lines.append(f"- `{d.id}` — {autolink_urls(d.what)} — {autolink_urls(d.reason)}")
+        lines.append(f"- `{d.id}` — {_verbatim(d.what)} — {_verbatim(d.reason)}")
     if pending:
         ids = ", ".join(f"`{d.id}`" for d in pending)
         lines.append(f"- pending approval (not yet a decision): {ids}")
@@ -177,7 +236,7 @@ def _drift_lines(delivery: Delivery) -> list[str]:
         # d.task_ref/d.id are backticked refs; d.reason is free-form prose --
         # _escape_table_cell keeps a raw '|' or newline in it from corrupting
         # the row (#72 review, Q2).
-        reason = _escape_table_cell(autolink_urls(d.reason))
+        reason = _escape_table_cell(_verbatim(d.reason))
         task_ref = _escape_table_cell(d.task_ref)
         did = _escape_table_cell(d.id)
         lines.append(f"| `{task_ref}` (`{did}`) | {reason} | {classification} |")
@@ -250,6 +309,7 @@ def summary_data(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> dict
     """
     approved = _approved(delivery)
     pending = _pending(delivery)
+    confirmed = _confirmed_tasks(plan)
     return {
         "plan": plan.slug,
         "title": plan.title,
@@ -262,13 +322,21 @@ def summary_data(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> dict
                 "announcement": _confirmed_claim_text(frame, "announcement"),
                 "after_state": _confirmed_claim_texts(frame, "after_state"),
             },
+            # Confirmed tasks only (#88) — see _confirmed_tasks' docstring: a
+            # rejected task is planning history and a proposed one is still
+            # undecided, so neither belongs in the delivery contract's task
+            # lists. rejected_tasks (below) is the JSON parity for the
+            # markdown's single rejected-count line — the ids, not just a
+            # count, mirroring how pending_deviations carries ids rather than
+            # a bare number.
             "planned_work": [
-                {"id": t.id, "summary": t.summary, "status": t.status} for t in plan.tasks
+                {"id": t.id, "summary": t.summary, "status": t.status} for t in confirmed
             ],
             "actual_delivery": [
                 {"id": t.id, "status": "<fill: status>", "what_landed": "<fill: what landed>"}
-                for t in plan.tasks
+                for t in confirmed
             ],
+            "rejected_tasks": _rejected_task_ids(plan),
             "mid_work_decisions": [
                 {"id": d.id, "what": d.what, "reason": d.reason} for d in approved
             ],
@@ -291,6 +359,11 @@ def summary_data(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> dict
 
 # ── --pr mode: condensed PR-body skeleton ────────────────────────────────────
 def _wave_task_map_lines(plan: Plan) -> list[str]:
+    """``dependency_waves`` already excludes rejected tasks (plan.py) — this is
+    scheduling metadata (what *could* run), not the delivery contract, so it
+    intentionally keeps including ``proposed`` tasks unlike Planned Work /
+    Actual Delivery above (#88's instruction: "--pr needs no [filtering]
+    change")."""
     lines = ["## Wave / Task Map", ""]
     waves = dependency_waves(plan.tasks)
     if not waves:
@@ -305,7 +378,7 @@ def _wave_task_map_lines(plan: Plan) -> list[str]:
         for tid in wave:
             t = by_id.get(tid)
             if t is not None:
-                lines.append(f"- `{t.id}` — {autolink_urls(t.summary)}")
+                lines.append(f"- `{t.id}` — {_verbatim(t.summary)}")
     lines.append("")
     return lines
 
@@ -319,7 +392,7 @@ def _approved_deviations_lines(delivery: Delivery) -> list[str]:
         return lines
     for d in approved:
         lines.append(
-            f"- `{d.id}` (task `{d.task_ref}`) — {autolink_urls(d.what)}: {autolink_urls(d.reason)}"
+            f"- `{d.id}` (task `{d.task_ref}`) — {_verbatim(d.what)}: {_verbatim(d.reason)}"
         )
     lines.append("")
     return lines
@@ -332,7 +405,7 @@ def render_pr_summary(plan: Plan, frame: Optional[Frame], delivery: Delivery) ->
     out = [f"# {heading_safe(plan.title)}", ""]
     ann = _confirmed_claim_text(frame, "announcement")
     if ann:
-        out += ["> " + autolink_urls(ann), ""]
+        out += ["> " + _verbatim(ann), ""]
     out += _wave_task_map_lines(plan)
     out += _approved_deviations_lines(delivery)
     out += [f"Delivery summary: `{_deliveries_pointer(plan)}`", ""]

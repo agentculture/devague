@@ -1,0 +1,648 @@
+{
+  "slug": "issue-backlog-sweep",
+  "title": "issue-backlog-sweep",
+  "frame_slug": "issue-backlog-sweep",
+  "schema_version": 3,
+  "status": "exported",
+  "created": "2026-07-28T07:04:39Z",
+  "updated": "2026-07-28T07:06:55Z",
+  "targets": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague closes its fifteen-issue backlog: exports become lossless and lint-clean, rejected and contested content stops leaking into artifacts, plans gain live coverage targets with per-target deferral, claims and hard questions gain amend and resolve moves, the delivery summary scopes to confirmed work, gate 2 gains a durable split artifact, and scope exploration fans out to smaller-tier subagents"
+    },
+    {
+      "id": "h1",
+      "kind": "honesty",
+      "text": "honest only if one release genuinely closes every one of the fifteen listed issues \u2014 each closed with a pointer to the shipping test/section, none closed as wontfix-by-stealth or half-delivered"
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "export renders every parked kind: `render/spec_md.py:110-118` `_follow_up` filters to `follow_up`/`out_of_scope` only, so an unresolved `unknown_nonblocking` park renders nowhere in the spec; all open parks must render grouped by kind, and the pinning test `tests/test_render.py:301-306` flips from asserting absence to asserting presence (#93, #49)"
+    },
+    {
+      "id": "h2",
+      "kind": "honesty",
+      "text": "honest only if a converged frame carrying open parks of all four kinds exports a spec where every open park appears, labeled by kind \u2014 verified by flipping tests/test_render.py:301-306 from asserting absence to asserting presence"
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "hard questions render honestly: `render/spec_md.py:104-107` shows no resolved marker and iterates all claims regardless of status \u2014 resolved questions render as resolved (or are omitted) and questions on rejected claims never render (#49, #83)"
+    },
+    {
+      "id": "h3",
+      "kind": "honesty",
+      "text": "honest only if a resolved hard question renders with a resolved marker (or is omitted by documented choice) and a hard question on a rejected claim never reaches the export \u2014 regression covering the #83 repro shape: capture, interrogate --risk, reject, converge, export"
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "a user move resolves claim-attached hard questions: nothing in the codebase sets `HardQuestion.resolved` (only vagueness `frame.py:243` and plan-risk `plan.py:187` resolves exist), `set_status` (`frame.py:264-273`) routes only c*/h* ids, so the gate at `convergence.py:111-116` blocks forever; `suggest_move` (`convergence.py:206-211`) must name the real move (#48, #52)"
+    },
+    {
+      "id": "h4",
+      "kind": "honesty",
+      "text": "honest only if the block-resolve-converge sequence completes through CLI moves alone (no state-JSON hand-edit), suggest_move names the shipped move verbatim, and resolved state survives a save/load round-trip"
+    },
+    {
+      "id": "c5",
+      "kind": "requirement",
+      "text": "reject cascades over attachments: rejecting a claim cascades to (or refuses over) its honesty conditions and hard questions, reporting what it took; `_assumption_warnings` (`convergence.py:120-126`) and the blocking-question gate skip rejected claims; `devague review` stops listing orphaned conditions (#83)"
+    },
+    {
+      "id": "h5",
+      "kind": "honesty",
+      "text": "honest only if rejecting a claim with attachments reports exactly what it cascaded over (or refuses with an actionable hint), post-reject converge emits zero warnings about the rejected claim, and review lists zero orphaned conditions"
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "markdown escaping lands at the single verbatim seam: `render/_md_safety.py` (today only `autolink_urls`/`heading_safe`) gains identifier-aware escaping \u2014 code-span wrapping for underscore and dunder tokens per the #87 comment, fixing MD037 and MD050 \u2014 applied at every verbatim site in `spec_md.py`, `plan_md.py`, and `summary_md.py` (#87)"
+    },
+    {
+      "id": "h6",
+      "kind": "honesty",
+      "text": "honest only if a frame whose text contains `_read_file`, `__init__.py`, `*`, `[`, a backtick, and a leading `#` exports spec-md and plan-md passing markdownlint-cli2 default config \u2014 the integration test extends tests/test_export_markdownlint_integration.py"
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "an amend move preserves identity: claims (`--text`/`--kind`, keeping id, honesty conditions, instruction, and inbound seeds), scope entries (`scope --amend sN --finding`), and plan risks (`plan risk --amend rN --text`); amending a confirmed item flips it to proposed with an echoed flip, matching the `interrogate.py:58-68` and plan `_FLIP_SUFFIX` precedent (#84)"
+    },
+    {
+      "id": "h7",
+      "kind": "honesty",
+      "text": "honest only if amending a confirmed claim keeps its id, honesty conditions, instruction, and inbound scope seeds, flips it to proposed with an echoed flip, and correcting one number costs exactly one move \u2014 with the same holding for scope --amend and plan risk --amend"
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "`scope --seeds` accepts question ids: `Frame.add_scope_entry` (`frame.py:252-254`) validates seeds via `find_claim` only, so `q*` is refused today \u2014 yet the /scope routing table sends needs-a-user-decision findings to `question`, so that branch must be seedable (#84)"
+    },
+    {
+      "id": "h23",
+      "kind": "honesty",
+      "text": "honest only if scope --seeds accepts a valid `q*` id, still refuses an unknown `q*` id with the show hint, and the seeded question renders in the exported scope-exploration section"
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "`plan cover` and `plan task --covers` validate against live-derived targets: `_require_target` (`cli/_commands/plan.py:145-151`) reads the stored snapshot that only `converge`/`export` refresh (`plan.py:496,530`) while `plan status` re-derives without persisting \u2014 verified by live repro: `plan status` recommends `plan cover t1 --target c7` and that exact move refuses with unknown coverage target; after `plan converge` it succeeds (#90)"
+    },
+    {
+      "id": "h9",
+      "kind": "honesty",
+      "text": "honest only if the verified repro inverts: after the frame grows a confirmed claim, plan status recommends cover for it AND that exact cover succeeds immediately, with no intervening plan converge required"
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "a per-target deferral move (for example `plan defer <id> --reason`): deferred targets stop blocking `_missing_coverage` (`plan_convergence.py:26-32`), render as a Deferred targets section in plan-md (no such section exists, `render/plan_md.py:78-102`), and `plan status` distinguishes deliberately-deferred from not-yet-covered; today an `out_of_scope` risk has zero gate effect (#85)"
+    },
+    {
+      "id": "h10",
+      "kind": "honesty",
+      "text": "honest only if a plan with deferred targets converges and exports, the export names every deferred target with its reason in a Deferred targets section, and plan status reports deliberately-deferred distinctly from not-yet-covered \u2014 exercising the shell-cli shape of 90 covered plus 12 deferred"
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "`plan task --dep` validates at creation: `add_dep` (`plan.py:134-136`) is a bare append, so self-dependencies and dangling deps are accepted silently (pinned by `tests/test_cli_plan.py:87-96`, which flips); refuse self-reference and unknown ids with actionable hints (#86)"
+    },
+    {
+      "id": "h11",
+      "kind": "honesty",
+      "text": "honest only if plan task --dep naming the about-to-be-assigned id or an unknown id refuses at creation with an actionable hint, and tests/test_cli_plan.py:87-96 is flipped rather than deleted"
+    },
+    {
+      "id": "c12",
+      "kind": "requirement",
+      "text": "`plan confirm` and `plan reject` go multi-id transactional: today single-id (`cli/_commands/plan.py:827-835`) versus the frame-side batched `nargs` surface (`confirm.py:90-97`, `reject.py:10-15`) (#86)"
+    },
+    {
+      "id": "h12",
+      "kind": "honesty",
+      "text": "honest only if plan confirm and plan reject with N ids apply transactionally \u2014 all valid or none applied \u2014 matching the frame-side contract in behavior and error text"
+    },
+    {
+      "id": "c13",
+      "kind": "requirement",
+      "text": "`devague summary` scopes to confirmed tasks: `_planned_work_lines`, `_actual_delivery_lines`, and `summary_data` (`render/summary_md.py:119-143, 265-271`) iterate every task today; rejected tasks leave Planned Work and the Actual Delivery table, replaced by a one-line rejected-count note; `dependency_waves` already excludes rejected tasks (`plan.py:285`) so the --pr wave map is safe (#88)"
+    },
+    {
+      "id": "h13",
+      "kind": "honesty",
+      "text": "honest only if a plan with N confirmed and M rejected tasks emits exactly N Actual Delivery rows and N Planned Work entries plus a single line counting the M rejected, and the --pr wave map stays rejected-free"
+    },
+    {
+      "id": "c14",
+      "kind": "requirement",
+      "text": "approved deviations surface against contested claims: an approved deviation carries `--affects` claim ids (`deviate.py:78-89`) but no export/show/status code touches the delivery store today (zero grep hits); derive the back-reference read-only via enumerate `plan_store.list_slugs()`, filter `plan.frame_slug`, load the delivery per plan slug (#92)"
+    },
+    {
+      "id": "h14",
+      "kind": "honesty",
+      "text": "honest only if an approved deviation whose --affects names a confirmed claim yields a contested marker under that claim on re-export AND a contested line in show/status, all derived read-only across the plan-slug join with zero frame-state mutation"
+    },
+    {
+      "id": "c15",
+      "kind": "requirement",
+      "text": "split-plan writes a durable gate-2 artifact: `docs/plans/<created-date>-<slug>-split.md` beside the exported plan-md, overwrite-in-place on re-run; today the script has no write step at all (`assign-to-workforce.sh:262-283` \u2014 subcommands split-plan, waves, help only) (#82)"
+    },
+    {
+      "id": "h15",
+      "kind": "honesty",
+      "text": "honest only if the written split artifact carries real per-task summaries, acceptance criteria, instructions, the owner/model annotation block, and the End state section; re-running overwrites the same dated path; the file lints clean"
+    },
+    {
+      "id": "c16",
+      "kind": "requirement",
+      "text": "the /scope skill fans exploration out to smaller-tier read-only subagents (sonnet default): method-only change to SKILL.md steps 1-2 (`scope/SKILL.md:43-50`, today serial first-person), sweeping `learn.py` `SCOPE_STAGE` (`learn.py:153-171`), `docs/skills.md:156-176`, and the `docs/skill-sources.md` version-stamp row (#79, #91)"
+    },
+    {
+      "id": "h16",
+      "kind": "honesty",
+      "text": "honest only if scope SKILL.md, learn.py SCOPE_STAGE, docs/skills.md, and the skill-sources ledger all describe the same subagent fan-out with the same default tier \u2014 a doc-alignment check, not four diverging texts"
+    },
+    {
+      "id": "c21",
+      "kind": "boundary",
+      "text": "the exported spec stays a point-in-time record: the #92 fix never mutates claims, churns ids, or makes specs editable \u2014 contested markers are a pure render-time derivation, honoring the maintainer ruling quoted in #92 that deviate is the marking of the change"
+    },
+    {
+      "id": "h17",
+      "kind": "honesty",
+      "text": "honest only if the #92 implementation adds no mutation path to frame state \u2014 the contested derivation is a pure function over existing frame, plan, and delivery state, and no claim id or text changes on re-export"
+    },
+    {
+      "id": "c22",
+      "kind": "boundary",
+      "text": "escaping is presentational only: frame and plan JSON keep raw unescaped text and `show --json` output is unchanged, per the #87 acceptance criteria"
+    },
+    {
+      "id": "h18",
+      "kind": "honesty",
+      "text": "honest only if frame and plan JSON on disk are byte-identical before and after an export, and show --json output is unchanged by the escaping change"
+    },
+    {
+      "id": "c27",
+      "kind": "audience",
+      "text": "operator agents driving devague across AgentCulture repos \u2014 the field reporters behind these issues (headspace-cli, reachy-mini-cli, shell-cli, arm101-cli, agentfront) \u2014 plus the humans owning the spec, split-plan, and final-PR gates who read the exported artifacts"
+    },
+    {
+      "id": "h19",
+      "kind": "honesty",
+      "text": "honest only if every fix maps back to at least one named field report and each reporter repro in the issue bodies is covered by a regression test \u2014 no fix ships that answers nobody"
+    },
+    {
+      "id": "c28",
+      "kind": "after_state",
+      "text": "all fifteen open issues (#48, #49, #52, #79, #82-#88, #90-#93) close on one release: exported artifacts are lossless, lint-clean, and honest about rejection and deviation; plans cover live targets, defer deliberately, and validate deps at creation; hard questions resolve and claims amend without id churn; the summary is confirmed-only; gate 2 leaves a durable artifact; scope fans out to smaller-tier subagents"
+    },
+    {
+      "id": "h20",
+      "kind": "honesty",
+      "text": "honest only if the release closes all fifteen without regressing the existing gates: the full suite, coverage, and the markdownlint integration tests pass on the same commit that closes them"
+    },
+    {
+      "id": "c29",
+      "kind": "before_state",
+      "text": "fifteen open issues document real field failures on 0.20.x: two permanent convergence deadlocks (blocking hard questions unresolvable, cover refusing what converge demands \u2014 both worked around by hand-editing state JSON), specs that silently drop parks and leak rejected content, exports that fail downstream CI lint, an 87-row delivery table for 19 real tasks, and a five-move id-churning path to fix one number in a claim"
+    },
+    {
+      "id": "h21",
+      "kind": "honesty",
+      "text": "honest only if each named failure reproduces on 0.20.1 before the fix \u2014 the two deadlocks, the park drop, the rejected-content leak, the MD037/MD050 failures, and the 87-row summary all have failing-first tests or recorded repros"
+    },
+    {
+      "id": "c30",
+      "kind": "success_signal",
+      "text": "all 15 issues closed by the release with a regression test each; exported spec-md, plan-md, and split artifacts produce 0 markdownlint-cli2 errors under the default config; the full pytest suite stays green with coverage >= 95%; the 3 downstream workarounds named in the issues (render_plan.py projection, docs/specs lint ignores, hand-edited frame JSON) become deletable"
+    },
+    {
+      "id": "h22",
+      "kind": "honesty",
+      "text": "honest only if the signals are checked mechanically: issue closure count, markdownlint exit code, pytest exit code and coverage threshold, and the downstream-workaround deletability confirmed on the issues by the reporting repos"
+    },
+    {
+      "id": "c31",
+      "kind": "requirement",
+      "text": "every new or changed CLI surface in the sweep \u2014 hard-question resolve, claim/scope/risk amend, `plan defer`, multi-id `plan confirm`/`reject`, live-target cover \u2014 is documented in the `learn` and `explain` recipes in the same release; issue #52 makes this an explicit acceptance criterion for the resolve move"
+    },
+    {
+      "id": "h24",
+      "kind": "honesty",
+      "text": "honest only if devague learn and devague explain output name every new verb/flag shipped in the sweep, checked by tests that grep the recipe text for each surface"
+    },
+    {
+      "id": "c32",
+      "kind": "requirement",
+      "text": "the render-time escaper never alters text inside existing code spans: claim text already mixes prose and backticked tokens (this frame is itself the counter-evidence corpus), so identifier wrapping must skip spans that are already code and stay stable across repeated exports"
+    },
+    {
+      "id": "h25",
+      "kind": "honesty",
+      "text": "honest only if exporting this very frame twice in a row is byte-stable and lints clean \u2014 the frame whose claims mix backticked and bare identifiers is the regression corpus"
+    },
+    {
+      "id": "c33",
+      "kind": "requirement",
+      "text": "export flags scope entries whose `--seeds` cite a rejected claim instead of rendering a dead reference \u2014 the fourth #84 acceptance criterion, which claim c7 (amend) does not cover on its own"
+    },
+    {
+      "id": "h26",
+      "kind": "honesty",
+      "text": "honest only if an exported spec whose scope entry seeds a rejected claim renders a visible rejected marker (or resolves the reference) instead of a bare dead id"
+    },
+    {
+      "id": "c34",
+      "kind": "requirement",
+      "text": "the contested-by-deviation derivation fails open: a missing, corrupt, or newer-schema delivery store never breaks `export`, `show`, or `status` \u2014 the artifact renders without markers and a diagnostic goes to stderr"
+    },
+    {
+      "id": "h27",
+      "kind": "honesty",
+      "text": "honest only if export, show, and status succeed on a frame whose delivery store is missing, truncated, or declares a newer schema \u2014 covered by tests for all three corruption shapes"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "summary": "Escaping engine in render/_md_safety.py",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "unit tests in tests/test_md_safety.py cover `_read_file`, `__init__.py`, `*`, `[`, backtick, and leading `#` inputs, plus already-backticked text passing through unchanged and idempotence on double application"
+      ],
+      "deps": [],
+      "covers": [
+        "c32",
+        "h25"
+      ],
+      "instruction": "Add a pure escape function in devague/render/_md_safety.py only \u2014 no renderer call sites here (they land in t3/t9/t13). Wrap underscore/dunder identifiers in code spans per the #87 comment preference; escape remaining markdown control characters; skip text already inside code spans; make double application a no-op."
+    },
+    {
+      "id": "t2",
+      "summary": "Schema and load-order hardening in both stores",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a frame or plan JSON declaring a newer schema_version fails with the fail-closed IncompatibleSchemaError message, never a raw TypeError, covered by tests for both stores; existing v3 frames and plans load unchanged"
+      ],
+      "deps": [],
+      "covers": [],
+      "instruction": "Fix store.py and plan_store.py to check schema_version BEFORE parsing via from_dict (today store.py:136-147 and plan_store.py:54-62 parse first); make HardQuestion/Vagueness loading tolerant of unknown keys like Claim already is (frame.py:315,322); bump frame SCHEMA_VERSION for the new hard-question resolution field and PLAN_SCHEMA_VERSION for defer state."
+    },
+    {
+      "id": "t3",
+      "summary": "spec_md renderer sweep: parks, hard questions, dead seeds, escaping",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a converged frame with open parks of all four kinds exports a spec listing each park labeled by kind",
+        "a resolved hard question renders with a resolved marker and a hard question on a rejected claim is absent from the export (the #83 repro shape: capture, interrogate --risk, reject, converge, export)",
+        "a scope entry seeding a rejected claim renders a visible rejected marker instead of a bare dead id",
+        "exporting the issue-backlog-sweep frame twice is byte-stable, lints clean under markdownlint-cli2 default config, and frame JSON on disk is byte-identical before and after; `show --json` output unchanged"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c2",
+        "c3",
+        "c6",
+        "c22",
+        "c33",
+        "h2",
+        "h3",
+        "h6",
+        "h18",
+        "h26"
+      ],
+      "instruction": "devague/render/spec_md.py: render all open park kinds grouped by kind (replace the `_follow_up` filter at 110-118); render hard questions with resolved markers and skip rejected parent claims (104-107); flag scope entries whose seeds cite a rejected claim; apply the t1 escaper at every verbatim site. Flip tests/test_render.py:301-306."
+    },
+    {
+      "id": "t4",
+      "summary": "Hard-question resolve move: interrogate --resolve",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the block-resolve-converge sequence completes through CLI moves alone, suggest_move output names the shipped move, resolved state and decision text survive a save/load round-trip, and a rejected claim with an unresolved blocking question no longer blocks converge"
+      ],
+      "deps": [
+        "t2"
+      ],
+      "covers": [
+        "c4",
+        "h4"
+      ],
+      "instruction": "Per decision c36: `devague interrogate <cN> --resolve <qN> [--decision \"<text>\"]`. Add Frame.resolve_hard_question storing the optional decision text (schema field from t2); make the convergence gate (convergence.py:111-116) skip rejected claims; update suggest_move (206-211) to name the shipped move verbatim."
+    },
+    {
+      "id": "t5",
+      "summary": "Reject cascade over attachments",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "rejecting a claim with attachments reports exactly what cascaded; post-reject converge emits zero warnings about the rejected claim; review lists zero orphans; regression test asserts the risk text is absent from the exported markdown"
+      ],
+      "deps": [
+        "t4"
+      ],
+      "covers": [
+        "c5",
+        "h5"
+      ],
+      "instruction": "Rejecting a claim cascades to its honesty conditions and hard questions, echoing what it took (`c21 -> rejected (also rejected: h3, q1)`); `_assumption_warnings` (convergence.py:120-126) skips rejected claims; `devague review` stops listing conditions whose parent claim is rejected."
+    },
+    {
+      "id": "t6",
+      "summary": "Claim and scope-entry amend moves",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "amending a confirmed claim keeps its id and attachments and flips it to proposed with an echo; correcting one number costs exactly one move; scope --amend replaces a finding in place"
+      ],
+      "deps": [
+        "t5"
+      ],
+      "covers": [
+        "c7",
+        "h7"
+      ],
+      "instruction": "New `devague amend <cN> --text/--kind` keeping id, honesty conditions, instruction, and inbound scope seeds; `devague scope --amend <sN> --finding`; amending a confirmed claim flips it to proposed with the echoed flip, matching the interrogate.py:58-68 precedent; origin never changes silently."
+    },
+    {
+      "id": "t7",
+      "summary": "scope --seeds accepts question ids",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "scope --seeds with a valid `q*` id records; an unknown `q*` id is refused with the hint; the seeded question renders in the exported scope-exploration section"
+      ],
+      "deps": [
+        "t6"
+      ],
+      "covers": [
+        "c8",
+        "h23"
+      ],
+      "instruction": "Frame.add_scope_entry (frame.py:252-254) accepts `q*` ids resolving against claim-attached hard questions; unknown `q*` still refused with the show hint; exported scope section renders question seeds."
+    },
+    {
+      "id": "t8",
+      "summary": "Live-target validation for cover and --covers",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the verified #90 repro inverts: after the frame grows a confirmed claim, `plan status` recommends cover for it AND that exact cover succeeds immediately with no intervening converge; a target unknown to both stored and live sets is still refused"
+      ],
+      "deps": [],
+      "covers": [
+        "c9",
+        "h9"
+      ],
+      "instruction": "Make `_require_target` (cli/_commands/plan.py:145-151) validate against live-frame-derived targets exactly as converge does via `_live` (108-118), persisting the refreshed snapshot on success; decide the regressed-frame fallback (frame park v4) here \u2014 either stored-snapshot fallback or refusal with the reconverge hint \u2014 and test the chosen behavior."
+    },
+    {
+      "id": "t9",
+      "summary": "Per-target deferral: plan defer",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a plan with deferred targets converges and exports; the export names every deferred target with its reason; status distinguishes deferred from uncovered; the shell-cli shape (90 covered, 12 deferred) converges in a test",
+        "plan-md output passes markdownlint-cli2 with underscore-bearing task text (MD050 regression from the #87 comment)"
+      ],
+      "deps": [
+        "t1",
+        "t2",
+        "t8"
+      ],
+      "covers": [
+        "c10",
+        "h10",
+        "c6"
+      ],
+      "instruction": "New `devague plan defer <target-id> --reason \"<text>\"` persisting deferral state (plan schema bump from t2); `_missing_coverage` (plan_convergence.py:26-32) excludes deferred targets; `plan status` reports deliberately-deferred distinctly; plan_md renders a Deferred targets section naming each with its reason, and applies the t1 escaper at its verbatim sites."
+    },
+    {
+      "id": "t10",
+      "summary": "Dependency validation at task creation",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "creating a task with `--dep` naming its own id or an unknown id fails with the actionable hint; the flipped test passes; existing valid graphs are unaffected"
+      ],
+      "deps": [
+        "t9"
+      ],
+      "covers": [
+        "c11",
+        "h11"
+      ],
+      "instruction": "plan task `--dep` refuses the about-to-be-assigned id (self-cycle) and unknown task ids at creation with actionable hints; `depend <tN> --on <tM>` gets the same checks; flip tests/test_cli_plan.py:87-96 rather than deleting it."
+    },
+    {
+      "id": "t11",
+      "summary": "Multi-id transactional plan confirm/reject",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "plan reject with three ids where one is invalid applies none and says why; with all valid, applies all in one call; error hints inside the plan group name `plan explain`"
+      ],
+      "deps": [
+        "t10"
+      ],
+      "covers": [
+        "c12",
+        "h12"
+      ],
+      "instruction": "plan confirm/reject accept N ids applied transactionally (all valid or none), matching the frame-side contract (confirm.py:27-50); argument errors inside the plan group point at `devague plan explain <move>`."
+    },
+    {
+      "id": "t12",
+      "summary": "Plan-risk amend",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "amending a risk keeps its id, kind, and resolution state while replacing text; amending an unknown rid is refused with a hint"
+      ],
+      "deps": [
+        "t11"
+      ],
+      "covers": [
+        "c7"
+      ],
+      "instruction": "New `plan risk --amend <rN> --text \"<corrected>\"` editing risk text in place, preserving id, kind, task link, and resolution state \u2014 the #84 comment case where a referenced task id rotates."
+    },
+    {
+      "id": "t13",
+      "summary": "Summary scoped to confirmed tasks",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "a plan with N confirmed and M rejected tasks emits exactly N Actual Delivery rows and N Planned Work entries plus one line counting the M rejected; the --pr wave map stays rejected-free; regression test covers a mixed-status plan"
+      ],
+      "deps": [
+        "t1"
+      ],
+      "covers": [
+        "c13",
+        "h13"
+      ],
+      "instruction": "summary_md.py: Planned Work and Actual Delivery (119-143) plus summary_data (265-271) iterate confirmed tasks only, with a single line counting rejected tasks; apply the t1 escaper at verbatim sites; `dependency_waves` already excludes rejected (plan.py:285) so --pr needs no change \u2014 pin that with a test."
+    },
+    {
+      "id": "t14",
+      "summary": "Contested-by-deviation derivation: export, show, status",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "an approved deviation whose --affects names a confirmed claim yields a contested marker on re-export and a contested line in show and status",
+        "export, show, and status succeed on a frame whose delivery store is missing, truncated, or declares a newer schema (three corruption-shape tests); frame JSON is byte-identical before and after"
+      ],
+      "deps": [
+        "t3"
+      ],
+      "covers": [
+        "c14",
+        "c21",
+        "c34",
+        "h14",
+        "h17",
+        "h27"
+      ],
+      "instruction": "Per decisions c24/c19: a pure read-only derivation joining frame claims to approved deviations via plan_store.list_slugs() filtered on frame_slug, then delivery_store per plan slug; re-exported specs render a contested marker under affected confirmed claims; show/status gain a contested line; missing/corrupt/newer-schema delivery stores degrade to markerless rendering with a stderr diagnostic \u2014 never a crash; zero frame-state mutation."
+    },
+    {
+      "id": "t15",
+      "summary": "Durable gate-2 split artifact in assign-to-workforce",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "the written split artifact carries real task content, the annotation block, and End state; re-run overwrites in place; the file passes markdownlint-cli2"
+      ],
+      "deps": [],
+      "covers": [
+        "c15",
+        "h15"
+      ],
+      "instruction": "Per decision c25 (artifact-only): the skill script gains a write mode producing `docs/plans/<created-date>-<slug>-split.md` \u2014 real per-task summaries, acceptance criteria, instructions from `plan waves --json`, an owner/model annotation block the skill reads back on re-run, and the End state section; re-running overwrites the same dated path; SKILL.md documents the flow; no plan schema change, no new CLI verb."
+    },
+    {
+      "id": "t16",
+      "summary": "Scope skill fans out to smaller-tier subagents",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "SKILL.md instructs subagent fan-out with a default smaller tier and keeps the read-only + provenance hard rules; the no-wizard escape for small ideas survives"
+      ],
+      "deps": [],
+      "covers": [
+        "c16",
+        "h16"
+      ],
+      "instruction": "scope/SKILL.md steps 1-2 gain a read-only subagent fan-out pattern with a smaller default tier (sonnet), scaled by surface count \u2014 small ideas still explore inline (no wizard); provenance and read-only rules unchanged."
+    },
+    {
+      "id": "t17",
+      "summary": "learn/explain recipes cover every new surface",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "tests grep learn/explain output for each new verb and flag; the #52 acceptance criterion (learn/explain document the resolve path) passes"
+      ],
+      "deps": [
+        "t4",
+        "t9"
+      ],
+      "covers": [
+        "c31",
+        "h24"
+      ],
+      "instruction": "devague learn, learn skills (SCOPE_STAGE at learn.py:153-171, ASSIGN_TO_WORKFORCE_GUIDANCE at 65-112), and explain document: interrogate --resolve, amend, scope --amend, plan defer, plan risk --amend, multi-id plan confirm/reject, live cover, and the scope subagent fan-out."
+    },
+    {
+      "id": "t18",
+      "summary": "Docs sweep, changelog, version bump",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "all four docs describe the shipped behavior; version-check CI passes; markdownlint-cli2 clean on changed docs"
+      ],
+      "deps": [
+        "t15",
+        "t16",
+        "t17"
+      ],
+      "covers": [],
+      "instruction": "README.md, CLAUDE.md status entry, docs/skills.md, docs/skill-sources.md version-stamp rows (including the docs/skills.md:255-256 waves-json drift), CHANGELOG.md entry, minor version bump via /version-bump; sign nothing manually \u2014 cicd appends."
+    },
+    {
+      "id": "t19",
+      "summary": "End-to-end verification and issue closure map",
+      "origin": "llm",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "pytest -n auto green with coverage >= 95 percent; markdownlint integration green; a closure map lists all 15 issues each naming its regression test; the three downstream workarounds are named as deletable in the map"
+      ],
+      "deps": [
+        "t7",
+        "t12",
+        "t13",
+        "t14",
+        "t18"
+      ],
+      "covers": [
+        "c1",
+        "c27",
+        "c28",
+        "c29",
+        "c30",
+        "h1",
+        "h19",
+        "h20",
+        "h21",
+        "h22"
+      ],
+      "instruction": "Repro-first evidence: each of the fifteen issues has a named regression test; full suite green via run-tests with coverage at or above 95 percent; the markdownlint integration test exports the issue-backlog-sweep frame as corpus; produce the issue-to-test closure map for the PR body so each issue closes with a pointer."
+    }
+  ],
+  "risks": [
+    {
+      "id": "r1",
+      "text": "task granularity across a 19-task combined release may shift once implementation starts; mid-run divergence routes through /deviate against gate 2",
+      "kind": "unknown_nonblocking",
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r2",
+      "text": "regressed-frame fallback for live cover (frame park v4) is decided inside t8 \u2014 either stored-snapshot fallback or refusal with the reconverge hint",
+      "kind": "unknown_nonblocking",
+      "task_id": "t8",
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r3",
+      "text": "first re-export of historical committed specs after the escaper lands produces large presentational diffs (frame park v5) \u2014 reviewers should expect them",
+      "kind": "unknown_nonblocking",
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r4",
+      "text": "downstream repos (reachy-mini-cli, shell-cli, headspace-cli) must re-vendor updated skills via the guildmaster re-broadcast after release and can then delete their workarounds",
+      "kind": "follow_up",
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
+    }
+  ]
+}

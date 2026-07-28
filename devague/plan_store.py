@@ -12,6 +12,7 @@ import json
 import time
 from pathlib import Path
 
+from devague.frame import parse_schema_version
 from devague.plan import PLAN_SCHEMA_VERSION, Plan, from_dict, to_dict
 from devague.store import validate_slug
 
@@ -51,7 +52,19 @@ def load(slug: str) -> Plan:
     p = path_for(slug)
     if not p.exists():
         raise FileNotFoundError(slug)
-    plan = from_dict(json.loads(p.read_text(encoding="utf-8")))
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    # Check the declared schema_version against the RAW dict before constructing
+    # the domain object: a genuinely newer-schema plan file must fail closed with
+    # IncompatiblePlanSchemaError, not an opaque TypeError from from_dict trying to
+    # build a nested dataclass it doesn't fully recognise yet (t2, the plan-side
+    # twin of store.load's same hardening).
+    version = parse_schema_version(raw, PLAN_SCHEMA_VERSION)
+    if version > PLAN_SCHEMA_VERSION:
+        raise IncompatiblePlanSchemaError(
+            f"plan {slug!r} uses schema_version {version}, but this "
+            f"devague supports up to {PLAN_SCHEMA_VERSION}; upgrade devague to read it"
+        )
+    plan = from_dict(raw)
     validate_slug(plan.slug)  # reject a tampered file whose internal slug escapes
     validate_slug(plan.frame_slug)  # the linked frame slug must be safe to load too
     if plan.slug != slug:
@@ -59,11 +72,6 @@ def load(slug: str) -> Plan:
         # whose internal slug disagrees with its filename could silently redirect
         # a later save onto a different plan, so reject it.
         raise ValueError(f"plan slug mismatch: file {slug!r} declares slug {plan.slug!r}")
-    if plan.schema_version > PLAN_SCHEMA_VERSION:
-        raise IncompatiblePlanSchemaError(
-            f"plan {slug!r} uses schema_version {plan.schema_version}, but this "
-            f"devague supports up to {PLAN_SCHEMA_VERSION}; upgrade devague to read it"
-        )
     return plan
 
 

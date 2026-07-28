@@ -1,0 +1,38 @@
+{
+  "plan_slug": "issue-backlog-sweep",
+  "schema_version": 1,
+  "created": "2026-07-28T07:50:50Z",
+  "updated": "2026-07-28T08:16:09Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "run t17 (learn/explain recipes) after wave 5 instead of in wave 3 \u2014 its acceptance criteria require documenting amend (t6, wave 4), multi-id plan confirm/reject (t11, wave 4), and plan risk --amend (t12, wave 5), so the confirmed dependency graph under-specifies it: t17 depends on t4 and t9 only",
+      "task_ref": "t17",
+      "reason": "the confirmed plan's dep graph places t17 in wave 3, but three of the four surfaces its acceptance criterion names do not exist until waves 4-5; documenting them there would mean writing recipes for unshipped verbs \u2014 the exact fabrication the method forbids. Execution order changes; no plan state is mutated (deviate is the marking of the change). Taken under the operator's standing mid-run authorization: 'Approved to run all waves by order. /deviate where needed and open issues for followups.'",
+      "affects": [
+        "t17",
+        "t6",
+        "t11",
+        "t12"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable"
+    },
+    {
+      "id": "d2",
+      "what": "run t18 (docs sweep, changelog, version bump) after t7, t12, and t17 instead of in wave 4 \u2014 same root cause as d1: it must describe the shipped surface, and amend/scope --amend land in t6, plan risk --amend in t12, scope --seeds q-ids in t7, and the learn/explain recipes in the re-sequenced t17",
+      "task_ref": "t18",
+      "reason": "t18's confirmed deps are t15/t16/t17; with t17 moved by d1 and three more verbs landing in waves 4-5, running the docs sweep in wave 4 would document unshipped behavior and require a second pass. Execution order changes only; no plan state is mutated. Taken under the operator's standing authorization to deviate where needed.",
+      "affects": [
+        "t18",
+        "t17",
+        "t7",
+        "t12"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable"
+    }
+  ]
+}

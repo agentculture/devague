@@ -1,6 +1,6 @@
-"""t9: E2E repro + quality-gate coverage for issue 57's fix — the resolve
-lifecycle driven through the real CLI, both engines (frame side and plan
-side).
+"""t9/t4: E2E repro + quality-gate coverage for issue 57's and issues #48/#52's
+fixes — the resolve lifecycle driven through the real CLI, both engines
+(frame side and plan side), plus the frame-side hard-question resolve.
 
 Before waves 1-2 landed, a parked ``unknown_blocking`` vagueness (frame side)
 or risk (plan side) could **never** be closed out through a move — the frame
@@ -15,6 +15,13 @@ state is only ever inspected via ``store.load`` / ``plan_store.load`` (module
 functions over the JSON, never a raw ``Path(".devague/...")`` open) or CLI
 ``--json`` output, matching the "no hand-editing" contract the resolve moves
 exist to uphold.
+
+A parallel, permanent convergence deadlock existed for a claim's *blocking
+hard question* (``interrogate --hard-question --blocking`` / ``--contradicts``):
+nothing in the codebase ever set ``HardQuestion.resolved``. ``interrogate <cN>
+--resolve <qN> [--decision TEXT]`` (decision c36) is the fix; the tests below
+(t4, issues #48/#52) mirror the same block-resolve-converge shape through CLI
+moves alone.
 """
 
 from __future__ import annotations
@@ -216,3 +223,181 @@ def test_e2e_issue57_plan_risk_resolve_lifecycle(tmp_path, monkeypatch, capsys) 
     plan = plan_store.load(slug)
     plan_path = Path("docs/plans") / f"{plan.created[:10]}-{slug}.md"
     assert plan_path.exists()
+
+
+def test_e2e_issue84_plan_risk_amend_after_task_recreation_still_converges(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The issue #84 comment repro: a plan risk's TEXT names a task id that
+    later rotates (the referenced task was rejected and recreated during a
+    scope change). ``plan risk --amend RID --text TEXT`` corrects the stale
+    reference in place — same id, kind, and (once resolved) resolution state
+    — instead of leaving misleading text in the ledger or resolving the risk
+    just to record a corrected duplicate. The amend must not disturb an
+    already-resolved risk's resolution, and the plan must still converge
+    and export afterward.
+    """
+    _converging_frame(monkeypatch, tmp_path)
+    slug = store.current_slug()
+
+    assert main(["plan", "new", "--frame", slug]) == 0
+    assert main(["plan", "task", "install the scanner"]) == 0  # t1
+    args = ["plan", "task", "cover everything", "--accept", "all targets satisfied"]
+    for target in _PLAN_TARGETS:
+        args += ["--covers", target]
+    assert main(args) == 0  # t2
+
+    assert (
+        main(
+            [
+                "plan",
+                "risk",
+                "t1 installs and reports the counter only",
+                "--kind",
+                "out_of_scope",
+                "--task",
+                "t1",
+            ]
+        )
+        == 0
+    )  # r1
+
+    # simulate the scope-driven rebuild: t1 is rejected and recreated as t3,
+    # which stops covering the risk's stale text (but not the risk record
+    # itself) — the plan still converges (the risk is non-blocking).
+    assert main(["plan", "reject", "t1"]) == 0
+    assert (
+        main(
+            [
+                "plan",
+                "task",
+                "install the scanner (rebuilt)",
+                "--accept",
+                "scanner installed and reporting",
+            ]
+        )
+        == 0
+    )  # t3
+
+    capsys.readouterr()
+    assert main(["plan", "converge", "--json"]) == 0
+    assert _json_out(capsys)["ready_for_plan"] is True
+
+    capsys.readouterr()
+    rc = main(
+        ["plan", "risk", "--amend", "r1", "--text", "t3 installs and reports the counter only"]
+    )
+    assert rc == 0
+    assert "r1: amended" in capsys.readouterr().out
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.text == "t3 installs and reports the counter only"
+    assert (risk.id, risk.kind, risk.task_id) == ("r1", "out_of_scope", "t1")
+    assert risk.resolved is False
+
+    # now resolve it, and prove a subsequent amend leaves the resolution alone.
+    capsys.readouterr()
+    assert (
+        main(["plan", "risk", "--resolve", "r1", "--decision", "confirmed still out of scope"]) == 0
+    )
+    capsys.readouterr()
+    rc = main(
+        ["plan", "risk", "--amend", "r1", "--text", "t3 installs and reports the counter only (v2)"]
+    )
+    assert rc == 0
+    risk = plan_store.load(slug).find_risk("r1")
+    assert risk.text == "t3 installs and reports the counter only (v2)"
+    assert risk.resolved is True
+    assert risk.resolution == "confirmed still out of scope"
+
+    assert main(["plan", "converge", "--json"]) == 0
+    assert main(["plan", "export"]) == 0
+    plan = plan_store.load(slug)
+    plan_path = Path("docs/plans") / f"{plan.created[:10]}-{slug}.md"
+    assert plan_path.exists()
+
+
+def test_e2e_issue48_52_hard_question_block_resolve_converge_lifecycle(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The exact #48/#52 repro: a blocking hard question deadlocks convergence
+    until ``interrogate <cN> --resolve <qN> --decision TEXT`` clears it —
+    driven only through CLI moves, with the resolved state and decision text
+    verified via a real ``store.load`` (a save/load round-trip), not a raw
+    JSON read.
+    """
+    _converging_frame(monkeypatch, tmp_path)
+
+    # The frame would already converge but for the blocking hard question
+    # raised below — prove that's what blocks it (not a fixture hole).
+    capsys.readouterr()
+    assert main(["converge", "--json"]) == 0
+    assert _json_out(capsys)["ready_for_spec"] is True
+
+    # --- issues #48/#52 repro ------------------------------------------------
+    assert main(["interrogate", "c1", "--hard-question", "is this real?", "--blocking"]) == 0  # q1
+
+    capsys.readouterr()
+    assert main(["converge", "--json"]) == 0
+    verdict = _json_out(capsys)
+    assert verdict["ready_for_spec"] is False
+    assert any(
+        "q1" in b and "c1" in b and "blocking hard question" in b for b in verdict["blockers"]
+    )
+    # suggest_move names the real, shipped move — not the old dead-end hint.
+    assert any("devague interrogate c1 --resolve q1" in m for m in verdict["required_next_moves"])
+
+    capsys.readouterr()
+    assert (
+        main(["interrogate", "c1", "--resolve", "q1", "--decision", "yes, verified end to end"])
+        == 0
+    )
+    assert "q1 on c1 -> resolved" in capsys.readouterr().out
+
+    # converge must now pass — the resolved hard question no longer blocks.
+    capsys.readouterr()
+    assert main(["converge", "--json"]) == 0
+    verdict = _json_out(capsys)
+    assert verdict["ready_for_spec"] is True
+
+    # Save/load round-trip: resolved state and decision text survive a fresh
+    # store.load, not just the in-memory object the CLI process already held.
+    frame = store.load(store.current_slug())
+    q = next(q for c in frame.claims for q in c.hard_questions if q.id == "q1")
+    assert q.resolved is True
+    assert q.resolution == "yes, verified end to end"
+
+    # export still works with the resolved question on record.
+    assert main(["export"]) == 0
+    spec_path = Path("docs/specs") / f"{frame.created[:10]}-{frame.slug}.md"
+    assert spec_path.exists()
+
+
+def test_e2e_issue52_rejected_claim_unresolved_blocking_question_no_longer_blocks(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Issue #52's fix (3): rejecting the parent claim also clears its
+    unresolved blocking hard question from the gate — driven through
+    ``confirm``/``reject`` alone, no ``--resolve`` needed for this path.
+    """
+    _converging_frame(monkeypatch, tmp_path)
+
+    assert (
+        main(["capture", "--kind", "requirement", "an extra requirement", "--origin", "llm"]) == 0
+    )
+    frame = store.load(store.current_slug())
+    extra_id = next(c.id for c in frame.claims if c.kind == "requirement")
+    assert main(["interrogate", extra_id, "--hard-question", "needed?", "--blocking"]) == 0
+
+    capsys.readouterr()
+    assert main(["converge", "--json"]) == 0
+    verdict = _json_out(capsys)
+    assert verdict["ready_for_spec"] is False
+    assert any("blocking hard question" in b for b in verdict["blockers"])
+
+    assert main(["reject", extra_id]) == 0
+
+    capsys.readouterr()
+    assert main(["converge", "--json"]) == 0
+    verdict = _json_out(capsys)
+    assert verdict["ready_for_spec"] is True
+    assert not any("blocking hard question" in b for b in verdict["blockers"])

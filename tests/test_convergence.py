@@ -73,6 +73,19 @@ def test_unconfirmed_assumption_is_warning_not_blocker() -> None:
     assert any("assumption" in w for w in res.warnings)
 
 
+def test_rejected_assumption_does_not_warn() -> None:
+    # Issue #83: a rejected assumption was explicitly decided against — it is
+    # not "unconfirmed" in the actionable sense the warning describes, and
+    # the warning has no useful next move for it (confirming would reverse
+    # the rejection; re-rejecting is a no-op). Must not warn.
+    f = _full_frame()
+    c = f.add_claim("assumption", "frames stay small", origin="llm")
+    f.reject(c.id)
+    res = evaluate(f)
+    assert res.ready is True
+    assert not any("assumption" in w for w in res.warnings)
+
+
 def test_requirement_is_spec_affecting() -> None:
     f = _full_frame()
     r = f.add_claim("requirement", "must round-trip", origin="user")  # confirmed, no honesty
@@ -143,3 +156,50 @@ def test_parked_items_still_lists_unresolved_nonblocking_vagueness() -> None:
     f.add_vagueness("ship a JSON Schema file?", "follow_up")
     res = evaluate(f)
     assert any("follow_up" in p for p in res.parked_items)
+
+
+# --- issue-backlog-sweep (t4): hard-question resolve, #48/#52 ----------------
+
+
+def test_resolved_blocking_hard_question_no_longer_blocks() -> None:
+    f = _full_frame()
+    f.add_hard_question(f.claims[0], "what if zero?", blocking=True)  # q1
+    f.resolve_hard_question(f.claims[0].id, "q1", "decided: reject zero")
+    res = evaluate(f)
+    assert res.ready is True
+    assert not any("blocking hard question" in m for m in res.blockers)
+    assert res.required_next_moves == []
+
+
+def test_unresolved_blocking_hard_question_still_blocks_alongside_resolved_one() -> None:
+    f = _full_frame()
+    cid = f.claims[0].id
+    f.add_hard_question(f.claims[0], "what if zero?", blocking=True)  # q1, resolved below
+    f.resolve_hard_question(cid, "q1", "decided: reject zero")
+    f.add_hard_question(f.claims[0], "what about negatives?", blocking=True)  # q2, stays open
+    res = evaluate(f)
+    assert res.ready is False
+    assert any("q2" in m for m in res.blockers)
+    assert not any("q1" in m for m in res.blockers)
+
+
+def test_rejected_claim_with_unresolved_blocking_question_no_longer_blocks() -> None:
+    # Issue #52's fix (3): the parent claim itself was decided against via
+    # reject, so its unresolved blocking question is moot and must not keep
+    # convergence permanently deadlocked.
+    f = _full_frame()
+    extra = f.add_claim("requirement", "an extra requirement", origin="user")
+    f.add_hard_question(extra, "is this even needed?", blocking=True)  # q1
+    extra.status = "rejected"
+    res = evaluate(f)
+    assert res.ready is True
+    assert not any("blocking hard question" in m for m in res.blockers)
+
+
+def test_suggest_move_for_blocking_hard_question_names_interrogate_resolve_verbatim() -> None:
+    hint = suggest_move("blocking hard question q3 on c2 unresolved")
+    assert "devague interrogate c2 --resolve q3" in hint
+    assert "--decision" in hint
+    assert "USER" in hint
+    # the old dead-end hint (capture/confirm never flips q.resolved) must be gone
+    assert "capture/confirm the resulting claim" not in hint

@@ -1,9 +1,10 @@
 """The plan convergence gate: is a plan solid enough to export a buildable plan?
 
 The peer of :mod:`devague.convergence`. A plan converges when every coverage target
-is covered by a confirmed task, every confirmed task carries acceptance criteria, the
-dependency graph is sound (no dangling refs, no cycles), nothing is left proposed, and
-no blocking risk remains. Reuses :class:`devague.convergence.ConvergenceResult` so both
+is either covered by a confirmed task or deliberately deferred (``plan defer``,
+issue #85), every confirmed task carries acceptance criteria, the dependency graph
+is sound (no dangling refs, no cycles), nothing is left proposed, and no blocking
+risk remains. Reuses :class:`devague.convergence.ConvergenceResult` so both
 engines report the same structured ``{ready, blockers, warnings, parked_items,
 required_next_moves}`` shape (the CLI serializes ``ready`` as ``ready_for_plan``).
 """
@@ -24,11 +25,21 @@ def _missing_tasks(plan: Plan) -> list[str]:
 
 
 def _missing_coverage(plan: Plan, targets: list[CoverageTarget]) -> list[str]:
+    """Targets with no confirmed covering task — excluding deliberately
+    deferred ones (issue #85).
+
+    A deferred target is a documented, honest decision (``plan defer``) that a
+    milestone-scoped plan will not cover it here; it must not block convergence
+    the way a target nobody has decided about yet does. It still shows up
+    elsewhere — as a tracked item in :func:`_parked_items` and in the exported
+    plan's "Deferred targets" section — so the exclusion stays visible instead
+    of silently implied by the absence of a blocker.
+    """
     covered = {tid for t in plan.tasks if t.status == "confirmed" for tid in t.covers}
     return [
         f"coverage target {tg.id} ({tg.kind}) has no confirmed task"
         for tg in targets
-        if tg.id not in covered
+        if tg.id not in covered and not tg.deferred
     ]
 
 
@@ -146,18 +157,29 @@ def _missing_risks(plan: Plan) -> list[str]:
     ]
 
 
-def _parked_items(plan: Plan) -> list[str]:
-    """Tracked, non-blocking, *unresolved* risks (everything but unknown_blocking).
+def _parked_items(plan: Plan, targets: list[CoverageTarget]) -> list[str]:
+    """Tracked, non-blocking items: unresolved risks (everything but
+    unknown_blocking) plus deliberately deferred coverage targets (issue #85).
 
     A resolved risk is no longer open vagueness — it stays on the plan's record for
     provenance (``Plan.resolve_risk``) but should stop being advertised as parked
-    (t4 AC3, mirrors t3's frame-side ``_parked_items``).
+    (t4 AC3, mirrors t3's frame-side ``_parked_items``). A deferred target is the
+    coverage-side peer: it is excluded from ``_missing_coverage``'s blockers, but
+    must still surface *somewhere* distinct from "not yet covered" — this is that
+    surface, labeled ``deferred:`` so it reads differently from a ``[kind] text``
+    risk line at a glance.
     """
-    return [
+    items = [
         f"[{r.kind}] {r.text}"
         for r in plan.risks
         if r.kind != "unknown_blocking" and not r.resolved
     ]
+    items += [
+        f"deferred: coverage target {tg.id} ({tg.kind}) — {tg.deferred_reason}"
+        for tg in targets
+        if tg.deferred
+    ]
+    return items
 
 
 def suggest_move(blocker: str) -> str:
@@ -283,6 +305,6 @@ def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> Conv
         ready=not blockers,
         blockers=blockers,
         warnings=_tdd_fitness_warnings(plan),
-        parked_items=_parked_items(plan),
+        parked_items=_parked_items(plan, tgs),
         required_next_moves=[suggest_move(b) for b in blockers],
     )

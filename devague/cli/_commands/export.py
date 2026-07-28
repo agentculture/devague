@@ -8,9 +8,11 @@ from pathlib import Path
 from devague import render, store
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._frames import resolve
-from devague.cli._output import emit_result
+from devague.cli._output import emit_diagnostic, emit_result
 from devague.cli._paths import dated_name
+from devague.contested import find_contested_markers
 from devague.convergence import evaluate
+from devague.render import spec_md
 
 SPECS_DIR = Path("docs/specs")
 
@@ -24,7 +26,17 @@ def cmd_export(args: argparse.Namespace) -> int:
             "frame has not converged; cannot export",
             "resolve: " + "; ".join(result.blockers),
         )
-    text = render.render(frame, args.format)
+    # Contested-by-deviation derivation (#92): a read-only cross-store join
+    # (frame claims × every plan's delivery ledger). Fails open — a broken
+    # plan or delivery file degrades to "no markers from that source" plus a
+    # stderr diagnostic, never a refused export (claim c34).
+    markers, diagnostics = find_contested_markers(frame)
+    for diag in diagnostics:
+        emit_diagnostic(diag)
+    if args.format == "spec-md":
+        text = spec_md.render_spec(frame, contested=markers)
+    else:
+        text = render.render(frame, args.format)
     SPECS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = SPECS_DIR / dated_name(frame.created, frame.slug)
     out_path.write_text(text, encoding="utf-8")

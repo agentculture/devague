@@ -5,7 +5,7 @@ import json
 import pytest
 
 from devague import store
-from devague.frame import SCHEMA_VERSION, Frame, to_dict
+from devague.frame import SCHEMA_VERSION, Frame, from_dict, to_dict
 
 
 def test_slugify_caps_and_sanitises() -> None:
@@ -148,6 +148,131 @@ def test_save_load_roundtrip_resolved_vagueness_identical(tmp_path, monkeypatch)
     assert to_dict(loaded) == to_dict(f)
     assert loaded.open_vagueness[0].resolved is True
     assert loaded.open_vagueness[0].resolution == "decided: cap at 10k"
+
+
+# --- issue-backlog-sweep t2: schema-gate-before-parse + nested tolerance -----
+
+
+def test_load_rejects_newer_schema_before_parsing_nested_unknown_key(tmp_path, monkeypatch) -> None:
+    # Before t2's load-order fix, from_dict ran BEFORE the schema_version gate, so
+    # a genuinely newer-schema file whose nested hard_questions/open_vagueness
+    # carried an unrecognised key crashed with a raw TypeError (HardQuestion(**q)
+    # / Vagueness(**v) reject unexpected kwargs) instead of the intended
+    # fail-closed IncompatibleSchemaError. The gate must now trip first.
+    monkeypatch.chdir(tmp_path)
+    f = Frame(slug="demo", title="Demo")
+    c = f.add_claim("announcement", "shipped X")
+    f.add_hard_question(c, "what if empty?", blocking=True)
+    f.add_vagueness("unsure about scale", "unknown_blocking")
+    store.save(f)
+    p = store.path_for("demo")
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    raw["schema_version"] = SCHEMA_VERSION + 1
+    raw["claims"][0]["hard_questions"][0]["from_a_future_devague"] = "unknown"
+    raw["open_vagueness"][0]["from_a_future_devague"] = "unknown"
+    p.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(store.IncompatibleSchemaError, match="schema_version"):
+        store.load("demo")
+
+
+def test_hard_question_from_dict_tolerates_unknown_keys() -> None:
+    # Mirrors Claim's existing tolerant construction (frame.py from_dict): a
+    # nested hard_questions entry carrying a not-yet-recognised key must not
+    # raw-TypeError, so the field t4 eventually adds can land safely.
+    legacy = {
+        "slug": "s",
+        "title": "t",
+        "claims": [
+            {
+                "id": "c1",
+                "kind": "announcement",
+                "text": "x",
+                "hard_questions": [
+                    {
+                        "id": "q1",
+                        "text": "what if empty?",
+                        "blocking": True,
+                        "resolution": "a future field this devague doesn't know yet",
+                    }
+                ],
+            }
+        ],
+        "open_vagueness": [],
+    }
+    f = from_dict(legacy)
+    q = f.claims[0].hard_questions[0]
+    assert (q.id, q.text, q.blocking, q.resolved) == ("q1", "what if empty?", True, False)
+
+
+def test_vagueness_from_dict_tolerates_unknown_keys() -> None:
+    legacy = {
+        "slug": "s",
+        "title": "t",
+        "claims": [],
+        "open_vagueness": [
+            {
+                "id": "v1",
+                "text": "unsure about scale",
+                "kind": "unknown_blocking",
+                "from_a_future_devague": "unknown",
+            }
+        ],
+    }
+    f = from_dict(legacy)
+    v = f.open_vagueness[0]
+    assert (v.id, v.text, v.kind, v.resolved, v.resolution) == (
+        "v1",
+        "unsure about scale",
+        "unknown_blocking",
+        False,
+        "",
+    )
+
+
+def test_load_v3_frame_shape_loads_unchanged_under_v4(tmp_path, monkeypatch) -> None:
+    # Acceptance criterion: existing v3 frames load unchanged after the v4 bump.
+    monkeypatch.chdir(tmp_path)
+    store.FRAMES_DIR.mkdir(parents=True, exist_ok=True)
+    v3 = {
+        "slug": "demo",
+        "title": "Demo",
+        "schema_version": 3,
+        "status": "drafting",
+        "created": "2026-01-01T00:00:00Z",
+        "updated": "2026-01-01T00:00:00Z",
+        "claims": [
+            {
+                "id": "c1",
+                "kind": "announcement",
+                "text": "shipped X",
+                "origin": "user",
+                "status": "confirmed",
+                "honesty_conditions": [],
+                "hard_questions": [
+                    {"id": "q1", "text": "what if empty?", "resolved": False, "blocking": True}
+                ],
+                "links": [],
+                "instruction": "",
+            }
+        ],
+        "open_vagueness": [
+            {
+                "id": "v1",
+                "text": "unsure about scale",
+                "kind": "unknown_blocking",
+                "claim_id": None,
+                "resolved": False,
+                "resolution": "",
+                "resolution_claim_id": None,
+            }
+        ],
+        "scope_entries": [],
+    }
+    store.path_for("demo").write_text(json.dumps(v3), encoding="utf-8")
+    loaded = store.load("demo")
+    assert loaded.schema_version == 3  # a declared v3 stays 3, not silently upgraded
+    assert loaded.claims[0].hard_questions[0].blocking is True
+    assert loaded.open_vagueness[0].kind == "unknown_blocking"
 
 
 def test_load_legacy_v2_vagueness_defaults_resolved_fields(tmp_path, monkeypatch) -> None:
