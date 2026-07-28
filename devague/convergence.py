@@ -127,11 +127,19 @@ def _missing_open_uncertainty(frame: Frame) -> list[str]:
 
 
 def _assumption_warnings(frame: Frame) -> list[str]:
-    """Unconfirmed assumptions are soft: a warning, never a blocker (#5, h14)."""
+    """Unconfirmed assumptions are soft: a warning, never a blocker (#5, h14).
+
+    Only a still-*proposed* assumption is "unconfirmed" in the actionable
+    sense this warning describes (confirm it, or it ships as a stated
+    assumption). A *rejected* assumption was explicitly decided against —
+    confirming it would reverse that decision and re-rejecting it is a
+    no-op, so the warning would be pure noise with no useful next move;
+    skip it (issue #83).
+    """
     return [
         f"assumption {c.id} is unconfirmed — confirm it or it ships as a stated assumption"
         for c in frame.claims
-        if c.kind == "assumption" and c.status != "confirmed"
+        if c.kind == "assumption" and c.status == "proposed"
     ]
 
 

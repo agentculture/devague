@@ -140,6 +140,68 @@ def test_reject_multiple_ids_in_one_call(tmp_path, monkeypatch) -> None:
     assert f.find_claim("c3").status == "rejected"
 
 
+# --- reject cascade (issue #83): echo + JSON + idempotence -------------------
+
+
+def test_reject_echoes_cascaded_honesty_and_hard_question(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "boundary", "risky ordering contract", "--origin", "llm"])  # c2
+    main(["interrogate", "c2", "--honesty", "the ordering holds"])  # h1, proposed
+    main(["interrogate", "c2", "--risk", "a hook could launder a command"])  # q1
+    capsys.readouterr()
+    rc = main(["reject", "c2"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "c2 -> rejected (also rejected: h1, q1)" in out
+    f = store.load(store.current_slug())
+    assert f.find_claim("c2").status == "rejected"
+    assert f.find_honesty("h1").status == "rejected"
+
+
+def test_reject_with_no_attachments_echoes_plain_line(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "audience", "devs", "--origin", "llm"])  # c2, no attachments
+    capsys.readouterr()
+    assert main(["reject", "c2"]) == 0
+    out = capsys.readouterr().out
+    assert out.strip() == "c2 -> rejected"
+
+
+def test_reject_json_reports_cascaded_ids(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "boundary", "risky ordering contract", "--origin", "llm"])  # c2
+    main(["interrogate", "c2", "--honesty", "the ordering holds"])  # h1
+    capsys.readouterr()
+    rc = main(["reject", "c2", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["rejected"] == ["c2"]
+    assert payload["cascaded"] == {"c2": ["h1"]}
+
+
+def test_reject_already_rejected_claim_does_not_double_report_cascade(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["capture", "--kind", "boundary", "risky ordering contract", "--origin", "llm"])  # c2
+    main(["interrogate", "c2", "--honesty", "the ordering holds"])  # h1
+    main(["reject", "c2"])  # first reject cascades over h1
+    capsys.readouterr()
+    rc = main(["reject", "c2", "--json"])  # rejecting again is idempotent
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["cascaded"] == {"c2": []}
+
+
+def test_reject_bare_honesty_id_does_not_touch_parent_claim(tmp_path, monkeypatch) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["interrogate", "c1", "--honesty", "must hold"])  # h1, on c1 (confirmed)
+    assert main(["reject", "h1"]) == 0
+    f = store.load(store.current_slug())
+    assert f.find_honesty("h1").status == "rejected"
+    assert f.find_claim("c1").status == "confirmed"  # untouched — no reverse cascade
+
+
 def test_batch_confirm_is_transactional(tmp_path, monkeypatch, capsys) -> None:
     # One unknown id in the batch => resolve NONE (no half-applied state).
     _seed(monkeypatch, tmp_path)

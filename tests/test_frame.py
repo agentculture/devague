@@ -353,3 +353,68 @@ def test_legacy_v3_hard_question_without_resolution_defaults() -> None:
     f = from_dict(d)
     assert f.claims[0].hard_questions[0].resolved is False
     assert f.claims[0].hard_questions[0].resolution == ""
+
+
+# --- reject cascade (issue #83): rejecting a claim sweeps its attachments ----
+
+
+def test_reject_claim_cascades_over_honesty_and_hard_question() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("boundary", "policy gate must receive rewritten args", origin="llm")
+    h = f.add_honesty(c, "the ordering holds", origin="llm")  # h1, proposed
+    q = f.add_hard_question(c, "risk: a hook could launder a command", blocking=False)  # q1
+    cascaded = f.reject(c.id)
+    assert c.status == "rejected"
+    assert h.status == "rejected"
+    assert cascaded == [h.id, q.id]  # honesty ids first, then hard-question ids
+
+
+def test_reject_claim_cascade_skips_already_rejected_honesty() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("boundary", "x", origin="llm")
+    h1 = f.add_honesty(c, "cond one", origin="llm")
+    h2 = f.add_honesty(c, "cond two", origin="llm")
+    f.set_status(h1.id, "rejected")  # already decided independently
+    cascaded = f.reject(c.id)
+    assert h1.status == "rejected" and h2.status == "rejected"
+    assert cascaded == [h2.id]  # h1 wasn't newly cascaded — it was already rejected
+
+
+def test_reject_claim_cascade_skips_resolved_hard_question() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("boundary", "x", origin="llm")
+    q1 = f.add_hard_question(c, "still open", blocking=True)
+    q2 = f.add_hard_question(c, "already answered", blocking=True)
+    f.resolve_hard_question(c.id, q2.id, "decided: yes")
+    cascaded = f.reject(c.id)
+    assert cascaded == [q1.id]  # the already-resolved question is not "swept"
+
+
+def test_reject_already_rejected_claim_reports_no_cascade_again() -> None:
+    # Idempotence / no double-reporting: a second reject of the same claim
+    # must not re-claim credit for the cascade the first call performed.
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("boundary", "x", origin="llm")
+    f.add_honesty(c, "cond", origin="llm")
+    f.add_hard_question(c, "risk", blocking=False)
+    first = f.reject(c.id)
+    assert first != []
+    second = f.reject(c.id)
+    assert second == []
+    assert c.status == "rejected"
+
+
+def test_reject_bare_honesty_id_is_a_plain_flip_no_cascade() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("boundary", "x", origin="llm")
+    h = f.add_honesty(c, "cond", origin="llm")
+    cascaded = f.reject(h.id)
+    assert h.status == "rejected"
+    assert c.status == "proposed"  # the parent claim is untouched
+    assert cascaded == []
+
+
+def test_reject_unknown_id_raises() -> None:
+    f = Frame(slug="s", title="t")
+    with pytest.raises(ValueError, match="unknown"):
+        f.reject("zzz")
