@@ -15,7 +15,9 @@ import argparse
 
 from devague import store
 from devague.cli._frames import resolve
+from devague.cli._output import emit_diagnostic
 from devague.cli._status import StatusLabels, emit_empty, emit_status
+from devague.contested import find_contested_markers, marker_to_dict, sorted_markers
 from devague.convergence import evaluate
 
 _LABELS = StatusLabels(
@@ -40,8 +42,20 @@ def cmd_status(args: argparse.Namespace) -> int:
         # A bad --frame raises here (before any stdout) so the error reaches stderr.
         frame = resolve(args.frame)
         result = evaluate(frame)
+        # Contested-by-deviation derivation (#92): read-only, fails open — a
+        # broken plan/delivery ledger anywhere in the join degrades to "no
+        # markers from that source" plus a stderr diagnostic, never a crash.
+        markers, diagnostics = find_contested_markers(frame)
+        for diag in diagnostics:
+            emit_diagnostic(diag)
+        contested = [marker_to_dict(m) for m in sorted_markers(markers)]
         emit_status(
-            _LABELS, selected=frame.slug, total=len(slugs), result=result, json_mode=json_mode
+            _LABELS,
+            selected=frame.slug,
+            total=len(slugs),
+            result=result,
+            json_mode=json_mode,
+            contested=contested,
         )
     return 0
 

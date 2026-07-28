@@ -16,6 +16,7 @@ engine-specific labels carried by :class:`StatusLabels`.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 from devague.cli._output import emit_result
 from devague.convergence import ConvergenceResult
@@ -56,6 +57,20 @@ def emit_empty(labels: StatusLabels, *, json_mode: bool) -> None:
         emit_result(labels.empty_text, json_mode=False)
 
 
+def _contested_line(entry: dict) -> str:
+    """Render one derived contested-by-deviation entry (#92) as a single
+    ``contested: <claim> by <deviation> (<classification>): <reason>`` line.
+    Takes the plain JSON-shaped dict (:func:`devague.contested.marker_to_dict`)
+    rather than the ``ContestedMarker`` dataclass itself, so this shared
+    frame/plan status renderer stays decoupled from the contested module —
+    it only needs to agree on a dict shape, not import a domain type.
+    """
+    line = f"contested: {entry['claim']} by {entry['deviation']}"
+    if entry.get("classification"):
+        line += f" ({entry['classification']})"
+    return f"{line}: {entry['reason']}"
+
+
 def emit_status(
     labels: StatusLabels,
     *,
@@ -63,25 +78,39 @@ def emit_status(
     total: int,
     result: ConvergenceResult,
     json_mode: bool,
+    contested: Optional[list[dict]] = None,
 ) -> None:
-    """Render the convergence verdict + recommended next move for one artifact."""
+    """Render the convergence verdict + recommended next move for one artifact.
+
+    ``contested`` (#92) is the frame engine's derived contested-by-deviation
+    list (see :mod:`devague.contested`) — a list of
+    :func:`devague.contested.marker_to_dict`-shaped dicts, or ``None`` when
+    the caller has no notion of it (the plan engine's ``status`` never passes
+    this; only the frame engine's does). ``None`` means "not applicable" and
+    omits the JSON key entirely; an empty list means "checked, nothing
+    contested" and still renders the key (JSON) but no lines (text) — the
+    same never-fabricate-an-empty-section convention every other renderer
+    here follows.
+    """
     if json_mode:
-        emit_result(
-            {
-                labels.noun: selected,
-                "total": total,
-                labels.ready_key: result.ready,
-                "blockers": result.blockers,
-                "warnings": result.warnings,
-                "parked_items": result.parked_items,
-                "required_next_moves": result.required_next_moves,
-            },
-            json_mode=True,
-        )
+        payload = {
+            labels.noun: selected,
+            "total": total,
+            labels.ready_key: result.ready,
+            "blockers": result.blockers,
+            "warnings": result.warnings,
+            "parked_items": result.parked_items,
+            "required_next_moves": result.required_next_moves,
+        }
+        if contested is not None:
+            payload["contested"] = contested
+        emit_result(payload, json_mode=True)
         return
 
     plural = "s" if total != 1 else ""
     lines = [f"{labels.noun}: {selected}    ({total} {labels.noun}{plural} total)"]
+    if contested:
+        lines += [_contested_line(c) for c in contested]
     if result.ready:
         lines.append("convergence: PASSED ✓")
         lines += [f"  ⚠ {w}" for w in result.warnings]
