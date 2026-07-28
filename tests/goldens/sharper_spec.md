@@ -35,7 +35,7 @@
 
 - `s1` — `devague render spec_md dot py`: no instruction or scope rendering existed before t6
   - seeds: `c3`
-- `s2` — `devague render frame_md dot py`: same renderer gap as spec_md.py
+- `s2` — `devague render frame_md dot py`: same renderer gap as `spec_md.py`
 
 ## Decisions
 
