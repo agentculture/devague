@@ -158,6 +158,71 @@ def test_load_v2_plan_with_risk_but_no_resolution_fields(tmp_path, monkeypatch) 
     assert r.resolution == ""
 
 
+# --- issue-backlog-sweep t2: schema-gate-before-parse (plan side) -----------
+
+
+def test_load_rejects_newer_schema_before_parsing_nested_unknown_key(tmp_path, monkeypatch) -> None:
+    # The plan-side twin of the frame-store fix: before t2, from_dict ran BEFORE
+    # the schema_version gate, so a genuinely newer-schema plan file whose nested
+    # risks carried an unrecognised key would crash with a raw TypeError
+    # (PlanRisk(**r) rejects unexpected kwargs) instead of the intended
+    # fail-closed IncompatiblePlanSchemaError. The gate must now trip first.
+    monkeypatch.chdir(tmp_path)
+    p = _plan()
+    p.add_risk("scope?", "unknown_blocking")
+    plan_store.save(p)
+    path = plan_store.path_for("demo")
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    raw["schema_version"] = PLAN_SCHEMA_VERSION + 1
+    raw["risks"][0]["from_a_future_devague"] = "unknown"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+    with pytest.raises(plan_store.IncompatiblePlanSchemaError, match="schema_version"):
+        plan_store.load("demo")
+
+
+def test_load_v3_plan_shape_loads_unchanged_under_v4(tmp_path, monkeypatch) -> None:
+    # Acceptance criterion: existing v3 plans load unchanged after the v4 bump.
+    monkeypatch.chdir(tmp_path)
+    plan_store.PLANS_DIR.mkdir(parents=True, exist_ok=True)
+    v3 = {
+        "slug": "demo",
+        "title": "Demo",
+        "frame_slug": "demo",
+        "schema_version": 3,
+        "status": "drafting",
+        "created": "2026-01-01T00:00:00Z",
+        "updated": "2026-01-01T00:00:00Z",
+        "targets": [],
+        "tasks": [
+            {
+                "id": "t1",
+                "summary": "first task",
+                "origin": "user",
+                "status": "confirmed",
+                "acceptance_criteria": [],
+                "deps": [],
+                "covers": [],
+                "instruction": "",
+            }
+        ],
+        "risks": [
+            {
+                "id": "r1",
+                "text": "scope?",
+                "kind": "unknown_blocking",
+                "task_id": None,
+                "resolved": False,
+                "resolution": "",
+            }
+        ],
+    }
+    plan_store.path_for("demo").write_text(json.dumps(v3), encoding="utf-8")
+    loaded = plan_store.load("demo")
+    assert loaded.schema_version == 3  # a declared v3 stays 3, not silently upgraded
+    assert loaded.find_task("t1").summary == "first task"
+    assert loaded.find_risk("r1").kind == "unknown_blocking"
+
+
 def test_load_rejects_slug_mismatch(tmp_path, monkeypatch) -> None:
     # A file under demo.json whose internal slug is a *different* valid slug must
     # be rejected, so a later save() can't be redirected onto another plan.
