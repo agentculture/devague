@@ -22,16 +22,44 @@ from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._output import emit_error
 
 
+def _plan_explain_move(prog: str) -> str | None:
+    """Return the move name if ``prog`` names a nested ``devague plan <move>``
+    parser — used by :meth:`_DevagueArgumentParser.error` to point argument
+    errors raised inside the ``plan`` group at ``devague plan explain <move>``
+    instead of the generic ``<prog> --help`` (issue #86). Every subparser
+    ``devague plan`` registers is named after a ``PLAN_MOVES`` key, so any
+    ``prog`` matching this shape names a move ``plan explain`` accepts.
+
+    Returns ``None`` for the top-level parser (``"devague"``), for every other
+    flat verb (``"devague capture"``, ...), and for the ``plan`` group parser
+    itself (``"devague plan"``, e.g. an unrecognized ``plan_command`` choice)
+    — none of those name a single move to explain, so they keep the original
+    ``<prog> --help`` hint.
+    """
+    prefix = "devague plan "
+    if not prog.startswith(prefix):
+        return None
+    rest = prog[len(prefix) :]
+    if not rest or " " in rest:
+        return None
+    return rest
+
+
 class _DevagueArgumentParser(argparse.ArgumentParser):
     """ArgumentParser that routes errors through :func:`emit_error`."""
 
     _json_hint: bool = False
 
     def error(self, message: str) -> None:  # type: ignore[override]
+        move = _plan_explain_move(self.prog)
+        if move is not None:
+            remediation = f"run 'devague plan explain {move}' to see valid arguments"
+        else:
+            remediation = f"run '{self.prog} --help' to see valid arguments"
         err = DevagueError(
             code=EXIT_USER_ERROR,
             message=message,
-            remediation=f"run '{self.prog} --help' to see valid arguments",
+            remediation=remediation,
         )
         emit_error(err, json_mode=type(self)._json_hint)
         raise SystemExit(err.code)
