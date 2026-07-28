@@ -125,20 +125,36 @@ def test_render_summary_run_status_is_placeholder() -> None:
     assert "run: `failed`" not in out
 
 
-def test_planned_work_lists_every_task_id_and_summary_verbatim() -> None:
+def test_planned_work_lists_only_confirmed_task_id_and_summary_verbatim() -> None:
+    # #88: Planned Work is scoped to confirmed tasks only — a rejected task
+    # (however it got there) must never appear, even though it still lives on
+    # plan.tasks. Flips the old "every task appears" assumption pinned here
+    # before the fix (bit #88).
     plan, frame = _bare_plan_and_frame()
+    dropped = plan.add_task("dropped task")
+    plan.set_status(dropped.id, "rejected")
     out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
     planned = out.split("## Planned Work")[1].split("## Actual Delivery")[0]
     assert "`t1` — first task" in planned
     assert "`t2` — second task" in planned
+    assert dropped.id not in planned
+    assert "dropped task" not in planned
 
 
-def test_actual_delivery_has_one_row_per_task_with_fill_placeholders() -> None:
+def test_actual_delivery_has_one_row_per_confirmed_task_with_fill_placeholders() -> None:
+    # #88: a rejected task is never paired with a `<fill: status>` row — that
+    # pairing is exactly the honesty hazard the issue names (it invites
+    # recording a planning decision as a delivery failure). Flips the old
+    # "one row per task regardless of status" assumption pinned here before
+    # the fix (bit #88).
     plan, frame = _bare_plan_and_frame()
+    dropped = plan.add_task("dropped task")
+    plan.set_status(dropped.id, "rejected")
     out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
     actual = out.split("## Actual Delivery")[1].split("## Mid-work Decisions")[0]
     for tid in ("t1", "t2"):
         assert f"| `{tid}` | `<fill: status>` | `<fill: what landed>` |" in actual
+    assert f"| `{dropped.id}` |" not in actual
 
 
 def test_no_placeholder_ever_looks_like_a_completed_claim() -> None:
@@ -189,6 +205,112 @@ def test_no_tasks_placeholder_is_a_single_shared_constant() -> None:
     pr_out = summary_md.render_pr_summary(plan, None, delivery)
     assert summary_out.count(summary_md.NO_TASKS_PLACEHOLDER) == 2  # Planned Work + Actual Delivery
     assert summary_md.NO_TASKS_PLACEHOLDER in pr_out  # --pr wave/task map
+
+
+# ── #88: summary scoped to confirmed tasks ───────────────────────────────────
+#
+# Repro shape from the issue: a plan rebuilt after scope changes can carry far
+# more rejected tasks than confirmed ones (19 confirmed / 68 rejected in the
+# reporter's real plan). Planned Work / Actual Delivery must reflect only the
+# confirmed contract; a single line preserves the rejected count without
+# padding either list with 68 undifferentiated rows. A `proposed` task is
+# neither the confirmed contract nor an explicit rejection (it is still under
+# adjudication), so it is excluded from both lists AND from the rejected
+# count — folding an open decision into "rejected" would misrepresent it as
+# already decided against, the same honesty conflation the issue is about.
+
+
+def test_mixed_status_plan_scopes_planned_work_and_actual_delivery_to_confirmed() -> None:
+    # #88 acceptance criteria, pinned literally: "a plan with N confirmed and M
+    # rejected tasks emits exactly N Actual Delivery rows and N Planned Work
+    # entries plus one line counting the M rejected".
+    n_confirmed, n_rejected = 2, 3
+    plan, frame = _bare_plan_and_frame()  # seeds t1, t2 confirmed (N=2)
+    rejected_ids = []
+    for i in range(n_rejected):
+        t = plan.add_task(f"rejected task {i}")
+        plan.set_status(t.id, "rejected")
+        rejected_ids.append(t.id)
+    proposed = plan.add_task("still deciding", origin="llm")  # proposed: neither list, no count
+
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    planned = out.split("## Planned Work")[1].split("## Actual Delivery")[0]
+    actual = out.split("## Actual Delivery")[1].split("## Mid-work Decisions")[0]
+
+    planned_entries = [ln for ln in planned.splitlines() if ln.startswith("- `t")]
+    actual_rows = [ln for ln in actual.splitlines() if ln.startswith("| `t")]
+    assert len(planned_entries) == n_confirmed
+    assert len(actual_rows) == n_confirmed
+
+    for excluded_id in rejected_ids + [proposed.id]:
+        assert excluded_id not in planned
+        assert excluded_id not in actual
+
+    rejected_line = f"{n_rejected} tasks were rejected during planning — see `devague plan show`."
+    assert rejected_line in planned
+    # exactly one such line in the whole artifact — not per-section noise
+    assert out.count("rejected during planning") == 1
+
+
+def test_rejected_count_line_uses_singular_wording_for_exactly_one() -> None:
+    plan, frame = _bare_plan_and_frame()
+    t = plan.add_task("dropped")
+    plan.set_status(t.id, "rejected")
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    assert "1 task was rejected during planning — see `devague plan show`." in out
+
+
+def test_no_rejected_tasks_means_no_rejected_count_line() -> None:
+    plan, frame = _bare_plan_and_frame()
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    assert "rejected during planning" not in out
+
+
+def test_summary_data_scopes_planned_work_and_actual_delivery_to_confirmed() -> None:
+    plan, frame = _bare_plan_and_frame()
+    dropped = plan.add_task("dropped")
+    plan.set_status(dropped.id, "rejected")
+    proposed = plan.add_task("still deciding", origin="llm")
+    data = summary_md.summary_data(plan, frame, Delivery(plan_slug=plan.slug))
+    planned_ids = [t["id"] for t in data["sections"]["planned_work"]]
+    actual_ids = [t["id"] for t in data["sections"]["actual_delivery"]]
+    assert planned_ids == ["t1", "t2"]
+    assert actual_ids == ["t1", "t2"]
+    assert dropped.id not in planned_ids
+    assert proposed.id not in planned_ids
+    # JSON parity for the markdown's single rejected-count line: the ids, not
+    # just a count (mirroring pending_deviations, which carries ids too).
+    assert data["sections"]["rejected_tasks"] == [dropped.id]
+
+
+def test_pr_wave_and_task_map_stay_rejected_free_on_a_mixed_status_plan() -> None:
+    # #88 acceptance criteria: "the --pr wave map stays rejected-free". Pinned
+    # here (not in tests/test_plan.py, which already pins dependency_waves
+    # itself excluding rejected tasks) because this is the render-layer
+    # regression: summary_md must not reintroduce a rejected task via some
+    # other path (e.g. iterating plan.tasks directly instead of the waves).
+    plan, frame = _bare_plan_and_frame()
+    dead = plan.add_task("dead task")
+    plan.set_status(dead.id, "rejected")
+    delivery = Delivery(plan_slug=plan.slug)
+
+    out = summary_md.render_pr_summary(plan, frame, delivery)
+    assert dead.id not in out
+    assert "dead task" not in out
+
+    data = summary_md.pr_data(plan, frame, delivery)
+    assert all(dead.id not in wave for wave in data["waves"])
+    assert dead.id not in data["tasks"]
+
+
+def test_render_summary_with_rejected_tasks_is_markdownlint_clean_hand_rolled() -> None:
+    plan, frame = _bare_plan_and_frame()
+    t = plan.add_task("dropped")
+    plan.set_status(t.id, "rejected")
+    delivery = Delivery(plan_slug=plan.slug)
+    delivery.add_deviation("swap", "t1", "reason", origin="user", classification="acceptable")
+    out = summary_md.render_summary(plan, frame, delivery)
+    assert_markdownlint_clean(out)
 
 
 # ── deviation records: drift + mid-work ──────────────────────────────────────
