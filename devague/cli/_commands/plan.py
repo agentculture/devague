@@ -222,6 +222,46 @@ def _require_target(plan: Plan, target_id: str) -> None:
     plan.targets = live_targets  # persist the refreshed snapshot on success
 
 
+def _require_dep_target(
+    plan: Plan, subject_id: str, dep_id: str, *, flag: str, self_hint: str
+) -> None:
+    """Validate a dependency edge at authoring time — a self-cycle or an unknown
+    task id is refused the moment ``--dep``/``--on`` is given (issue #86),
+    instead of surfacing only much later as a ``plan converge``/``plan waves``
+    dependency-graph blocker, after the authoring context (which id was
+    actually meant) is long gone. The reporter hit the self-cycle case twice in
+    one session: the task id is assigned BY ``plan task``, so an author who
+    predicts the next id wrongly in ``--dep`` records a task that depends on
+    itself, invisible until ``plan waves`` reports a bare ``dependency cycle:
+    tN -> tN``.
+
+    Shared by both add paths: ``plan task --dep`` (``subject_id`` is the
+    about-to-be-assigned id, predicted via ``Plan._next`` before the task
+    exists) and ``plan depend <tN> --on <tM>``'s add path (``subject_id`` is
+    the already-assigned ``<tN>``). Neither call site invokes this on the
+    ``depend --remove`` path — removing an edge must keep working on an
+    already-broken graph (a self-cycle or dangling dep recorded before this
+    check existed, e.g. by an older devague or by hand-edited JSON), so a plan
+    upgrading with pre-existing damage stays repairable.
+
+    Deliberately narrow: a two-or-more-task cycle (a depends on b depends on
+    a) is NOT caught here — both tasks already exist and neither equals the
+    other, so this passes them through. That check already lives in
+    :mod:`devague.plan_convergence` (``converge``/``waves``) and is left
+    alone; this is creation-time feedback for the two mistakes a human can
+    make in a single keystroke, not a replacement for the gate.
+    """
+    if dep_id == subject_id:
+        raise DevagueError(EXIT_USER_ERROR, "task cannot depend on itself", self_hint)
+    if plan.find_task(dep_id) is None:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"unknown task: {dep_id}",
+            f"{flag} {dep_id} does not match any existing task; "
+            "run 'devague plan show' to see current tasks",
+        )
+
+
 # ── the re-confirm rule (#53 t5, sharpened in #53-esd t1) ────────────────────
 # A demoting change — ``instruct``, ``amend``, ``depend --remove`` — alters something
 # the user already confirmed, so it must go back through the user: setting/changing it
@@ -292,6 +332,13 @@ def cmd_plan_task(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     for tid in args.covers or []:
         _require_target(plan, tid)
+    # The task id is assigned BY this call (`add_task` below); validate every
+    # `--dep` against the id it is *about* to receive, before creating anything
+    # (issue #86) — mirrors how `--covers` is validated above, before mutation.
+    next_id = Plan._next(plan.tasks, "t")
+    for dep in args.dep or []:
+        self_hint = f"--dep {dep} names the id this task will receive; depend on an existing task"
+        _require_dep_target(plan, next_id, dep, flag="--dep", self_hint=self_hint)
     task = plan.add_task(args.summary, origin=args.origin)
     task.instruction = args.instruction or ""
     for crit in args.accept or []:
@@ -429,6 +476,13 @@ def cmd_plan_depend(args: argparse.Namespace) -> int:
     task = _require_task(plan, args.id)
     if args.remove:
         return _cmd_plan_depend_remove(args, plan, task)
+    _require_dep_target(
+        plan,
+        args.id,
+        args.on,
+        flag="--on",
+        self_hint=f"--on {args.on} is the same task; depend on a different, existing task",
+    )
     plan.add_dep(task, args.on)
     plan_store.save(plan)
     if getattr(args, "json", False):
