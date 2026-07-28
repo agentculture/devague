@@ -40,7 +40,7 @@ repository whose plan you are implementing (plans persist under `.devague/`
 in the current directory):
 
 ```bash
-bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh split-plan [--plan <slug>]
+bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh split-plan [--plan <slug>] [--write]
 bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh waves    [--plan <slug>] [--json]
 bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh help
 ```
@@ -55,14 +55,18 @@ implementation split plan: task map (task id, wave, summary verbatim, whether
 an instruction is present, acceptance-criteria count), proposed per-task
 agent + model assignment, the go/no-go question, and — last — an End state
 section that is the verbatim output of `devague plan deliverables` (#70),
-degrading to a one-line hint on a `devague` too old to have the verb. The
-`waves` subcommand forwards to `devague plan waves` verbatim.
+degrading to a one-line hint on a `devague` too old to have the verb. Adding
+`--write` (issue #82) additionally persists that same content — plus an
+owner/model annotation table the script reads back on the next `--write` —
+to a durable file next to the exported plan-md; see *The durable split
+artifact* below. The `waves` subcommand forwards to `devague plan waves`
+verbatim.
 
 ### Usage
 
 | Subcommand | What it does |
 |------------|--------------|
-| `split-plan [--plan S]` | Read `devague plan waves --json` and print the implementation split plan — task map (summary/instruction/acceptance-criteria count, verbatim) with per-task agent + model proposal, go/no-go, and a trailing End state section quoting `devague plan deliverables` verbatim (one-line hint on an older devague) — ready for human go/no-go review. |
+| `split-plan [--plan S] [--write]` | Read `devague plan waves --json` and print the implementation split plan — task map (summary/instruction/acceptance-criteria count, verbatim) with per-task agent + model proposal, go/no-go, and a trailing End state section quoting `devague plan deliverables` verbatim (one-line hint on an older devague) — ready for human go/no-go review. With `--write`, also persist that content to `docs/plans/<created-date>-<slug>-split.md` (issue #82) — the durable gate-2 record; re-running overwrites the same path in place and preserves any hand-edited Owner/Model cells. |
 | `waves [--plan S] [--json]` | Forward to `devague plan waves [--json]`. Read-only; lists wave batches. On a converged plan exits 0 listing the waves. |
 | `help` | Print usage. |
 
@@ -112,6 +116,45 @@ bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh split-pla
 ```
 
 Do not proceed to fan-out until the human approves the split plan.
+
+### The durable split artifact (`split-plan --write`)
+
+Unlike the exported spec (`docs/specs/*.md`) and the exported plan
+(`docs/plans/*.md`), the implementation split plan — gate 2 — survived only
+in conversation before issue #82. `split-plan --write` closes that gap with
+an **artifact-only** change (decision c25): the written file *is* the record;
+there is no plan-schema change and no new `devague` CLI verb, so `devague
+plan waves`/`show`/`deliverables` stay read-only exactly as before.
+
+```bash
+bash .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh split-plan --write
+```
+
+This writes (or overwrites) `docs/plans/<created-date>-<slug>-split.md` —
+the same date-prefix convention `devague plan export` uses for the plan-md
+it sits beside, derived from the plan's own `created` timestamp (via
+`devague plan show --json`) rather than today's date, so re-running the
+command is idempotent: it updates the same file in place instead of spawning
+a dated duplicate. The file carries:
+
+1. The dependency waves and the full per-task content (summary, instruction,
+   acceptance criteria, covered targets) for every wave — quoted verbatim
+   from `devague plan waves --json`, organized under one `## Wave N` heading
+   per wave and one `### <task-id> — <summary>` heading per task.
+2. A **Task assignments** table (`Task | Owner | Model`) — the durable form
+   of the human's per-task owner/model decision (#82 ask 2). The script
+   **reads this table back** from any existing file at the same path before
+   regenerating: a human's edited `Owner`/`Model` cell for a given task id
+   survives the next `--write`, matched by task id, rather than being
+   clobbered back to the `sonnet` default. Only edit this table (or add a
+   new plan/task and re-run) — don't hand-edit the wave/task sections above
+   it, since those are fully regenerated every run.
+3. The same End state section as plain `split-plan` — the verbatim output of
+   `devague plan deliverables`, nested under its own `## End state` heading.
+
+Present this file (or its stdout twin from plain `split-plan`) at the go/no-go
+either way; `--write` is for keeping a committed record of what was actually
+approved, not a replacement for the live review.
 
 ### The `waves --json` payload — the single source for every brief
 
@@ -295,6 +338,13 @@ verbatim under an `End state (from \`devague plan deliverables\`):` header; on
 an older `devague`, it prints exactly one hint line naming the minimum version
 (e.g. `hint: End state view requires devague >= 0.18.0 (devague plan
 deliverables)`) and `split-plan` still exits 0.
+
+`--write` adds exactly one line after all of the above: `wrote split
+artifact: <path>` on the first run, `updated split artifact: <path>` on every
+run after (issue #82). It calls one additional read-only command,
+`devague plan show --json` (for the plan's `created` timestamp and title);
+a failure there exits non-zero with that command's own stderr, same as a
+`plan waves --json` failure.
 
 ## Worked example
 

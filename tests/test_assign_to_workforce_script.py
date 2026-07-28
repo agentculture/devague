@@ -28,8 +28,9 @@ from pathlib import Path
 
 import pytest
 
-from devague import store
+from devague import plan_store, store
 from devague.cli import main
+from devague.cli._paths import dated_name
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _SCRIPT = (
@@ -306,3 +307,142 @@ def test_split_plan_degrades_gracefully_without_deliverables_verb(tmp_path, monk
     # down the whole command.
     assert "Go/no-go" in out
     assert "Create one git worktree per task" in out
+
+
+# ── `split-plan --write`: the durable gate-2 split artifact (#82, decision
+# c25 — artifact-only: the written file IS the record, no plan-schema change,
+# no new CLI verb). ───────────────────────────────────────────────────────────
+
+_MARKDOWNLINT = shutil.which("markdownlint-cli2")
+
+
+def _run_split_plan_write(tmp_path: Path) -> subprocess.CompletedProcess[str]:
+    bin_dir = _devague_shim(tmp_path)
+    env = dict(os.environ)
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+    return subprocess.run(  # noqa: S603 - fixed argv, no shell, test-only
+        [_BASH, str(_SCRIPT), "split-plan", "--write"],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def _expected_split_path(tmp_path: Path) -> Path:
+    """The dated split-artifact path for the fixture plan, derived the same
+    way `devague plan export` names the plan-md it sits beside (#12) — so a
+    test asserting the wrong path would also mean the shipped filename
+    convention drifted from the plan-md one, not just a test bug."""
+    plan = plan_store.load(plan_store.current_slug())
+    plan_md_name = dated_name(plan.created, plan.slug)
+    assert plan_md_name.endswith(".md")
+    return tmp_path / "docs" / "plans" / (plan_md_name[: -len(".md")] + "-split.md")
+
+
+def test_split_plan_write_creates_durable_artifact_with_real_content(tmp_path, monkeypatch) -> None:
+    _fixture_plan(monkeypatch, tmp_path)
+    result = _run_split_plan_write(tmp_path)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+    out_path = _expected_split_path(tmp_path)
+    assert out_path.exists(), f"expected split artifact at {out_path}"
+    rel = out_path.relative_to(tmp_path)
+    assert f"wrote split artifact: {rel}" in result.stdout
+
+    text = out_path.read_text(encoding="utf-8")
+
+    # Real per-task content, verbatim — never a placeholder (#82 ask 1, the
+    # part that already shipped in 0.16.0; still true of the artifact).
+    assert "Wire the login form" in text
+    assert "verify via `pytest`" in text
+    assert "form submits" in text
+    assert "errors render" in text
+    assert "Send the welcome email" in text
+    assert "email delivered" in text
+    # The artifact quotes the untruncated summary — unlike the stdout table's
+    # 72-char ellipsis truncation (#77), there is no width constraint on disk.
+    assert _LONG_SUMMARY in text
+
+    # The owner/model annotation block (#82 ask 2), with every fixture task
+    # id present at its default (unassigned owner, `sonnet` model).
+    assert "## Task assignments" in text
+    assert "| Task | Owner | Model |" in text
+    for tid in ("t1", "t2", "t3"):
+        assert f"| `{tid}` |  | sonnet |" in text
+
+    # The End state section, nested under our own H1 (not a second title —
+    # MD025) and never duplicated.
+    assert "## End state" in text
+    assert text.count("\n# ") == 0
+    assert text.startswith("# Implementation Split Plan — ")
+
+
+def test_split_plan_write_rerun_overwrites_in_place_and_preserves_edit(
+    tmp_path, monkeypatch
+) -> None:
+    """The crux of ask 2: a human hand-edits the Owner/Model cell for one
+    task; regenerating the artifact must carry that edit forward rather than
+    clobbering it back to the default, while everything else (including
+    other tasks' still-default rows) regenerates normally."""
+    _fixture_plan(monkeypatch, tmp_path)
+    first = _run_split_plan_write(tmp_path)
+    assert first.returncode == 0, first.stderr
+    out_path = _expected_split_path(tmp_path)
+    rel = out_path.relative_to(tmp_path)
+    assert f"wrote split artifact: {rel}" in first.stdout
+
+    original = out_path.read_text(encoding="utf-8")
+    assert "| `t2` |  | sonnet |" in original
+    edited = original.replace("| `t2` |  | sonnet |", "| `t2` | ori | opus |")
+    assert edited != original
+    out_path.write_text(edited, encoding="utf-8")
+
+    second = _run_split_plan_write(tmp_path)
+    assert second.returncode == 0, second.stderr
+    assert f"updated split artifact: {rel}" in second.stdout
+
+    regenerated = out_path.read_text(encoding="utf-8")
+    # The edited assignment survived the regeneration...
+    assert "| `t2` | ori | opus |" in regenerated
+    assert "| `t2` |  | sonnet |" not in regenerated
+    # ...while an untouched task's row stays at the default, and every other
+    # section (waves, task content, End state) is regenerated, not skipped.
+    assert "| `t1` |  | sonnet |" in regenerated
+    assert "Wire the login form" in regenerated
+    assert "## End state" in regenerated
+
+
+def test_split_plan_without_write_flag_does_not_touch_disk(tmp_path, monkeypatch) -> None:
+    """The opt-in contract: plain `split-plan` (no `--write`) must never write
+    the artifact — this is what every earlier test in this file already
+    exercises implicitly, asserted here explicitly as a regression guard."""
+    _fixture_plan(monkeypatch, tmp_path)
+    result = _run_split_plan(tmp_path)
+    assert result.returncode == 0, result.stderr
+    out_path = _expected_split_path(tmp_path)
+    assert not out_path.exists()
+    assert not (tmp_path / "docs").exists()
+
+
+@pytest.mark.skipif(_MARKDOWNLINT is None, reason="markdownlint-cli2 not on PATH")
+def test_split_plan_write_artifact_passes_markdownlint(tmp_path, monkeypatch) -> None:
+    _fixture_plan(monkeypatch, tmp_path)
+    result = _run_split_plan_write(tmp_path)
+    assert result.returncode == 0, result.stderr
+    out_path = _expected_split_path(tmp_path)
+
+    # Lint under *this repo's* markdownlint config (MD013/MD060 disabled,
+    # MD024 siblings_only) — the config that actually gates this artifact
+    # once it is committed here — rather than markdownlint-cli2's stricter
+    # built-in defaults, which would flag unrelated things like line length.
+    shutil.copy(_REPO_ROOT / ".markdownlint-cli2.yaml", tmp_path / ".markdownlint-cli2.yaml")
+    lint = subprocess.run(  # noqa: S603 - fixed argv, no shell, test-only
+        [_MARKDOWNLINT, str(out_path.relative_to(tmp_path))],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert lint.returncode == 0, f"stdout:\n{lint.stdout}\nstderr:\n{lint.stderr}"
