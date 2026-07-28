@@ -253,3 +253,103 @@ def test_legacy_v3_vagueness_without_resolution_claim_id_defaults() -> None:
     assert f.open_vagueness[0].resolved is True
     assert f.open_vagueness[0].resolution == "done"
     assert f.open_vagueness[0].resolution_claim_id is None
+
+
+# --- issue-backlog-sweep t4: HardQuestion resolution (schema v4, #48/#52) -----
+
+
+def test_hard_question_gains_resolution_default() -> None:
+    from devague.frame import HardQuestion
+
+    q = HardQuestion(id="q1", text="what if empty?", blocking=True)
+    assert q.resolved is False
+    assert q.resolution == ""
+
+
+def test_resolve_hard_question_marks_resolved_and_records_resolution() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_hard_question(c, "is this real?", blocking=True)  # q1
+    resolved = f.resolve_hard_question("c1", "q1", "decided: yes, it is real")
+    assert resolved.resolved is True
+    assert resolved.resolution == "decided: yes, it is real"
+    assert c.hard_questions[0].resolved is True
+    assert c.hard_questions[0].resolution == "decided: yes, it is real"
+
+
+def test_resolve_hard_question_decision_is_optional() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_hard_question(c, "is this real?", blocking=True)  # q1
+    resolved = f.resolve_hard_question("c1", "q1")
+    assert resolved.resolved is True
+    assert resolved.resolution == ""
+
+
+def test_resolve_hard_question_unknown_claim_raises() -> None:
+    f = Frame(slug="s", title="t")
+    with pytest.raises(ValueError, match="unknown claim"):
+        f.resolve_hard_question("c99", "q1", "decision")
+
+
+def test_resolve_hard_question_unknown_qid_raises() -> None:
+    f = Frame(slug="s", title="t")
+    f.add_claim("announcement", "x", origin="user")  # c1
+    with pytest.raises(ValueError, match="no such hard question"):
+        f.resolve_hard_question("c1", "q99", "decision")
+
+
+def test_resolve_hard_question_wrong_claim_raises() -> None:
+    # q1 belongs to c1, not c2 — the claim id disambiguates (decision c36), so
+    # naming the right qid on the wrong claim must fail closed, not silently
+    # resolve across claims.
+    f = Frame(slug="s", title="t")
+    c1 = f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_claim("audience", "devs", origin="user")  # c2
+    f.add_hard_question(c1, "is this real?", blocking=True)  # q1, owned by c1
+    with pytest.raises(ValueError, match="no such hard question"):
+        f.resolve_hard_question("c2", "q1", "decision")
+    assert c1.hard_questions[0].resolved is False
+
+
+def test_resolve_hard_question_already_resolved_raises() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("announcement", "x", origin="user")  # c1
+    f.add_hard_question(c, "is this real?", blocking=True)  # q1
+    f.resolve_hard_question("c1", "q1", "decision one")
+    with pytest.raises(ValueError, match="already"):
+        f.resolve_hard_question("c1", "q1", "decision two")
+    assert c.hard_questions[0].resolution == "decision one"  # untouched
+
+
+def test_roundtrip_preserves_hard_question_resolution() -> None:
+    f = Frame(slug="s", title="t")
+    c = f.add_claim("announcement", "x", origin="user")
+    f.add_hard_question(c, "is this real?", blocking=True)
+    f.resolve_hard_question("c1", "q1", "decided: yes")
+    f2 = from_dict(to_dict(f))
+    assert to_dict(f2) == to_dict(f)
+    assert f2.claims[0].hard_questions[0].resolved is True
+    assert f2.claims[0].hard_questions[0].resolution == "decided: yes"
+
+
+def test_legacy_v3_hard_question_without_resolution_defaults() -> None:
+    # A v3-or-older frame's hard_questions predate the resolution field.
+    d = {
+        "slug": "s",
+        "title": "t",
+        "schema_version": 3,
+        "claims": [
+            {
+                "id": "c1",
+                "kind": "announcement",
+                "text": "x",
+                "hard_questions": [
+                    {"id": "q1", "text": "is this real?", "resolved": False, "blocking": True}
+                ],
+            }
+        ],
+    }
+    f = from_dict(d)
+    assert f.claims[0].hard_questions[0].resolved is False
+    assert f.claims[0].hard_questions[0].resolution == ""

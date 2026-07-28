@@ -1,4 +1,15 @@
-"""``devague interrogate`` — pressure-test a claim with honesty conditions / hard questions."""
+"""``devague interrogate`` — pressure-test a claim with honesty conditions / hard
+questions, and resolve a claim's blocking hard question once it is answered.
+
+``--resolve QID [--decision TEXT]`` shares this verb's parser with the
+add-flags mode (mirrors ``park``'s create/``--resolve`` split): the verb that
+owns hard-question *creation* also owns its *resolution*, because
+claim-attached hard questions and the durable ``.devague/questions/`` file
+independently assign their own ``qN`` ids (decision c36) — the claim id
+disambiguates which artifact is meant. Resolving is a USER decision, like
+``confirm``/``park --resolve`` (issues #48, #52): the agent must never resolve
+its own blocking question just to clear the gate.
+"""
 
 from __future__ import annotations
 
@@ -8,6 +19,8 @@ from devague import store
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._frames import resolve
 from devague.cli._output import emit_diagnostic, emit_result
+
+_ADD_FLAGS = ("honesty", "risk", "hard_question", "contradicts", "instruction")
 
 
 def _resolve_target(frame, args):
@@ -68,8 +81,51 @@ def _apply_instruction(target, text: str) -> tuple[dict, str | None]:
     return {"kind": "instruction", "id": target.id, "status": target.status}, flip_note
 
 
+def _resolve_hard_question_mode(frame, args: argparse.Namespace) -> int:
+    """``interrogate <cN> --resolve <qN> [--decision TEXT]`` — clear a claim's
+    blocking hard question (issues #48, #52, decision c36). A USER decision,
+    like ``confirm``/``park --resolve``: mutually exclusive with every
+    add-flag mode below, so it can never be smuggled into the same call that
+    raises a new question.
+    """
+    used = [f for f in _ADD_FLAGS if getattr(args, f)]
+    if used:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "--resolve cannot be combined with "
+            "--honesty/--hard-question/--risk/--contradicts/--instruction",
+            "run --resolve QID [--decision TEXT] on its own",
+        )
+    try:
+        q = frame.resolve_hard_question(args.claim_id, args.resolve, args.decision or "")
+    except ValueError as err:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            str(err),
+            "run 'devague show' to see current claim and hard-question ids",
+        ) from err
+    store.save(frame)
+    if getattr(args, "json", False):
+        emit_result(
+            {
+                "claim": args.claim_id,
+                "id": q.id,
+                "resolved": True,
+                "resolution": q.resolution,
+            },
+            json_mode=True,
+        )
+    else:
+        emit_result(f"{q.id} on {args.claim_id} -> resolved", json_mode=False)
+    return 0
+
+
 def cmd_interrogate(args: argparse.Namespace) -> int:
     frame = resolve(args.frame)
+
+    if args.resolve:
+        return _resolve_hard_question_mode(frame, args)
+
     claim, honesty = _resolve_target(frame, args)
 
     added = _add_claim_items(frame, claim, args)
@@ -86,7 +142,8 @@ def cmd_interrogate(args: argparse.Namespace) -> int:
         raise DevagueError(
             EXIT_USER_ERROR,
             "nothing to interrogate",
-            "pass --honesty / --hard-question / --risk / --contradicts / --instruction",
+            "pass --honesty / --hard-question / --risk / --contradicts / "
+            "--instruction / --resolve",
         )
     store.save(frame)
     if flip_note:
@@ -128,6 +185,16 @@ def register(sub: argparse._SubParsersAction) -> None:
         default="llm",
         help="Who proposed the honesty condition.",
     )
+    p.add_argument(
+        "--resolve",
+        metavar="QID",
+        help=(
+            "Mark claim_id's hard question QID resolved (a USER decision, like "
+            "confirm/park --resolve — not for the agent to invoke on its own). "
+            "Mutually exclusive with every add-flag above."
+        ),
+    )
+    p.add_argument("--decision", help="Optional resolution note recorded with --resolve.")
     p.add_argument("--frame", help="Frame slug (default: current).")
     p.add_argument("--json", action="store_true", help="Emit structured JSON.")
     p.set_defaults(func=cmd_interrogate)

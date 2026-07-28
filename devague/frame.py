@@ -80,6 +80,10 @@ class HardQuestion:
     text: str
     resolved: bool = False
     blocking: bool = False
+    # v3 frames (and earlier) predate this field (issue-backlog-sweep t4, #48/#52);
+    # default to "" for a not-yet-resolved (or resolved-with-no-note) question.
+    # Set only via Frame.resolve_hard_question — mirrors Vagueness.resolution.
+    resolution: str = ""
 
 
 @dataclass
@@ -248,6 +252,33 @@ class Frame:
         v.resolution_claim_id = claim_id
         return v
 
+    def resolve_hard_question(self, claim_id: str, qid: str, resolution: str = "") -> HardQuestion:
+        """Mark a claim's hard question resolved — a USER decision, like confirm.
+
+        Owned by ``devague interrogate <cN> --resolve <qN> [--decision TEXT]``
+        (decision c36, issues #48/#52): claim-attached hard questions and the
+        durable ``.devague/questions/`` file independently assign their own
+        ``qN`` ids, so the claim id is what disambiguates which one is meant —
+        this method only ever searches ``claim_id``'s own ``hard_questions``.
+        Fails closed on an unknown claim id, a question id that doesn't exist
+        (or doesn't belong to that claim), and an already-resolved question,
+        rather than silently no-op'ing — the same contract as
+        :meth:`resolve_vagueness`. ``resolution`` is optional free text (unlike
+        ``park --resolve``'s required ``--decision``) recorded verbatim on
+        ``HardQuestion.resolution``.
+        """
+        claim = self.find_claim(claim_id)
+        if claim is None:
+            raise ValueError(f"unknown claim id: {claim_id!r}")
+        q = next((q for q in claim.hard_questions if q.id == qid), None)
+        if q is None:
+            raise ValueError(f"no such hard question {qid!r} on claim {claim_id!r}")
+        if q.resolved:
+            raise ValueError(f"hard question {qid!r} is already resolved")
+        q.resolved = True
+        q.resolution = resolution
+        return q
+
     def add_scope_entry(
         self, surface: str, finding: str, seeds: Optional[list[str]] = None
     ) -> ScopeEntry:
@@ -321,10 +352,11 @@ def from_dict(d: dict) -> Frame:
                     text=q["text"],
                     resolved=q.get("resolved", False),
                     blocking=q.get("blocking", False),
+                    resolution=q.get("resolution", ""),
                 )
                 # Tolerant of unknown keys the same way Claim is above (t2, issue
-                # #53 issue-backlog-sweep): a future field (e.g. t4's resolution)
-                # must not raw-TypeError a same-or-older-version load.
+                # #53 issue-backlog-sweep): a v3-or-older frame predates
+                # ``resolution`` (t4) and must not raw-TypeError on load.
                 for q in c.get("hard_questions", [])
             ],
             links=list(c.get("links", [])),
