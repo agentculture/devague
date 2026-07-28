@@ -11,13 +11,33 @@ from devague.cli._output import emit_result
 MOVES = {
     "scope": (
         "Record an explored surface + finding as first-class state (optional "
-        "pre-frame leg; --seeds links a finding to the claims it seeded)."
+        "pre-frame leg; --seeds links a finding to the claim ids (c*) or "
+        "claim-attached hard-question ids (q*) it seeded; --amend SID --finding "
+        "TEXT replaces an entry's finding in place — no revision trail, unlike "
+        "claim amend)."
     ),
     "new": "Start a frame from the announcement (pretend it shipped).",
     "capture": "Record and classify a claim (audience, after_state, boundary, ...).",
-    "interrogate": "Pressure-test a claim: honesty conditions, hard questions, contradictions.",
-    "confirm": "Confirm a claim or honesty condition (user-only — no fabricated rigor).",
-    "reject": "Reject a claim or honesty condition.",
+    "amend": (
+        "Correct a claim's text and/or kind without id churn — keeps its honesty "
+        "conditions, instruction, and inbound scope --seeds references; a "
+        "confirmed claim flips back to proposed on change."
+    ),
+    "interrogate": (
+        "Pressure-test a claim: honesty conditions, hard questions, contradictions; "
+        "'interrogate <cN> --resolve <qN> --decision TEXT' closes out a blocking "
+        "hard question (a USER decision, like confirm/park --resolve)."
+    ),
+    "confirm": (
+        "Confirm one or more claims/honesty conditions in one transactional call "
+        "(user-only — no fabricated rigor), or apply decisions from a "
+        "'--from-review' file."
+    ),
+    "reject": (
+        "Reject one or more claims/honesty conditions, transactionally; rejecting "
+        "a claim cascades onto its still-live honesty conditions/hard questions "
+        "(echoed as '(also rejected: ...)', and as a 'cascaded' key in --json)."
+    ),
     "review": (
         "List every proposed (unconfirmed) claim + honesty condition for "
         "human review (read-only)."
@@ -124,6 +144,10 @@ OPERATING_RULES = (
     "decided, close it out with 'park --resolve VID --decision TEXT' instead of "
     "leaving it parked or hand-editing state — the item stays on record with "
     "its resolution and drops out of the gate.",
+    "Blocking hard questions route through the user too — a hard question "
+    "raised 'blocking' via interrogate stays open until decided; close it out "
+    "with 'interrogate CID --resolve QID --decision TEXT' (the claim-level twin "
+    "of 'park --resolve') instead of deleting the question or hand-editing state.",
     "Converge, don't vibe — 'export' is gated on 'converge'; resolve every "
     "listed gap instead of declaring readiness on a hunch.",
     "Order is adaptive — the ten stages are an artifact shape, not a mandatory "
@@ -153,12 +177,23 @@ STAGES = [
 SCOPE_STAGE = {
     "name": "Scope (optional, before Announcement)",
     "prompt": "what does this idea touch, and what should it not touch?",
-    "move": 'scope "<surface>" --finding "<text>" [--seeds <claim-id> ...]',
+    "move": 'scope "<surface>" --finding "<text>" [--seeds <claim-id-or-hard-question-id> ...]',
     "loop": (
         "Explore read-only first (no CLI moves while surveying), then record "
         "each surveyed surface + finding with 'devague scope'; pass --seeds "
-        "with the claim ids a finding goes on to seed so the frame's boundary / "
-        "non_goal / assumption claims cite what was actually explored."
+        "with the claim ids (c*) or claim-attached hard-question ids (q*) a "
+        "finding goes on to seed so the frame's boundary / non_goal / assumption "
+        "claims cite what was actually explored. 'scope --amend SID --finding "
+        "TEXT' corrects an entry's finding in place afterward."
+    ),
+    "fan_out": (
+        "How to explore: 4 or fewer candidate surfaces — explore them yourself, "
+        "inline, serially. 5 or more — fan out one read-only exploration "
+        "subagent per surface (or tight cluster), defaulting every subagent to "
+        "the smaller tier, sonnet. Subagents explore and report; they never run "
+        "a devague move — the main agent alone runs every capture/scope/"
+        "question/park call, from the subagents' reported evidence, so "
+        "provenance stays in one place."
     ),
     "recommended_when": (
         "Recommended when the idea touches an existing codebase or ecosystem — "
@@ -196,7 +231,8 @@ _TEXT = (
     "Optional lead-in — scope exploration (recommended when the idea touches an\n"
     "existing codebase; skip freely for small ideas — not a mandatory first stage):\n"
     f"  {SCOPE_STAGE['prompt']}  [devague {SCOPE_STAGE['move']}]\n"
-    f"  {SCOPE_STAGE['loop']}\n\n"
+    f"  {SCOPE_STAGE['loop']}\n"
+    f"  {SCOPE_STAGE['fan_out']}\n\n"
     "Guided stages (the recommended sequence — drive them with the moves):\n"
     + "\n".join(
         f"  {i:>2}. {name:<13} {prompt}  [{move}]"
