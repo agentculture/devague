@@ -56,16 +56,21 @@ PLAN_MOVES = {
         "Record that a task depends on another (--on); --remove cuts one edge "
         "(may flip confirmed -> proposed)."
     ),
-    "cover": "Mark a task as covering a coverage target (c*/h*).",
+    "cover": (
+        "Mark a task as covering a coverage target (c*/h*); validated against "
+        "the live source frame, so a target the frame grew after seeding can "
+        "be covered right away."
+    ),
     "defer": (
         "Deliberately exclude a coverage target from this plan's gate "
         "(--reason TEXT), or --undo to reverse it."
     ),
-    "confirm": "Confirm a task (user-only — no fabricated rigor).",
-    "reject": "Reject a task.",
+    "confirm": "Confirm one or more tasks, transactionally (user-only — no fabricated rigor).",
+    "reject": "Reject one or more tasks, transactionally.",
     "risk": (
         "Record a first-class plan risk instead of papering over it, "
-        "or --resolve RID --decision TEXT to close one out."
+        "--resolve RID --decision TEXT to close one out, or --amend RID --text "
+        "TEXT to correct an existing risk's text in place."
     ),
     "converge": "Check whether the plan can export, against the live frame.",
     "export": "Write the buildable plan — only once the plan converges.",
@@ -955,9 +960,9 @@ def cmd_plan_learn(args: argparse.Namespace) -> int:
         "criteria, the dependency graph is acyclic, and no blocking risk remains.\n\n"
         "Moves:\n"
         + "\n".join(f"  {name:<9} {desc}" for name, desc in PLAN_MOVES.items())
-        + "\n\nTo author the six operator skills (scope / think / spec-to-plan / "
-        "assign-to-workforce /\ndeviate / summarize-delivery) in your own runtime, "
-        "run 'devague learn skills'\n(with user consent)."
+        + "\n\nTo author the seven operator skills (scope / think / challenge / "
+        "spec-to-plan /\nassign-to-workforce / deviate / summarize-delivery) in "
+        "your own runtime, run 'devague learn skills'\n(with user consent)."
     )
     if getattr(args, "json", False):
         emit_result(
