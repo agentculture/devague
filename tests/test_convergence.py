@@ -73,6 +73,19 @@ def test_unconfirmed_assumption_is_warning_not_blocker() -> None:
     assert any("assumption" in w for w in res.warnings)
 
 
+def test_rejected_assumption_does_not_warn() -> None:
+    # Issue #83: a rejected assumption was explicitly decided against — it is
+    # not "unconfirmed" in the actionable sense the warning describes, and
+    # the warning has no useful next move for it (confirming would reverse
+    # the rejection; re-rejecting is a no-op). Must not warn.
+    f = _full_frame()
+    c = f.add_claim("assumption", "frames stay small", origin="llm")
+    f.reject(c.id)
+    res = evaluate(f)
+    assert res.ready is True
+    assert not any("assumption" in w for w in res.warnings)
+
+
 def test_requirement_is_spec_affecting() -> None:
     f = _full_frame()
     r = f.add_claim("requirement", "must round-trip", origin="user")  # confirmed, no honesty

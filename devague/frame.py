@@ -306,6 +306,61 @@ class Frame:
             return True
         return False
 
+    def reject(self, item_id: str) -> list[str]:
+        """Reject a claim or honesty condition, cascading a claim's rejection
+        onto its still-live attachments (issue #83).
+
+        Rejected content must never keep looking "live": rendering already
+        excludes a rejected claim's attachments (spec-md), and the
+        convergence gate already stops treating a rejected claim's unresolved
+        blocking hard question as an open blocker. This method closes the
+        remaining gap — the review pool and the honesty condition's own
+        recorded status — by flipping every honesty condition still attached
+        to the claim (``status != "rejected"``) to ``"rejected"`` too, so
+        ``devague review`` (which only lists ``proposed`` items) stops
+        surfacing them as awaiting a decision that no longer matters.
+
+        Hard questions have no independent status field to flip (only
+        ``resolved``/``resolution``, a genuine answer — not the same thing as
+        "the parent claim was rejected"), so this leaves them structurally
+        untouched; every call site that matters already keys off the parent
+        claim's own ``status`` (``convergence._missing_open_uncertainty``,
+        ``render.spec_md._hard_questions``).
+
+        Returns the ids of honesty conditions and hard questions this call
+        swept along, in "what it took with it" order (honesty ids first,
+        then hard-question ids, each in their claim's own attachment order) —
+        for the caller to echo (e.g. ``c21 -> rejected (also rejected: h3,
+        q1)``). The cascade fires only on the transition *into* ``rejected``:
+        rejecting an already-rejected claim again returns ``[]`` rather than
+        re-claiming credit for a cascade a prior call already performed
+        (idempotent, no double-reporting — the ids "already rejected" stay
+        that way whether or not this call runs). Rejecting a bare honesty
+        condition id is a plain status flip with no cascade (honesty
+        conditions carry no sub-attachments of their own) and also returns
+        ``[]``. Raises ``ValueError`` if ``item_id`` names neither a claim
+        nor a honesty condition — callers are expected to pre-validate the id
+        first (mirrors ``set_status``'s bool-return contract; see
+        ``cli/_commands/confirm.py``'s ``_exists`` pre-check, which every
+        current caller already runs before touching the frame).
+        """
+        claim = self.find_claim(item_id)
+        if claim is not None:
+            cascaded: list[str] = []
+            if claim.status != "rejected":
+                for h in claim.honesty_conditions:
+                    if h.status != "rejected":
+                        h.status = "rejected"
+                        cascaded.append(h.id)
+                cascaded += [q.id for q in claim.hard_questions if not q.resolved]
+            claim.status = "rejected"
+            return cascaded
+        honesty = self.find_honesty(item_id)
+        if honesty is not None:
+            honesty.status = "rejected"
+            return []
+        raise ValueError(f"unknown claim or honesty id: {item_id!r}")
+
 
 def to_dict(frame: Frame) -> dict:
     return dataclasses.asdict(frame)

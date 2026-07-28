@@ -91,6 +91,76 @@ def test_export_rejects_non_spec_format(tmp_path, monkeypatch, capsys) -> None:
     assert exc.value.code == 1
 
 
+def test_export_never_leaks_a_rejected_claims_risk_text_issue_83(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    # Issue #83's exact repro shape: capture -> interrogate --risk -> reject ->
+    # converge -> export. Before the fix, the hard question created by --risk
+    # survived its parent claim's rejection and rendered into the exported
+    # spec under "## Hard questions" — this asserts the risk text never
+    # reaches the exported markdown, and that convergence emits no leftover
+    # "unconfirmed" noise about the rejected claim either.
+    _converged(monkeypatch, tmp_path)
+    capsys.readouterr()
+    main(
+        [
+            "capture",
+            "--kind",
+            "boundary",
+            "the policy gate must receive the REWRITTEN arguments",
+            "--origin",
+            "llm",
+        ]
+    )
+    f = store.load(store.current_slug())
+    original = f.claims[-1]
+    main(["confirm", original.id])
+    main(
+        [
+            "interrogate",
+            original.id,
+            "--risk",
+            "a hook can launder a denied command into an allowed shape",
+        ]
+    )
+    main(["interrogate", original.id, "--honesty", "the ordering holds", "--origin", "user"])
+    capsys.readouterr()
+    rc = main(["reject", original.id])
+    assert rc == 0
+    echo = capsys.readouterr().out
+    assert f"{original.id} -> rejected" in echo
+
+    main(
+        [
+            "capture",
+            "--kind",
+            "boundary",
+            "an ALLOWED original is rewritten into a DENIED command",
+            "--origin",
+            "user",
+        ]
+    )
+    f2 = store.load(store.current_slug())
+    corrected = f2.claims[-1]
+    main(["interrogate", corrected.id, "--honesty", "must hold", "--origin", "user"])
+    capsys.readouterr()
+
+    rc = main(["converge", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ready_for_spec"] is True
+    assert not any("unconfirmed" in w for w in payload["warnings"])
+
+    rc = main(["export"])
+    assert rc == 0
+    frame = store.load(store.current_slug())
+    out = Path("docs/specs") / f"{frame.created[:10]}-{frame.slug}.md"
+    text = out.read_text(encoding="utf-8")
+    assert "launder a denied command" not in text
+    assert "## Hard questions" not in text
+    assert "an ALLOWED original is rewritten into a DENIED command" in text
+
+
 def test_converge_llm_honesty_blocks_until_confirmed(tmp_path, monkeypatch, capsys) -> None:
     """Fix 5: an llm-origin honesty condition stays proposed and blocks convergence."""
     monkeypatch.chdir(tmp_path)
