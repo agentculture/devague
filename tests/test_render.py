@@ -435,6 +435,33 @@ def test_spec_md_resolved_hard_question_renders_with_resolved_marker() -> None:
     assert "(blocking)" not in out
 
 
+def test_spec_md_resolved_hard_question_renders_its_decision_text() -> None:
+    # Acceptance criterion 2 (part 1 continued, #49): the issue asked for
+    # resolved questions to render "with a pointer to the claim/decision that
+    # answered them", not just a flag. When `interrogate --resolve --decision`
+    # recorded one, the export quotes it — the same shape a resolved park
+    # already renders ("— resolved: <decision>").
+    f = Frame(slug="resolvedhq2", title="Resolved HQ With Decision")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "MCP or HTTP transport?", blocking=True)
+    f.resolve_hard_question(ann.id, q.id, "MCP — decided with the user on 2026-07-28")
+    out = render.render(f, "spec-md")
+    assert "- MCP or HTTP transport? (resolved: MCP — decided with the user on 2026-07-28)" in out
+    assert "(blocking)" not in out
+
+
+def test_spec_md_resolved_hard_question_without_decision_keeps_bare_marker() -> None:
+    # A question resolved with no `--decision` text (the flag is optional)
+    # still renders the bare marker — never an empty "(resolved: )".
+    f = Frame(slug="resolvedhq3", title="Resolved HQ No Decision")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "will this scale?", blocking=True)
+    f.resolve_hard_question(ann.id, q.id)
+    out = render.render(f, "spec-md")
+    assert "- will this scale? (resolved)" in out
+    assert "(resolved: )" not in out
+
+
 def test_spec_md_hard_question_on_rejected_claim_is_absent_issue_83_repro() -> None:
     # Acceptance criterion 2 (part 2): the #83 repro shape — capture,
     # interrogate --risk, reject, converge, export — must never leak the

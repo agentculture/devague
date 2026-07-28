@@ -49,6 +49,26 @@ _URL_TRAILING_PUNCT = ".,;:!?'\""
 # rendered content markdownlint never asked us to change.
 _CODE_SPAN_RE = re.compile(r"`[^`]*`")
 
+# Regions ``md_safe_text`` must never reach inside (#94). ``autolink_urls`` and
+# ``md_safe_text`` are composed by the renderers in *both* orders — spec_md
+# runs ``autolink_urls(md_safe_text(text))`` while plan_md/summary_md run
+# ``md_safe_text(autolink_urls(text))`` — so ``md_safe_text`` has to be safe
+# whether a URL still looks bare or has already been wrapped in ``<...>``.
+# Without this carve-out an underscore inside a URL is treated as an
+# identifier and wrapped in a code span, which corrupts the link in one order
+# ("<https://e.com/`a_b`>") and truncates it at the first underscore in the
+# other ("<https://e.com/>`a_b`"). Alternation order matters: code spans are
+# matched first so a URL inside backticks stays governed by the code-span
+# rule, then already-wrapped autolinks, then bare URLs. Only the URL itself is
+# protected — surrounding markdown control characters keep being escaped
+# exactly as before, so a claim mentioning "[text](url)" still renders as
+# literal prose rather than becoming a live link.
+_PROTECTED_RE = re.compile(
+    r"`[^`]*`"  # code span
+    r"|<https?://[^\s<>]*>"  # already-autolinked URL
+    r"|https?://[^\s<>()]+"  # bare URL
+)
+
 
 def _strip_url_trailing_punct(url: str) -> tuple[str, str]:
     """Split a matched URL into ``(url, trailing)`` the way GFM's
@@ -171,15 +191,20 @@ def md_safe_text(text: str) -> str:
       completely untouched, byte-for-byte — devague claim text routinely
       mixes prose with backticked tokens (c32/h25, issue-backlog-sweep), so
       this must never double-wrap or re-escape what is already a code span.
+    - URLs are left untouched too, whether still bare or already wrapped in
+      ``<...>`` by ``autolink_urls`` (#94). An underscore inside a URL path is
+      part of the address, not an identifier to wrap — reaching inside would
+      corrupt or truncate the link, and it does so in both of the orders the
+      renderers compose these two passes in.
     - Pure and idempotent: ``md_safe_text(md_safe_text(x)) == md_safe_text(x)``
       for any ``x`` (h25) — the underlying Frame/Plan JSON is never touched,
       only the rendered copy.
     """
     parts: list[str] = []
     last = 0
-    for m in _CODE_SPAN_RE.finditer(text):
+    for m in _PROTECTED_RE.finditer(text):
         parts.append(_escape_segment(text[last : m.start()]))
-        parts.append(m.group(0))  # existing code span: verbatim, never touched
+        parts.append(m.group(0))  # code span or URL: verbatim, never touched
         last = m.end()
     parts.append(_escape_segment(text[last:]))
     result = "".join(parts)

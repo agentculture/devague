@@ -319,3 +319,152 @@ def test_contested_marker_export_passes_markdownlint_cli2(tmp_path, monkeypatch)
     assert "contested by `d1`" in out
     result = _run_markdownlint(spec_path)
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+# ── t19: the repo's OWN issue-backlog-sweep frame + plan as lint corpus ───────
+#
+# Every test above builds a synthetic frame. This one exports the real,
+# committed `.devague/frames/issue-backlog-sweep.json` and its plan — the
+# largest real corpus this repo has (36 claims, 23 scope entries, 5 parks, 19
+# tasks) and the one whose text was written by hand rather than shaped to suit
+# the renderer. It is the release's own dogfood: if the escaping/park/scope
+# rendering shipped here cannot lint the state that specified it, the fix is
+# not done. It also guards against the artifact drifting out of lint-clean as
+# the frame grows on future runs.
+
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_SWEEP_SLUG = "issue-backlog-sweep"
+
+
+def _copy_real_sweep_state(tmp_path) -> bool:
+    """Copy the committed sweep frame + plan into ``tmp_path``. Returns False
+    when they are absent (a consumer checkout without the state) so the test
+    skips rather than failing on someone else's tree.
+    """
+    frame_src = _REPO_ROOT / ".devague" / "frames" / f"{_SWEEP_SLUG}.json"
+    plan_src = _REPO_ROOT / ".devague" / "plans" / f"{_SWEEP_SLUG}.json"
+    if not (frame_src.exists() and plan_src.exists()):
+        return False
+    for sub, src in (("frames", frame_src), ("plans", plan_src)):
+        dest_dir = tmp_path / ".devague" / sub
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        (dest_dir / f"{_SWEEP_SLUG}.json").write_text(src.read_text(encoding="utf-8"))
+    return True
+
+
+def test_real_issue_backlog_sweep_frame_exports_lint_clean(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    if not _copy_real_sweep_state(tmp_path):
+        pytest.skip("committed issue-backlog-sweep state not present in this checkout")
+
+    assert main(["converge", "--frame", _SWEEP_SLUG]) == 0
+    assert main(["export", "--frame", _SWEEP_SLUG]) == 0
+    frame = store.load(_SWEEP_SLUG)
+    spec_path = Path("docs/specs") / f"{frame.created[:10]}-{frame.slug}.md"
+    assert spec_path.exists()
+
+    result = _run_markdownlint(spec_path)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+def test_real_issue_backlog_sweep_plan_exports_lint_clean(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    if not _copy_real_sweep_state(tmp_path):
+        pytest.skip("committed issue-backlog-sweep state not present in this checkout")
+
+    assert main(["plan", "converge", "--plan", _SWEEP_SLUG]) == 0
+    assert main(["plan", "export", "--plan", _SWEEP_SLUG]) == 0
+    plan = plan_store.load(_SWEEP_SLUG)
+    plan_path = Path("docs/plans") / f"{plan.created[:10]}-{plan.slug}.md"
+    assert plan_path.exists()
+
+    result = _run_markdownlint(plan_path)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+def test_real_sweep_export_is_byte_stable_and_never_mutates_frame_json(
+    tmp_path, monkeypatch
+) -> None:
+    # The release's escaping is presentational only (#87 c22/h18) — proven here
+    # against real state rather than a synthetic fixture.
+    monkeypatch.chdir(tmp_path)
+    if not _copy_real_sweep_state(tmp_path):
+        pytest.skip("committed issue-backlog-sweep state not present in this checkout")
+
+    main(["converge", "--frame", _SWEEP_SLUG])
+    main(["export", "--frame", _SWEEP_SLUG])
+    frame = store.load(_SWEEP_SLUG)
+    spec_path = Path("docs/specs") / f"{frame.created[:10]}-{frame.slug}.md"
+    frame_json_path = store.path_for(_SWEEP_SLUG)
+    first_spec = spec_path.read_text(encoding="utf-8")
+    first_json = frame_json_path.read_text(encoding="utf-8")
+
+    main(["export", "--frame", _SWEEP_SLUG])
+
+    assert spec_path.read_text(encoding="utf-8") == first_spec
+    assert _content_only(frame_json_path.read_text(encoding="utf-8")) == _content_only(first_json)
+
+
+# ── t19 / #94: an underscore-bearing URL survives the real renderers ──────────
+
+
+def test_underscore_url_in_claim_text_survives_export_and_lints(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    url = "https://example.com/some_path/file_name"
+    main(
+        [
+            "new",
+            f"Ship the walker documented at {url}",
+            "--title",
+            "underscore-url",
+        ]
+    )
+    for kind in ("audience", "after_state", "before_state", "boundary", "success_signal"):
+        main(["capture", "--kind", kind, f"{kind}: see {url} for the corpus", "--origin", "user"])
+    frame = store.load(store.current_slug())
+    for c in frame.claims:
+        main(["interrogate", c.id, "--honesty", f"verified against {url}", "--origin", "user"])
+    main(["converge"])
+    main(["export"])
+    frame = store.load(store.current_slug())
+    spec_path = Path("docs/specs") / f"{frame.created[:10]}-{frame.slug}.md"
+    out = spec_path.read_text(encoding="utf-8")
+
+    # The link is intact and autolinked — not truncated at the first
+    # underscore, and not backticked mid-URL (#94, both composition orders).
+    assert f"<{url}>" in out
+    assert "some_path`" not in out
+    assert "<https://example.com/>" not in out
+
+    result = _run_markdownlint(spec_path)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+def test_underscore_url_in_plan_task_survives_export_and_lints(tmp_path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    url = "https://example.com/org/repo/main/__init__.py"
+    main(["new", "Ship the plan renderer", "--title", "underscore-url-plan"])
+    for kind in ("audience", "after_state", "before_state", "boundary", "success_signal"):
+        main(["capture", "--kind", kind, f"{kind} text.", "--origin", "user"])
+    frame = store.load(store.current_slug())
+    for c in frame.claims:
+        main(["interrogate", c.id, "--honesty", "must hold.", "--origin", "user"])
+    main(["converge"])
+    slug = store.current_slug()
+    main(["plan", "new", "--frame", slug])
+    plan = plan_store.load(slug)
+    args = ["plan", "task", f"Walk the corpus at {url}", "--accept", f"verified at {url}"]
+    for tg in plan.targets:
+        args += ["--covers", tg.id]
+    main(args)
+    main(["plan", "converge"])
+    main(["plan", "export"])
+    plan = plan_store.load(slug)
+    plan_path = Path("docs/plans") / f"{plan.created[:10]}-{plan.slug}.md"
+    out = plan_path.read_text(encoding="utf-8")
+
+    assert f"<{url}>" in out
+    assert "`__init__.py`>" not in out
+
+    result = _run_markdownlint(plan_path)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
