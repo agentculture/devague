@@ -45,9 +45,33 @@ of the method: no wizard.)
 1. **Enumerate candidate surfaces.** List what the idea *might* touch: source
    packages, CLI verbs, renderers, schemas, tests, docs, skills, CI workflows,
    sibling repos. `git ls-files` and the repo's `CLAUDE.md` are the usual map.
-2. **Explore each surface read-only.** Read enough of each candidate to decide:
-   touched, not touched, or unknown. Exploration never mutates anything —
-   no edits, no state changes, no CLI moves yet.
+   Count the candidates — the count decides how step 2 explores them.
+2. **Explore each surface read-only — inline for a handful, fanned out for a
+   broader survey.** Read enough of each candidate to decide: touched, not
+   touched, or unknown. Exploration never mutates anything — no edits, no
+   state changes, no CLI moves — while surveying, whether you explore inline
+   or fan out.
+   - **4 or fewer candidate surfaces: explore them yourself, inline,
+     serially**, exactly as before. Spinning up subagents to read three files
+     costs more than it saves, and the no-wizard rule still applies underneath
+     this: a small idea can skip scope exploration altogether (see *When to
+     use — and when to skip*, above).
+   - **5 or more candidate surfaces: fan out.** Dispatch one **read-only
+     exploration subagent per surface** (or per tight cluster of closely
+     related surfaces, e.g. "the five files under `render/`"), defaulting to a
+     **smaller tier — sonnet** — for every subagent in the fan-out. Sonnet is
+     the default, not a ceiling: escalate a single subagent to a stronger tier
+     only when that specific surface demands it (an ambiguous design doc
+     needing real synthesis, say), never as the default for the whole survey.
+   - **Subagents explore and report; they never run a `devague` move.** A
+     fan-out subagent's job ends at a read-only finding — touched / not
+     touched / unknown, with the file, line, or command output that grounds
+     the verdict — handed back to the main agent in its report. The main
+     agent alone runs every `capture`, `scope`, `question`, and `park` call in
+     step 4, from the subagents' reported evidence. This is the load-bearing
+     rule of the whole fan-out: provenance and the anti-fabrication contract
+     stay in one place (the main agent), never scattered across however many
+     subagent transcripts the user never sees.
 3. **Classify every finding.** Each explored surface yields one of:
    - **in scope** — the idea changes it → becomes a `requirement` or
      `assumption` claim in the frame;
@@ -65,7 +89,11 @@ of the method: no wizard.)
    Capture the claim it seeded first (`capture --kind ...`), then pass its id
    to `--seeds` — an unknown seed id is refused with a hint. Provenance, not
    generic disclaimers: a reviewer should be able to trace every boundary claim
-   back to something you read.
+   back to something you read. **This move is always the main agent's, never a
+   subagent's** — when step 2 fanned out, the main agent writes the finding
+   from the subagent's reported evidence (still citing the actual surface, not
+   "a subagent explored this"), so every seeded claim traces back to a
+   concrete file, line, or command output either way.
 
 ## How findings land (the shipped surface)
 
@@ -102,14 +130,24 @@ followed*:
 ## Hard rules (do not violate)
 
 - **Exploration is read-only.** Surveying scope never edits files, never
-  mutates frame state, never runs a mutating CLI move.
+  mutates frame state, never runs a mutating CLI move — true whether you
+  explore inline or fan out to subagents (step 2).
 - **Provenance in every seeded claim.** A scope-derived claim cites what was
-  explored. If you didn't read it, don't claim it.
+  explored. If you didn't read it, don't claim it — including what a fan-out
+  subagent read on your behalf: its report is the evidence, not a substitute
+  for citing the surface.
+- **Subagents explore; only the main agent moves.** When step 2 fans out to
+  read-only exploration subagents, they never run `devague capture`, `scope`,
+  `question`, or `park` — only report findings back. The main agent runs
+  every one of those moves itself, from the subagents' reported evidence, so
+  provenance and the anti-fabrication contract are never split across agents.
 - **LLM proposals stay proposed.** Findings you capture with `--origin llm`
   land `proposed`; the user confirms. Same anti-fabrication contract as
   `/think`.
 - **Don't become a wizard.** Scope exploration is optional-by-size and
-  adaptive. Never block a small idea on a survey it doesn't need.
+  adaptive. Never block a small idea on a survey it doesn't need — and even
+  a broad survey that fans out to subagents skips the fan-out entirely if the
+  idea itself is small (4 or fewer candidate surfaces, step 2).
 
 ## Worked example
 
