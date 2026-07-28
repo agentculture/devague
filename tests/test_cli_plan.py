@@ -357,6 +357,167 @@ def test_risk_resolve_already_resolved_refused(tmp_path, monkeypatch, capsys) ->
     assert plan_store.load(slug).find_risk("r1").resolution == "first decision"
 
 
+# ── defer (issue #85, t9) ─────────────────────────────────────────────────────
+def test_defer_happy_path_and_json(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--reason", "Milestone 3: worktree mechanics", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"id": "c1", "deferred": True, "reason": "Milestone 3: worktree mechanics"}
+    tg = plan_store.load(slug).find_target("c1")
+    assert tg.deferred is True
+    assert tg.deferred_reason == "Milestone 3: worktree mechanics"
+
+
+def test_defer_text_output(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--reason", "Milestone 3"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "c1" in out and "deferred" in out and "Milestone 3" in out
+
+
+def test_defer_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "zzz", "--reason", "whatever"])
+    assert rc == 1
+    assert "unknown coverage target" in capsys.readouterr().err
+
+
+def test_defer_missing_reason_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1"])
+    assert rc == 1
+    assert "--reason" in capsys.readouterr().err
+    assert plan_store.load(slug).find_target("c1").deferred is False
+
+
+def test_defer_already_deferred_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "defer", "c1", "--reason", "first"])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--reason", "second"])
+    assert rc == 1
+    assert "already deferred" in capsys.readouterr().err
+    assert plan_store.load(slug).find_target("c1").deferred_reason == "first"
+
+
+def test_defer_undo_happy_path(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "defer", "c1", "--reason", "first"])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--undo", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {"id": "c1", "deferred": False}
+    tg = plan_store.load(slug).find_target("c1")
+    assert tg.deferred is False
+    assert tg.deferred_reason == ""
+
+
+def test_defer_undo_not_deferred_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "c1", "--undo"])
+    assert rc == 1
+    assert "not deferred" in capsys.readouterr().err
+
+
+def test_defer_undo_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    capsys.readouterr()
+    rc = main(["plan", "defer", "zzz", "--undo"])
+    assert rc == 1
+    assert "unknown coverage target" in capsys.readouterr().err
+
+
+def test_defer_validates_against_live_frame(tmp_path, monkeypatch, capsys) -> None:
+    """`defer` shares `_require_target`'s live-frame fallback (#90): a target
+    that only exists in the live frame (not yet in the stored snapshot) can be
+    deferred directly, without an intervening `plan converge`."""
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    assert main(["plan", "converge"]) == 0
+    capsys.readouterr()
+    assert main(["capture", "--kind", "requirement", "a new requirement"]) == 0
+    new_claim_id = next(c.id for c in store.load(slug).claims if c.kind == "requirement")
+    main(["interrogate", new_claim_id, "--honesty", "must hold", "--origin", "user"])
+    assert main(["converge"]) == 0
+    capsys.readouterr()
+
+    rc = main(["plan", "defer", new_claim_id, "--reason", "later"])
+    assert rc == 0
+    persisted = plan_store.load(slug)
+    assert persisted.find_target(new_claim_id).deferred is True
+
+
+# ── end-to-end: converge, export, and status with deferred targets (issue #85) ──
+def test_plan_with_deferred_targets_converges_exports_and_status_distinguishes(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Acceptance criterion 1: a plan with deferred targets converges and
+    exports; the export names every deferred target with its reason; status
+    distinguishes deferred from uncovered. (The exact "90 covered / 12
+    deferred" shell-cli shape from #85 is exercised at the model layer in
+    tests/test_plan_convergence.py — this is the CLI-surface equivalent at a
+    smaller, CLI-practical scale.)
+    """
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    covered = _ALL_TARGETS[:8]
+    deferred = _ALL_TARGETS[8:]
+    args = ["plan", "task", "in-scope work", "--accept", "covers in-scope targets"]
+    for tid in covered:
+        args += ["--covers", tid]
+    main(args)
+    for tid in deferred:
+        main(["plan", "defer", tid, "--reason", f"out of scope: {tid}"])
+    capsys.readouterr()
+
+    rc = main(["plan", "converge", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["ready_for_plan"] is True
+    assert payload["blockers"] == []
+    deferred_parked = [item for item in payload["parked_items"] if "deferred" in item]
+    assert len(deferred_parked) == len(deferred)
+    for tid in deferred:
+        assert any(tid in item for item in deferred_parked)
+
+    rc = main(["plan", "export"])
+    assert rc == 0
+    exported_plan = plan_store.load(slug)
+    text = (Path("docs/plans") / f"{exported_plan.created[:10]}-{slug}.md").read_text(
+        encoding="utf-8"
+    )
+    assert "## Deferred targets" in text
+    for tid in deferred:
+        assert f"`{tid}`" in text
+        assert f"out of scope: {tid}" in text
+
+    capsys.readouterr()
+    rc = main(["plan", "status"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "PASSED" in out
+    for tid in deferred:
+        assert tid in out and "deferred" in out
+    # Nothing about a deferred target is mislabeled as a plain uncovered gap.
+    assert "has no confirmed task" not in out
+
+
 # ── converge / export ───────────────────────────────────────────────────────
 def test_converge_reports_then_passes(tmp_path, monkeypatch, capsys) -> None:
     slug = _converged_frame(monkeypatch, tmp_path)

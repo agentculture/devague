@@ -5,6 +5,7 @@ import pytest
 from devague.frame import Frame
 from devague.plan import (
     PLAN_SCHEMA_VERSION,
+    CoverageTarget,
     Plan,
     PlanRisk,
     Task,
@@ -98,6 +99,88 @@ def test_resolve_risk_rejects_already_resolved() -> None:
     p.resolve_risk(r.id, "first decision")
     with pytest.raises(ValueError):
         p.resolve_risk(r.id, "second decision")
+
+
+# ── per-target deferral (issue #85, t9) ───────────────────────────────────────
+
+
+def test_coverage_target_deferred_defaults() -> None:
+    tg = CoverageTarget(id="c1", kind="requirement", text="x")
+    assert tg.deferred is False
+    assert tg.deferred_reason == ""
+
+
+def test_defer_target_marks_deferred_with_reason() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="worktree concurrency"))
+    tg = p.defer_target("c47", "Milestone 3: worktree mechanics")
+    assert tg.deferred is True
+    assert tg.deferred_reason == "Milestone 3: worktree mechanics"
+    # id/kind/text are untouched by deferring.
+    assert (tg.id, tg.kind, tg.text) == ("c47", "requirement", "worktree concurrency")
+
+
+def test_defer_target_rejects_unknown_id() -> None:
+    p = _plan()
+    with pytest.raises(ValueError, match="unknown coverage target"):
+        p.defer_target("cX", "why")
+
+
+def test_defer_target_rejects_already_deferred() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c1", kind="requirement", text="x"))
+    p.defer_target("c1", "first reason")
+    with pytest.raises(ValueError, match="already deferred"):
+        p.defer_target("c1", "second reason")
+    # The original reason survives the refused second call.
+    assert p.find_target("c1").deferred_reason == "first reason"
+
+
+def test_undefer_target_clears_deferred_state() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c1", kind="requirement", text="x"))
+    p.defer_target("c1", "reason")
+    tg = p.undefer_target("c1")
+    assert tg.deferred is False
+    assert tg.deferred_reason == ""
+
+
+def test_undefer_target_rejects_unknown_id() -> None:
+    p = _plan()
+    with pytest.raises(ValueError, match="unknown coverage target"):
+        p.undefer_target("cX")
+
+
+def test_undefer_target_rejects_not_deferred() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c1", kind="requirement", text="x"))
+    with pytest.raises(ValueError, match="not deferred"):
+        p.undefer_target("c1")
+
+
+def test_deferred_target_roundtrips_verbatim() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c1", kind="requirement", text="x"))
+    p.defer_target("c1", "decided: out of scope for this milestone")
+    restored = from_dict(to_dict(p))
+    tg = restored.find_target("c1")
+    assert tg.deferred is True
+    assert tg.deferred_reason == "decided: out of scope for this milestone"
+
+
+def test_legacy_v3_target_dict_without_deferred_fields_loads_with_defaults() -> None:
+    # A schema_version-3 plan's target dicts predate deferred/deferred_reason entirely.
+    legacy = {
+        "slug": "s",
+        "title": "t",
+        "frame_slug": "s",
+        "schema_version": 3,
+        "targets": [{"id": "c1", "kind": "requirement", "text": "x"}],
+    }
+    p = from_dict(legacy)
+    tg = p.find_target("c1")
+    assert tg.deferred is False
+    assert tg.deferred_reason == ""
 
 
 def test_set_status_transitions_and_reports_unknown() -> None:

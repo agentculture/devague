@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from devague.frame import Frame
-from devague.plan import Plan
+from devague.plan import CoverageTarget, Plan
 from devague.render.plan_md import render_plan
 from tests.test_render import assert_blanks_around_headings_and_lists
 
@@ -149,3 +149,104 @@ def test_plan_md_does_not_mutate_plan_or_task_text() -> None:
     render_plan(plan, frame)
     assert plan.title == before_title
     assert plan.tasks[0].summary == before_summary
+
+
+# ── #85: Deferred targets section ────────────────────────────────────────────
+
+
+def test_deferred_targets_section_names_target_and_reason() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="worktree concurrency"))
+    p.defer_target("c47", "Milestone 3: worktree mechanics")
+    out = render_plan(p, _frame())
+    assert "## Deferred targets" in out
+    assert "`c47`" in out
+    assert "worktree concurrency" in out
+    assert "deferred: Milestone 3: worktree mechanics" in out
+
+
+def test_no_deferred_targets_section_when_nothing_deferred() -> None:
+    out = render_plan(_plan(), _frame())
+    assert "## Deferred targets" not in out
+
+
+def test_deferred_targets_section_lists_every_deferred_target() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="target A"))
+    p.targets.append(CoverageTarget(id="h35", kind="honesty", text="target B"))
+    p.defer_target("c47", "reason A")
+    p.defer_target("h35", "reason B")
+    out = render_plan(p, _frame())
+    assert "`c47`" in out and "reason A" in out
+    assert "`h35`" in out and "reason B" in out
+
+
+def test_deferred_targets_section_blanks_around_headings_and_lists() -> None:
+    p = _plan()
+    p.targets.append(CoverageTarget(id="c47", kind="requirement", text="target A"))
+    p.defer_target("c47", "reason A")
+    assert_blanks_around_headings_and_lists(render_plan(p, _frame()))
+
+
+# ── #87 MD050 regression: underscore-bearing verbatim text (t9) ─────────────
+
+
+def test_task_heading_wraps_underscore_identifier() -> None:
+    p = Plan(slug="demo", title="Demo", frame_slug="demo")
+    p.add_task("no functional export is added to shell/fs/__init__.py")
+    out = render_plan(p, None)
+    heading_line = next(ln for ln in out.split("\n") if ln.startswith("### t1"))
+    assert "shell/fs/`__init__.py`" in heading_line
+    # never a bare, unwrapped dunder in the heading (the MD050 trigger).
+    assert "__init__.py" not in heading_line.replace("`__init__.py`", "")
+
+
+def test_task_instruction_wraps_underscore_identifier() -> None:
+    p = Plan(slug="demo", title="Demo", frame_slug="demo")
+    t = p.add_task("core")
+    t.instruction = "calls _read_file directly"
+    out = render_plan(p, None)
+    assert "- instruction: calls `_read_file` directly" in out
+
+
+def test_acceptance_criterion_wraps_underscore_identifier() -> None:
+    p = Plan(slug="demo", title="Demo", frame_slug="demo")
+    t = p.add_task("core")
+    p.add_acceptance(t, "_read_file and __init__.py both matter")
+    out = render_plan(p, None)
+    assert "  - `_read_file` and `__init__.py` both matter" in out
+
+
+def test_risk_text_wraps_underscore_identifier() -> None:
+    p = Plan(slug="demo", title="Demo", frame_slug="demo")
+    p.add_risk("touches shell/fs/__init__.py directly", "unknown_nonblocking")
+    out = render_plan(p, None)
+    assert "shell/fs/`__init__.py`" in out
+
+
+def test_deferred_target_reason_wraps_underscore_identifier() -> None:
+    p = Plan(slug="demo", title="Demo", frame_slug="demo")
+    p.targets.append(CoverageTarget(id="c1", kind="requirement", text="x"))
+    p.defer_target("c1", "belongs to shell/fs/__init__.py migration")
+    out = render_plan(p, None)
+    assert "shell/fs/`__init__.py`" in out
+
+
+def test_plan_title_wraps_underscore_identifier() -> None:
+    p = Plan(slug="demo", title="Ship the __init__.py rewrite", frame_slug="demo")
+    out = render_plan(p, None)
+    assert out.startswith("# Build Plan — Ship the `__init__.py` rewrite")
+
+
+def test_underscore_bearing_plan_blanks_around_headings_and_lists() -> None:
+    """The full MD050-regression shape in one plan, run through the same blank-line
+    structural check the hostile-URL tests already use — the closest in-repo proxy
+    for "passes markdownlint-cli2" without shelling out to the linter itself."""
+    p = Plan(slug="demo", title="Ship the __init__.py rewrite", frame_slug="demo")
+    t = p.add_task("no functional export is added to shell/fs/__init__.py")
+    t.instruction = "calls _read_file directly"
+    p.add_acceptance(t, "_read_file and __init__.py both matter")
+    p.targets.append(CoverageTarget(id="c1", kind="requirement", text="x"))
+    p.defer_target("c1", "belongs to shell/fs/__init__.py migration")
+    p.add_risk("touches shell/fs/__init__.py directly", "unknown_nonblocking")
+    assert_blanks_around_headings_and_lists(render_plan(p, None))
