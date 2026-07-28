@@ -486,6 +486,33 @@ def test_spec_md_scope_seed_citing_live_claim_stays_a_bare_id() -> None:
     assert f"`{c.id}` (rejected)" not in out
 
 
+# ── issue-backlog-sweep t7: scope --seeds accepts question ids (#84's ────────
+# "smaller, related gap") — the seeded question must render, distinguishably
+# from a claim seed, in the exported scope-exploration section ─────────────-
+
+
+def test_spec_md_scope_seed_citing_hard_question_renders_question_marker() -> None:
+    f = Frame(slug="qseed", title="Question Seed")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "will this scale?", blocking=True)
+    f.add_scope_entry("some/surface.py", "a finding that seeded a question", seeds=[q.id])
+    out = render.render(f, "spec-md")
+    assert f"`{q.id}` (question)" in out
+
+
+def test_spec_md_scope_seed_citing_resolved_hard_question_renders_resolved_marker() -> None:
+    # A resolved question seed is distinguished from a still-open one — the
+    # answer is part of what the scope entry seeded.
+    f = Frame(slug="qseedresolved", title="Question Seed Resolved")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    q = f.add_hard_question(ann, "will this scale?", blocking=True)
+    f.add_scope_entry("some/surface.py", "a finding that seeded a question", seeds=[q.id])
+    f.resolve_hard_question(ann.id, q.id, "yes, load-tested at 10x")
+    out = render.render(f, "spec-md")
+    assert f"`{q.id}` (question, resolved)" in out
+    assert f"`{q.id}` (question)\n" not in out  # not the still-open form
+
+
 def test_spec_md_rendering_never_mutates_park_or_hard_question_state() -> None:
     # Acceptance criterion 4 (#87 h18/c22): escaping and the new park/hard-
     # question rendering are presentational only — the frame's own fields

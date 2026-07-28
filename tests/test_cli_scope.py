@@ -103,6 +103,44 @@ def test_scope_unknown_seed_id_refused_with_hint(tmp_path, monkeypatch, capsys) 
     assert frame.scope_entries == []
 
 
+# --- scope --seeds accepts question ids (issue #84's "smaller, related gap") -
+
+
+def test_scope_records_entry_with_hard_question_seed(tmp_path, monkeypatch) -> None:
+    # The /scope routing table sends a "needs a user decision" finding to the
+    # `question` move, not `capture` — so the scope entry recording that
+    # finding must be able to cite the hard question id it seeded (#84).
+    _seed(monkeypatch, tmp_path)
+    slug = store.current_slug()
+    main(["capture", "--kind", "requirement", "add a scope move"])  # c1
+    main(["interrogate", "c1", "--hard-question", "does this need a user decision?"])  # q1
+    rc = main(
+        [
+            "scope",
+            "devague/cli/_commands/scope.py",
+            "--finding",
+            "a genuinely unknown case, routed to question",
+            "--seeds",
+            "q1",
+        ]
+    )
+    assert rc == 0
+    frame = store.load(slug)
+    assert frame.scope_entries[0].seeds == ["q1"]
+
+
+def test_scope_unknown_question_seed_id_refused_with_hint(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    rc = main(["scope", "devague/frame.py", "--finding", "bogus link", "--seeds", "q1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown seed claim id" in err
+    assert "hint:" in err
+    # Transactional: nothing was recorded.
+    frame = store.load(store.current_slug())
+    assert frame.scope_entries == []
+
+
 def test_scope_missing_finding_errors(tmp_path, monkeypatch, capsys) -> None:
     _seed(monkeypatch, tmp_path)
     rc = main(["scope", "devague/frame.py"])

@@ -272,6 +272,26 @@ class Frame:
     def find_honesty(self, hid: str) -> Optional[HonestyCondition]:
         return next((h for h in self._all_honesty() if h.id == hid), None)
 
+    def find_hard_question(self, qid: str) -> Optional[HardQuestion]:
+        """Look up a claim-attached hard question by id, across every claim.
+
+        Mirrors ``find_claim``/``find_honesty`` — added so ``add_scope_entry``
+        can validate a ``q*`` seed and ``render.spec_md`` can render one
+        (issue #84's "smaller, related gap": ``scope --seeds`` refused
+        question ids even though the ``/scope`` routing table sends a
+        "needs a user decision" finding to ``question`` rather than
+        ``capture``, leaving that branch's provenance unlinkable). Two
+        independent things mint ``qN`` ids in this tool — claim-attached
+        hard questions (this method) and the separate durable
+        ``.devague/questions/`` artifact driven by ``devague question`` —
+        and they can collide (both start counting at ``q1``) because they
+        are independent counters. This method only ever searches
+        ``Frame.claims[*].hard_questions``, the same restriction
+        ``resolve_hard_question`` documents; it cannot disambiguate the two
+        namespaces, only search the one it is documented to search.
+        """
+        return next((q for q in self._all_hard_questions() if q.id == qid), None)
+
     def add_honesty(self, claim: Claim, text: str, origin: str = "llm") -> HonestyCondition:
         status = "confirmed" if origin == "user" else "proposed"
         h = HonestyCondition(
@@ -361,9 +381,24 @@ class Frame:
     def add_scope_entry(
         self, surface: str, finding: str, seeds: Optional[list[str]] = None
     ) -> ScopeEntry:
+        """Record a scope-exploration finding, optionally citing what it seeded.
+
+        ``seeds`` may name a claim id (``c*``) or a claim-attached hard
+        question id (``q*``, issue #84's "smaller, related gap") —
+        validated against :meth:`find_claim` first and
+        :meth:`find_hard_question` second, so an id resolving to either is
+        accepted. This is the branch the ``/scope`` skill's routing table
+        sends a "genuinely unknown, needs a user decision" finding down (the
+        ``question`` move rather than ``capture``); before this, that
+        finding's provenance link was unrecordable. Any id resolving to
+        neither is refused (the error text says "claim" for both cases —
+        this is the one seam that already validated seed ids before ``q*``
+        was accepted, and the CLI's accompanying hint, "run 'devague show'
+        to see valid claim ids", is unchanged).
+        """
         seed_ids = list(seeds) if seeds else []
         for sid in seed_ids:
-            if self.find_claim(sid) is None:
+            if self.find_claim(sid) is None and self.find_hard_question(sid) is None:
                 raise ValueError(f"unknown seed claim id: {sid!r}")
         entry = ScopeEntry(
             id=self._next(self.scope_entries, "s"),

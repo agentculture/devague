@@ -240,12 +240,25 @@ def _resolved_vagueness_section(frame: Frame) -> list[str]:
 def _seed_label(frame: Frame, seed_id: str) -> str:
     """A scope-entry seed id, flagged when it cites a rejected claim (the
     fourth #84 acceptance criterion, c33/h26) instead of rendering a bare
-    dead reference. An id that resolves to no claim at all (or to a
-    confirmed/proposed one) renders as the plain backticked id, unchanged.
+    dead reference, or when it cites a claim-attached hard question rather
+    than a claim (#84's "smaller, related gap" — a finding the ``/scope``
+    routing table sent to the ``question`` move, not ``capture``). A
+    question seed reads as ``(question)``, or ``(question, resolved)`` once
+    it carries an answer — distinct from a claim seed, since a question is
+    not a claim and a resolved one is worth telling apart from a still-open
+    one. An id that resolves to neither a claim nor a hard question renders
+    as the plain backticked id, unchanged.
     """
     claim = frame.find_claim(seed_id)
-    if claim is not None and claim.status == "rejected":
-        return f"`{seed_id}` (rejected)"
+    if claim is not None:
+        if claim.status == "rejected":
+            return f"`{seed_id}` (rejected)"
+        return f"`{seed_id}`"
+    question = frame.find_hard_question(seed_id)
+    if question is not None:
+        if question.resolved:
+            return f"`{seed_id}` (question, resolved)"
+        return f"`{seed_id}` (question)"
     return f"`{seed_id}`"
 
 
