@@ -86,7 +86,9 @@ def _scope_lines(frame: Frame) -> list[str]:
         return []
     lines = ["## Scope exploration", ""]
     for e in frame.scope_entries:
-        lines.append(f"- `{e.id}` — `{e.surface}`: {e.finding}")
+        # A surface carrying its own code span cannot be wrapped again (MD038).
+        span = e.surface if "`" in e.surface else f"`{e.surface}`"
+        lines.append(f"- `{e.id}` — {span}: {e.finding}")
         if e.seeds:
             lines.append(f"  - seeds: {', '.join(f'`{s}`' for s in e.seeds)}")
     lines.append("")

@@ -214,6 +214,37 @@ def test_scope_section_absent_in_frame_md_when_no_entries() -> None:
     assert "## Scope exploration" not in out
 
 
+def _backtick_surface_frame() -> Frame:
+    """A frame whose scope surface carries its own code span (issue 97 dogfood):
+    blind-wrapping it in another backtick pair renders broken spans (MD038).
+    """
+    f = Frame(slug="b", title="Backtick Surface")
+    ann = f.add_claim("announcement", "Shipped", origin="user")
+    f.add_honesty(ann, "must be honest", origin="user")
+    f.add_scope_entry(
+        "challenge pass / failure-mode lens: frame.py `__post_init__` validation",
+        "probe: an unknown kind raises ValueError at construction",
+    )
+    return f
+
+
+def test_backtick_bearing_surface_is_not_double_wrapped_in_spec_md() -> None:
+    out = render_spec(_backtick_surface_frame())
+    # The surface renders with its own code span intact, not nested in another.
+    assert "frame.py `__post_init__` validation" in out
+    assert "— `challenge pass" not in out
+
+
+def test_backtick_bearing_surface_is_not_double_wrapped_in_frame_md() -> None:
+    out = render_frame(_backtick_surface_frame())
+    assert "frame.py `__post_init__` validation" in out
+    assert "— `challenge pass" not in out
+
+
+def test_backtick_bearing_surface_spec_md_is_markdownlint_clean() -> None:
+    assert_markdownlint_clean(render_spec(_backtick_surface_frame()))
+
+
 def test_scope_entry_without_seeds_omits_seeds_line() -> None:
     out = render_spec(_sharper_frame())
     # s2 carries no seeds -> no "seeds:" line directly under its bullet.
