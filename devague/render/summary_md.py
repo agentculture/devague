@@ -256,8 +256,54 @@ def _evidence_lines() -> list[str]:
     ]
 
 
-def _delivery_claims_lines() -> list[str]:
-    return [
+def _approved_lapses(frame: Optional[Frame]):
+    lapses = [] if frame is None else frame.lapses
+    return [r for r in lapses if r.status == "approved"]
+
+
+def _pending_lapses(frame: Optional[Frame]):
+    lapses = [] if frame is None else frame.lapses
+    return [r for r in lapses if r.status == "proposed"]
+
+
+def _lapse_evidence_lines(frame: Optional[Frame]) -> list[str]:
+    """Approved reasoning-degradation lapses (``Frame.lapses``, issue #97 t1)
+    rendered as evidence grounding the Delivery Claims confidence column,
+    following the exact approved/pending/rejected discipline
+    :func:`_mid_work_lines` / :func:`_drift_lines` already apply to deviation
+    records: approved entries render fully in a small table (escaped the same
+    way :func:`_drift_lines` escapes free-form ``reason`` text — a raw ``|``
+    or newline in a lapse's ``what`` must not corrupt the table), a proposed
+    (not-yet-adjudicated) entry surfaces only as a visibly pending id, and a
+    rejected entry is omitted entirely.
+
+    A frame with no lapses at all — or no frame, a degraded load (acceptance
+    criterion 4) — adds nothing here, leaving the Delivery Claims table's
+    existing hardcoded placeholder row as the section's only content,
+    unchanged: no new failure mode from a missing/lapse-free frame.
+    """
+    approved = _approved_lapses(frame)
+    pending = _pending_lapses(frame)
+    if not approved and not pending:
+        return []
+    lines = ["Lapse ledger evidence:", ""]
+    if approved:
+        lines.append("| Lapse | Code | What |")
+        lines.append("|-------|------|------|")
+        for r in approved:
+            code = _escape_table_cell(r.code)
+            what = _escape_table_cell(_verbatim(r.what))
+            lines.append(f"| `{r.id}` | `{code}` | {what} |")
+        lines.append("")
+    if pending:
+        ids = ", ".join(f"`{r.id}`" for r in pending)
+        lines.append(f"pending approval (not yet evidence): {ids}")
+        lines.append("")
+    return lines
+
+
+def _delivery_claims_lines(frame: Optional[Frame]) -> list[str]:
+    lines = [
         "## Delivery Claims",
         "",
         "| Claim | Confidence | Evidence |",
@@ -265,6 +311,8 @@ def _delivery_claims_lines() -> list[str]:
         "| `<fill: what was delivered>` | `<fill: confidence>` | `<fill: evidence>` |",
         "",
     ]
+    lines += _lapse_evidence_lines(frame)
+    return lines
 
 
 def _remaining_work_lines() -> list[str]:
@@ -296,7 +344,7 @@ def render_summary(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> st
     out += _mid_work_lines(delivery)
     out += _drift_lines(delivery)
     out += _evidence_lines()
-    out += _delivery_claims_lines()
+    out += _delivery_claims_lines(frame)
     out += _remaining_work_lines()
     return "\n".join(out).rstrip() + "\n"
 
@@ -352,6 +400,16 @@ def summary_data(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> dict
             "pending_deviations": [d.id for d in pending],
             "evidence": "<fill: evidence>",
             "delivery_claims": "<fill: delivery claims>",
+            # JSON parity for _lapse_evidence_lines: approved lapses carry
+            # their full evidence triple, a pending one is only its id (the
+            # "not yet evidence" marker, mirroring pending_deviations above);
+            # a rejected lapse is absent from both lists, same as the render.
+            "lapse_evidence": {
+                "approved": [
+                    {"id": r.id, "code": r.code, "what": r.what} for r in _approved_lapses(frame)
+                ],
+                "pending": [r.id for r in _pending_lapses(frame)],
+            },
             "remaining_work": "<fill: remaining work>",
         },
     }

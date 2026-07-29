@@ -35,6 +35,7 @@ from devague import delivery_store, plan_store, store
 from devague.cli import main
 from devague.cli._commands import summary as summary_cmd
 from devague.delivery import DELIVERY_SCHEMA_VERSION, Delivery
+from devague.frame import Frame
 from devague.plan import Plan
 from devague.render import summary_md
 from tests.test_render import assert_markdownlint_clean
@@ -369,6 +370,168 @@ def test_no_deviations_recorded_yet_empty_state() -> None:
     plan, frame = _bare_plan_and_frame()
     out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
     assert "(no deviations recorded yet)" in out
+
+
+# ── lapse ledger evidence in Delivery Claims (issue #97 t3) ──────────────────
+#
+# devague summary cites approved reasoning-degradation lapses (Frame.lapses,
+# issue #97 t1) as evidence grounding the Delivery Claims confidence column,
+# following the exact approved/pending/rejected discipline _mid_work_lines and
+# _drift_lines already apply to deviation records: approved lapses render
+# fully, a proposed (not-yet-adjudicated) lapse renders as visibly pending, a
+# rejected lapse is omitted entirely, and a frame with no lapses at all (or no
+# frame — a degraded load, criterion 4) leaves the existing hardcoded
+# placeholder row as the section's only content.
+
+
+def test_delivery_claims_keeps_placeholder_row_when_frame_is_none() -> None:
+    plan, frame = _bare_plan_and_frame()  # frame is None
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    claims = out.split("## Delivery Claims")[1].split("## Remaining Work")[0]
+    assert "`<fill: what was delivered>`" in claims
+    assert "`<fill: confidence>`" in claims
+    assert "Lapse ledger evidence" not in claims
+
+
+def test_delivery_claims_keeps_placeholder_row_when_lapses_list_is_empty() -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    claims = out.split("## Delivery Claims")[1].split("## Remaining Work")[0]
+    assert "`<fill: what was delivered>`" in claims
+    assert "Lapse ledger evidence" not in claims
+
+
+def test_delivery_claims_cites_approved_lapse_as_evidence() -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    frame.add_lapse("grader-unverified", "graded without a rubric", origin="user")
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    claims = out.split("## Delivery Claims")[1].split("## Remaining Work")[0]
+    assert "Lapse ledger evidence" in claims
+    assert "`l1`" in claims
+    assert "`grader-unverified`" in claims
+    assert "graded without a rubric" in claims
+
+
+def test_delivery_claims_proposed_lapse_renders_visibly_pending_not_approved() -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    frame.add_lapse("control-absent", "no control group used", origin="llm")  # -> proposed
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    claims = out.split("## Delivery Claims")[1].split("## Remaining Work")[0]
+    assert "`l1`" in claims
+    assert "pending approval" in claims
+    # never rendered as a row of the approved-evidence table
+    assert "| `l1` |" not in claims
+    assert "no control group used" not in claims
+
+
+def test_delivery_claims_omits_rejected_lapse_entirely() -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    rec = frame.add_lapse("n-below-claim", "claimed generality from n=1", origin="user")
+    frame.set_lapse_status(rec.id, "rejected")
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    assert "l1" not in out
+    assert "claimed generality from n=1" not in out
+
+
+def test_delivery_claims_lapse_evidence_table_escapes_pipe_and_flattens_newline() -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    frame.add_lapse("provenance-missing", "cited | without\na source", origin="user")
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    claims = out.split("## Delivery Claims")[1].split("## Remaining Work")[0]
+    row = next(ln for ln in claims.splitlines() if ln.startswith("| `l1`"))
+    assert "\n" not in row
+    assert "\\|" in row
+    # splitting on an *unescaped* pipe still yields exactly 5 fields: leading
+    # '', 3 columns, trailing '' — the raw pipe in `what` never adds a column.
+    cells = re.split(r"(?<!\\)\|", row)
+    assert len(cells) == 5
+
+
+def test_render_summary_with_lapses_is_markdownlint_clean_hand_rolled() -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    frame.add_lapse("grader-unverified", "graded without a rubric", origin="user")
+    frame.add_lapse("control-absent", "no control group used", origin="llm")
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    assert_markdownlint_clean(out)
+
+
+@pytest.mark.skipif(
+    _MARKDOWNLINT is None,
+    reason="markdownlint-cli2 not on PATH (dev tooling; not installed by this repo's CI)",
+)
+def test_render_summary_with_lapses_passes_real_markdownlint_cli2(tmp_path) -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    frame.add_lapse("grader-unverified", "graded without a rubric", origin="user")
+    frame.add_lapse("control-absent", "no control group used", origin="llm")
+    out = summary_md.render_summary(plan, frame, Delivery(plan_slug=plan.slug))
+    summary_path = tmp_path / "summary_lapses.md"
+    summary_path.write_text(out, encoding="utf-8")
+    result = _run_markdownlint(summary_path)
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+def test_summary_data_lapse_evidence_shape() -> None:
+    plan, _ = _bare_plan_and_frame()
+    frame = Frame(slug="demo", title="Demo Frame")
+    frame.add_lapse("grader-unverified", "graded without a rubric", origin="user")
+    frame.add_lapse("control-absent", "no control group used", origin="llm")
+    data = summary_md.summary_data(plan, frame, Delivery(plan_slug=plan.slug))
+    evidence = data["sections"]["lapse_evidence"]
+    assert evidence["approved"] == [
+        {"id": "l1", "code": "grader-unverified", "what": "graded without a rubric"}
+    ]
+    assert evidence["pending"] == ["l2"]
+
+
+def test_summary_data_lapse_evidence_empty_when_no_frame() -> None:
+    plan, frame = _bare_plan_and_frame()  # frame is None
+    data = summary_md.summary_data(plan, frame, Delivery(plan_slug=plan.slug))
+    assert data["sections"]["lapse_evidence"] == {"approved": [], "pending": []}
+
+
+def test_cli_summary_cites_lapse_filed_directly_on_frame(tmp_path, monkeypatch, capsys) -> None:
+    # #97 t3: no `devague lapse` CLI verb exists yet in this worktree (t2 is a
+    # sibling task) — files the lapse straight onto the stored Frame the way
+    # t1's own tests do, then drives `devague summary` end to end through the
+    # real CLI + store round-trip.
+    _plan_with_two_tasks(monkeypatch, tmp_path, capsys)
+    slug = store.current_slug()
+    f = store.load(slug)
+    f.add_lapse("grader-unverified", "graded without a rubric", origin="user")
+    f.add_lapse("control-absent", "no control group used", origin="llm")
+    store.save(f)
+    capsys.readouterr()
+    rc = main(["summary"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    claims = out.split("## Delivery Claims")[1].split("## Remaining Work")[0]
+    assert "`l1`" in claims
+    assert "graded without a rubric" in claims
+    assert "`l2`" in claims
+    assert "pending approval" in claims
+
+
+def test_cli_summary_degrades_with_lapses_exactly_as_today_when_frame_missing(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    # Acceptance criterion 4: a frame that fails to load degrades in summary
+    # exactly as today — no new failure mode introduced by the lapse ledger.
+    slug = _plan_with_two_tasks(monkeypatch, tmp_path, capsys)
+    store.path_for(slug).unlink()
+    capsys.readouterr()
+    rc = main(["summary"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "No source frame available" in out
+    claims = out.split("## Delivery Claims")[1].split("## Remaining Work")[0]
+    assert "Lapse ledger evidence" not in claims
 
 
 # ── drift table safety: a raw '|'/newline in `reason` cannot break the table (Q2) ──

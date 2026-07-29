@@ -269,3 +269,80 @@ def test_golden_spec_md() -> None:
 def test_golden_frame_md() -> None:
     expected = (GOLDENS / "sharper_frame.md").read_text(encoding="utf-8")
     assert render_frame(_sharper_frame()) == expected
+
+
+# ── Lapse ledger (issue #97 t3): frame_md renders it, spec_md never does ─────
+#
+# devague show (frame_md) gets a new "## Lapse ledger" section listing every
+# filed lapse's id, code, status, and what — omitted entirely when
+# frame.lapses is empty, mirroring _scope_lines' omitted-when-empty shape.
+# Unlike summary_md's approved/pending/rejected discipline (a rejected
+# deviation/lapse is dropped there), frame_md is the working-state view, so
+# every lapse renders here regardless of status — the same way open_vagueness
+# shows both resolved and unresolved items in one flat list.
+#
+# spec_md.py gets NO code change: the exported spec overwrites the same dated
+# file on every re-export, so execution-time lapses rendering there would
+# rewrite the what-to-build artifact. That is pinned below as a pure
+# regression test — filing lapses in every status must never change
+# render_spec's output.
+
+
+def _frame_with_lapses() -> Frame:
+    """A frame carrying one lapse in each status: approved (l1), proposed
+    (l2), and rejected (l3)."""
+    f = _bare_frame()
+    f.add_lapse("grader-unverified", "graded without a rubric", origin="user")  # l1: approved
+    f.add_lapse("control-absent", "no control group used", origin="llm")  # l2: proposed
+    rejected = f.add_lapse(
+        "n-below-claim", "claimed generality from n=1", origin="user"
+    )  # l3, then rejected
+    f.set_lapse_status(rejected.id, "rejected")
+    return f
+
+
+def test_lapse_ledger_absent_in_frame_md_when_no_lapses() -> None:
+    out = render_frame(_bare_frame())
+    assert "## Lapse ledger" not in out
+
+
+def test_lapse_ledger_lists_id_code_status_and_what_in_frame_md() -> None:
+    out = render_frame(_frame_with_lapses())
+    assert "## Lapse ledger" in out
+    assert "`l1`" in out
+    assert "`grader-unverified`" in out
+    assert "(approved)" in out
+    assert "graded without a rubric" in out
+    assert "`l2`" in out
+    assert "(proposed)" in out
+    assert "no control group used" in out
+    assert "`l3`" in out
+    assert "(rejected)" in out
+    assert "claimed generality from n=1" in out
+
+
+def test_lapse_ledger_frame_md_is_markdownlint_clean() -> None:
+    assert_markdownlint_clean(render_frame(_frame_with_lapses()))
+
+
+def test_lapse_ledger_never_appears_in_spec_md() -> None:
+    out = render_spec(_frame_with_lapses())
+    assert "## Lapse ledger" not in out
+    assert "l1" not in out
+    assert "l2" not in out
+    assert "l3" not in out
+
+
+def test_filing_lapses_does_not_change_render_spec_output() -> None:
+    """Acceptance criterion 3 (issue #97 t3): re-exporting the spec after
+    filing lapses must produce a byte-identical spec-md. Files a lapse in
+    every status (approved, proposed, rejected) on an already-rendered frame
+    and diffs render_spec's output before/after."""
+    f = _sharper_frame()
+    before = render_spec(f)
+    f.add_lapse("grader-unverified", "graded without a rubric", origin="user")  # approved
+    f.add_lapse("control-absent", "no control group used", origin="llm")  # proposed
+    rejected = f.add_lapse("n-below-claim", "claimed generality from n=1", origin="user")
+    f.set_lapse_status(rejected.id, "rejected")
+    after = render_spec(f)
+    assert after == before
