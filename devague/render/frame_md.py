@@ -95,6 +95,29 @@ def _scope_lines(frame: Frame) -> list[str]:
     return lines
 
 
+def _lapse_lines(frame: Frame) -> list[str]:
+    """The Reasoning Degradation Ledger (issue #97 t1's ``Frame.lapses``),
+    mirroring ``_scope_lines``'s omitted-when-empty shape: every filed lapse
+    renders with its id, code, status, and what.
+
+    Unlike ``render.summary_md``'s approved/pending/rejected discipline (a
+    rejected deviation, and by the same pattern a rejected lapse, is dropped
+    there entirely), ``devague show`` is the working-state view — every
+    lapse renders here regardless of status, the same way ``_vagueness_lines``
+    shows both resolved and still-open parked items in one flat list. Never
+    rendered in ``spec_md``: the exported spec overwrites the same dated file
+    on every re-export, so execution-time lapses rendering there would
+    rewrite the what-to-build artifact (#97 t3).
+    """
+    if not frame.lapses:
+        return []
+    lines = ["## Lapse ledger", ""]
+    for r in frame.lapses:
+        lines.append(f"- `{r.id}` — `{r.code}` ({r.status}): {r.what}")
+    lines.append("")
+    return lines
+
+
 def render_frame(frame: Frame) -> str:
     out = [
         f"# Announcement Frame — {frame.title}",
@@ -106,4 +129,5 @@ def render_frame(frame: Frame) -> str:
         out.extend(_section_lines(frame, kind, heading))
     out.extend(_scope_lines(frame))
     out.extend(_vagueness_lines(frame))
+    out.extend(_lapse_lines(frame))
     return "\n".join(out).rstrip() + "\n"
