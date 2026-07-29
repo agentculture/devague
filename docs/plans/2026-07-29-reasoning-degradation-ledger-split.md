@@ -25,19 +25,19 @@ Edit the Owner/Model columns before approving gate 2 — the default Model is a 
 
 ### t1 — Lapse domain model on Frame: LapseRecord, lapse codes, schema v5
 
-- instruction: mirror DeviationRecord (devague/delivery.py) for the record shape — id, code, what, skipped_check, refs, origin, status (proposed/approved/rejected); validate code in add_lapse (the filing path), NOT in `__post_init__`, so retired codes stay loadable — c21 deliberately refines the c2 chassis pattern here; statuses and origin still validate fail-closed in `__post_init__` (they never retire); the six issue-97 codes are the starting LAPSE_CODES tuple; bump SCHEMA_VERSION to 5 in frame.py and move the pin in tests/test_frame_schema_v2.py; new tests in tests/test_frame_lapse.py
+- instruction: mirror DeviationRecord (devague/delivery.py) for the record shape — id, code, what, `skipped_check`, refs, origin, status (proposed/approved/rejected); validate code in `add_lapse` (the filing path), NOT in `__post_init__`, so retired codes stay loadable — c21 deliberately refines the c2 chassis pattern here; statuses and origin still validate fail-closed in `__post_init__` (they never retire); the six issue-97 codes are the starting `LAPSE_CODES` tuple; bump `SCHEMA_VERSION` to 5 in frame.py and move the pin in tests/`test_frame_schema_v2.py`; new tests in tests/`test_frame_lapse.py`
 - covers: c2, h2, c17, h12, c20, c21, h16
 - acceptance:
-  - Frame.lapses exists; add_lapse mints l1, l2, ... via the prefix-generic `_next`; llm origin lands proposed, user origin lands approved; to_dict/from_dict round-trip lapses verbatim
-  - filing an unknown code raises ValueError, while from_dict loads a stored record carrying a retired code without error — pinned by a test that files, retires the code, and reloads
-  - SCHEMA_VERSION == 5; a frame declaring 6 is refused fail-closed before parsing; a v4 frame without lapses loads clean and re-saves as v5
-  - no amend or delete API exists for lapse records — the only post-filing mutation is set_lapse_status; refs are stored verbatim as free text, never validated
+  - Frame.lapses exists; `add_lapse` mints l1, l2, ... via the prefix-generic `_next`; llm origin lands proposed, user origin lands approved; `to_dict`/`from_dict` round-trip lapses verbatim
+  - filing an unknown code raises ValueError, while `from_dict` loads a stored record carrying a retired code without error — pinned by a test that files, retires the code, and reloads
+  - `SCHEMA_VERSION` == 5; a frame declaring 6 is refused fail-closed before parsing; a v4 frame without lapses loads clean and re-saves as v5
+  - no amend or delete API exists for lapse records — the only post-filing mutation is `set_lapse_status`; refs are stored verbatim as free text, never validated
 
 ## Wave 2
 
 ### t2 — CLI verb lapse: file, list, adjudicate
 
-- instruction: clone the deviate.py argument surface minus --task and minus id-ref validation (refs stay free text); one new module devague/cli/_commands/lapse.py exposing register(), two lines in cli/__init__.py _build_parser; add the lapse row to the MOVES dict in learn.py; tests in tests/test_cli_lapse.py
+- instruction: clone the deviate.py argument surface minus --task and minus id-ref validation (refs stay free text); one new module devague/cli/`_commands`/lapse.py exposing register(), two lines in cli/`__init__.py` `_build_parser`; add the lapse row to the MOVES dict in learn.py; tests in tests/`test_cli_lapse.py`
 - covers: c1, c12, c18, h15, h6
 - acceptance:
   - `devague lapse "<what>" --code <code>` files against the current frame and echoes the minted id; `--origin llm` lands proposed; `--skipped "<check>"` and repeatable `--ref` are stored verbatim
@@ -48,21 +48,21 @@ Edit the Owner/Model columns before approving gate 2 — the default Model is a 
 
 ### t3 — Render the ledger: show and summary consume, spec stays untouched
 
-- instruction: follow the _mid_work_lines/_drift_lines approved/pending/rejected discipline in summary_md.py; frame_md.py gets the new section; spec_md.py gets NO code change — only the byte-identity regression test; tests in tests/test_summary.py and tests/test_render_sharper.py
+- instruction: follow the `_mid_work_lines`/`_drift_lines` approved/pending/rejected discipline in `summary_md.py`; `frame_md.py` gets the new section; `spec_md.py` gets NO code change — only the byte-identity regression test; tests in tests/`test_summary.py` and tests/`test_render_sharper.py`
 - covers: c4, h3, c10, c19, h14, h13
 - acceptance:
   - devague show renders a Lapse ledger section (id, code, status, what) omitted entirely when empty
-  - devague summary cites approved lapses as evidence for the Delivery Claims confidence column; proposed entries render visibly pending; rejected are omitted; zero entries keeps the existing empty-state line — all through md_safe_text and table-cell escaping
-  - re-exporting the spec after filing lapses produces a byte-identical spec-md — pinned by a test that files a lapse and diffs render_spec output
+  - devague summary cites approved lapses as evidence for the Delivery Claims confidence column; proposed entries render visibly pending; rejected are omitted; zero entries keeps the existing empty-state line — all through `md_safe_text` and table-cell escaping
+  - re-exporting the spec after filing lapses produces a byte-identical spec-md — pinned by a test that files a lapse and diffs `render_spec` output
   - a frame that fails to load degrades in summary exactly as today — no new failure mode
 
 ### t4 — Gate inertness pinned by tests
 
-- instruction: pure test task, no production code: if a gate references lapses the production change is wrong, not the test; add to tests/test_convergence.py and tests/test_plan_convergence.py
+- instruction: pure test task, no production code: if a gate references lapses the production change is wrong, not the test; add to tests/`test_convergence.py` and tests/`test_plan_convergence.py`
 - covers: h1
 - acceptance:
   - converge output is byte-identical before and after filing lapses on an otherwise converged frame — proposed, approved, and rejected records all tried
-  - neither gate ever names lapse records: frame and plan convergence blockers, warnings, and parked_items stay lapse-free in every status combination
+  - neither gate ever names lapse records: frame and plan convergence blockers, warnings, and `parked_items` stay lapse-free in every status combination
 
 ## Wave 3
 

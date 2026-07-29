@@ -367,6 +367,16 @@ _URL_TRAILING_PUNCT = ".,;:!?'\""
 _CODE_SPAN_RE = re.compile(r"`[^`]*`")
 _ANGLE_TOKEN_RE = re.compile(r"<[^<>\s][^<>]*>")
 
+# The `md_safe_text` half of the upstream helper. Task instructions routinely
+# name underscore-bearing identifiers (`__init__.py`, `_build_parser`), which
+# markdown reads as emphasis/strong (MD037, MD050) unless wrapped in a code
+# span. Ported rather than imported for the same portability reason as above.
+_IDENTIFIER_EXTENSIONS = "py|md|rst|json|ya?ml|toml|cfg|ini|sh|js|ts|rb|go"
+_IDENTIFIER_RE = re.compile(rf"[A-Za-z0-9_]*_[A-Za-z0-9_]*(?:\.(?:{_IDENTIFIER_EXTENSIONS}))?")
+_STRAY_CONTROL_CHAR_RE = re.compile(r"(?<!\\)([*\[\]])")
+_STRAY_BACKTICK_RE = re.compile(r"(?<!\\)`")
+_PROTECTED_RE = re.compile(r"`[^`]*`|<https?://[^\s<>]*>|https?://[^\s<>()]+")
+
 
 def _strip_url_trailing_punct(url):
     trail = ""
@@ -425,12 +435,40 @@ def heading_safe(text):
     return _HEADING_TRAILING_PUNCT_RE.sub("", autolink_urls(text))
 
 
+def _escape_segment(segment):
+    """Escape + wrap one non-code-span slice. Order matters for idempotence:
+    stray backticks and control chars first, identifier wrapping last."""
+    segment = _STRAY_BACKTICK_RE.sub(r"\\`", segment)
+    segment = _STRAY_CONTROL_CHAR_RE.sub(r"\\\1", segment)
+    return _IDENTIFIER_RE.sub(lambda m: f"`{m.group(0)}`", segment)
+
+
+def md_safe_text(text):
+    """Wrap underscore/dunder identifiers in code spans and backslash-escape
+    the remaining stray control characters. Code spans and URLs pass through
+    byte-for-byte; idempotent, so composing it with the helpers above in
+    either order is safe."""
+    if not text:
+        return text
+    parts = []
+    last = 0
+    for m in _PROTECTED_RE.finditer(text):
+        parts.append(_escape_segment(text[last : m.start()]))
+        parts.append(m.group(0))  # code span or URL: verbatim, never touched
+        last = m.end()
+    parts.append(_escape_segment(text[last:]))
+    result = "".join(parts)
+    if result.startswith("#"):
+        result = "\\" + result
+    return result
+
+
 def safe_body(text):
-    return autolink_urls(backtick_bare_angle_brackets(text))
+    return md_safe_text(autolink_urls(backtick_bare_angle_brackets(text)))
 
 
 def safe_heading(text):
-    return heading_safe(backtick_bare_angle_brackets(text))
+    return heading_safe(md_safe_text(backtick_bare_angle_brackets(text)))
 
 
 def parse_existing_assignments(path):
