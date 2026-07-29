@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import dataclasses
+import json
+
+import pytest
+
 from devague.convergence import evaluate, suggest_move
-from devague.frame import Frame
+from devague.frame import LAPSE_CODES, Frame
 
 _REQUIRED_KINDS = (
     "announcement",
@@ -203,3 +208,129 @@ def test_suggest_move_for_blocking_hard_question_names_interrogate_resolve_verba
     assert "USER" in hint
     # the old dead-end hint (capture/confirm never flips q.resolved) must be gone
     assert "capture/confirm the resulting claim" not in hint
+
+
+# --- Reasoning Degradation Ledger (issue #97, t4): the gate stays lapse-inert -
+#
+# The ledger (Frame.lapses) records reasoning degradation; it must never GATE.
+# convergence.evaluate touches only frame.claims and frame.open_vagueness — a
+# new list field on Frame (the scope_entries precedent) is invisible to it by
+# default. These tests pin that invisibility as a property, not an accident:
+# if a future change wires lapses into the gate, these fail loudly instead of
+# silently degrading the "an honest ledger costs you nothing" contract.
+
+
+def _serialize(res) -> str:
+    """Canonical string form so "byte-identical" is checked literally, not just
+    via dataclass ``==`` (which these tests also assert separately)."""
+    return json.dumps(dataclasses.asdict(res), sort_keys=True)
+
+
+_LAPSE_SENTINEL_WHAT = "SENTINEL-LAPSE-WHAT-4f8a1c9d"
+_LAPSE_SENTINEL_SKIPPED_CHECK = "SENTINEL-LAPSE-SKIPPED-CHECK-9be27a01"
+
+
+def _file_lapse(f: Frame, origin: str, final_status: str):
+    """File one distinctively-worded lapse on ``f``, driving it to
+    ``final_status``. ``origin='llm'`` lands ``proposed``; ``origin='user'``
+    lands ``approved``; passing ``final_status='rejected'`` additionally moves
+    it to ``rejected`` via ``set_lapse_status`` after filing.
+    """
+    lapse = f.add_lapse(
+        LAPSE_CODES[0],
+        _LAPSE_SENTINEL_WHAT,
+        skipped_check=_LAPSE_SENTINEL_SKIPPED_CHECK,
+        refs=["c1"],
+        origin=origin,
+    )
+    if final_status == "rejected":
+        f.set_lapse_status(lapse.id, "rejected")
+    assert lapse.status == final_status
+    return lapse
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_converge_byte_identical_before_and_after_filing_lapse(origin, final_status) -> None:
+    """AC1: converge output is byte-identical before/after filing a lapse, on
+    an otherwise fully converged frame — tried for every lapse status."""
+    f = _full_frame()
+    baseline = evaluate(f)
+    baseline_str = _serialize(baseline)
+
+    _file_lapse(f, origin, final_status)
+
+    after = evaluate(f)
+    assert after == baseline
+    assert _serialize(after) == baseline_str
+
+
+def test_converge_byte_identical_with_all_three_lapse_statuses_at_once() -> None:
+    """AC1, comprehensive: proposed + approved + rejected lapses filed together
+    on one frame must not move the needle versus the lapse-free baseline."""
+    f = _full_frame()
+    baseline = evaluate(f)
+    baseline_str = _serialize(baseline)
+
+    f.add_lapse(LAPSE_CODES[0], "a proposed lapse", origin="llm")
+    approved = f.add_lapse(LAPSE_CODES[1], "an approved lapse", origin="user")
+    rejected = f.add_lapse(LAPSE_CODES[2], "a rejected lapse", origin="user")
+    f.set_lapse_status(rejected.id, "rejected")
+    assert approved.status == "approved"
+    assert rejected.status == "rejected"
+
+    after = evaluate(f)
+    assert after == baseline
+    assert _serialize(after) == baseline_str
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_converge_output_stays_lapse_free_on_converged_frame(origin, final_status) -> None:
+    """AC2: no lapse id, code, or filed text ever appears in blockers/warnings/
+    parked_items/required_next_moves — checked on a frame that DOES converge."""
+    f = _full_frame()
+    lapse = _file_lapse(f, origin, final_status)
+    res = evaluate(f)
+    haystack = " ".join(res.blockers + res.warnings + res.parked_items + res.required_next_moves)
+    assert lapse.id not in haystack
+    assert lapse.code not in haystack
+    assert _LAPSE_SENTINEL_WHAT not in haystack
+    assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_converge_output_stays_lapse_free_on_unconverged_frame(origin, final_status) -> None:
+    """AC2, the other half: an INCOMPLETE frame (real blockers present) must
+    still keep every blocker/warning/parked_item/required_next_move lapse-free
+    — a lapse filed alongside a real gap must not bleed lapse text into the
+    gate's own reporting of that gap."""
+    f = Frame(slug="s", title="t")
+    f.add_claim("announcement", "x", origin="user")  # confirmed, but far from converged
+    lapse = _file_lapse(f, origin, final_status)
+    res = evaluate(f)
+    assert res.ready is False  # sanity: this frame genuinely does not converge
+    haystack = " ".join(res.blockers + res.warnings + res.parked_items + res.required_next_moves)
+    assert lapse.id not in haystack
+    assert lapse.code not in haystack
+    assert _LAPSE_SENTINEL_WHAT not in haystack
+    assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
