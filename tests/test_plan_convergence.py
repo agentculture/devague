@@ -10,7 +10,13 @@ These tests cover:
 
 from __future__ import annotations
 
-from devague.plan import CoverageTarget, Plan, Task, dependency_waves
+import dataclasses
+import json
+
+import pytest
+
+from devague.frame import LAPSE_CODES, Frame
+from devague.plan import CoverageTarget, Plan, Task, dependency_waves, targets_from_frame
 from devague.plan_convergence import evaluate, suggest_move
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -553,3 +559,146 @@ def test_shell_cli_shape_90_covered_12_deferred_converges() -> None:
     assert len(deferred_parked) == 12
     for tid in deferred_ids:
         assert any(tid in item for item in deferred_parked)
+
+
+# --- Reasoning Degradation Ledger (issue #97, t4): the plan gate is lapse-inert
+#
+# Frame.lapses records reasoning degradation; it must never GATE — on either
+# side. Plan itself carries no lapses field at all, and plan_convergence.evaluate
+# never sees the source frame directly (only `plan` + optional `targets`), so the
+# property under test here is really about `targets_from_frame`: filing a lapse
+# on the source frame — in any status — must not perturb the coverage targets a
+# plan derives from it, and therefore must not perturb the plan gate's output.
+
+
+def _frame_with_confirmed_requirement() -> Frame:
+    f = Frame(slug="src", title="Source frame")
+    f.add_claim("requirement", "must round-trip", origin="user")  # confirmed -> c1
+    return f
+
+
+def _plan_from_targets(targets: list[CoverageTarget], frame_slug: str) -> Plan:
+    """A plan that covers every target with acceptance + instruction on every
+    confirmed task — the plan-side twin of test_convergence's ``_full_frame``:
+    a plan that converges cleanly given ``targets``."""
+    p = Plan(slug="demo", title="Demo", frame_slug=frame_slug)
+    p.targets = list(targets)
+    for tg in targets:
+        t = p.add_task(f"deliver {tg.id}")
+        t.instruction = f"implement {tg.id}"
+        p.add_acceptance(t, f"{tg.id} verified")
+        p.add_cover(t, tg.id)
+    return p
+
+
+def _serialize(res) -> str:
+    """Canonical string form so "converges identically" is checked literally,
+    not just via dataclass ``==`` (which these tests also assert separately)."""
+    return json.dumps(dataclasses.asdict(res), sort_keys=True)
+
+
+_LAPSE_SENTINEL_WHAT = "SENTINEL-PLAN-LAPSE-WHAT-7c1e9b02"
+_LAPSE_SENTINEL_SKIPPED_CHECK = "SENTINEL-PLAN-LAPSE-SKIPPED-CHECK-3fa88d17"
+
+
+def _file_lapse(f: Frame, origin: str, final_status: str):
+    """File one distinctively-worded lapse on ``f``, driving it to
+    ``final_status`` — mirrors test_convergence.py's helper of the same name."""
+    lapse = f.add_lapse(
+        LAPSE_CODES[0],
+        _LAPSE_SENTINEL_WHAT,
+        skipped_check=_LAPSE_SENTINEL_SKIPPED_CHECK,
+        refs=["c1"],
+        origin=origin,
+    )
+    if final_status == "rejected":
+        f.set_lapse_status(lapse.id, "rejected")
+    assert lapse.status == final_status
+    return lapse
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_plan_converges_identically_whether_source_frame_carries_a_lapse_or_not(
+    origin, final_status
+) -> None:
+    """A plan seeded from a lapse-free frame and a plan seeded from an
+    otherwise-identical frame that ALSO carries a filed lapse (in any status)
+    must converge byte-identically — the ledger must never leak into
+    coverage-target derivation or the plan gate."""
+    clean_frame = _frame_with_confirmed_requirement()
+    clean_targets = targets_from_frame(clean_frame)
+    clean_plan = _plan_from_targets(clean_targets, clean_frame.slug)
+    baseline = evaluate(clean_plan)
+    baseline_str = _serialize(baseline)
+
+    lapsy_frame = _frame_with_confirmed_requirement()
+    _file_lapse(lapsy_frame, origin, final_status)
+    lapsy_targets = targets_from_frame(lapsy_frame)
+    lapsy_plan = _plan_from_targets(lapsy_targets, lapsy_frame.slug)
+
+    # Sanity: filing the lapse changed nothing about the derived targets either.
+    assert lapsy_targets == clean_targets
+
+    after = evaluate(lapsy_plan)
+    assert after == baseline
+    assert _serialize(after) == baseline_str
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_plan_convergence_output_stays_lapse_free_on_converged_plan(origin, final_status) -> None:
+    """AC2 on the plan side: the plan gate's blockers/warnings/parked_items/
+    required_next_moves never name a lapse id, code, or filed text, in any
+    lapse status — for a converged plan derived from a lapse-carrying frame."""
+    frame = _frame_with_confirmed_requirement()
+    lapse = _file_lapse(frame, origin, final_status)
+    targets = targets_from_frame(frame)
+    plan = _plan_from_targets(targets, frame.slug)
+
+    res = evaluate(plan)
+    assert res.ready is True  # sanity: this plan genuinely converges
+    haystack = " ".join(res.blockers + res.warnings + res.parked_items + res.required_next_moves)
+    assert lapse.id not in haystack
+    assert lapse.code not in haystack
+    assert _LAPSE_SENTINEL_WHAT not in haystack
+    assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_plan_convergence_output_stays_lapse_free_on_unconverged_plan(origin, final_status) -> None:
+    """AC2, the other half: an INCOMPLETE plan (real coverage blockers present,
+    since nothing covers the target) derived from a lapse-carrying frame must
+    still keep every blocker/warning/parked_item/required_next_move lapse-free."""
+    frame = _frame_with_confirmed_requirement()
+    lapse = _file_lapse(frame, origin, final_status)
+    targets = targets_from_frame(frame)
+    plan = Plan(slug="demo", title="Demo", frame_slug=frame.slug)
+    plan.targets = targets  # uncovered — genuinely unconverged, no tasks at all
+
+    res = evaluate(plan)
+    assert res.ready is False  # sanity: this plan genuinely does not converge
+    haystack = " ".join(res.blockers + res.warnings + res.parked_items + res.required_next_moves)
+    assert lapse.id not in haystack
+    assert lapse.code not in haystack
+    assert _LAPSE_SENTINEL_WHAT not in haystack
+    assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
