@@ -161,7 +161,7 @@ final PR review):
 | `spec-to-plan` | spec → plan (working forwards) | the `devague plan <move>` group |
 | `assign-to-workforce` | plan → parallel implementation | reads `devague plan waves` and `devague plan deliverables` (read-only); `split-plan --write` persists the gate-2 artifact |
 | `deviate` | execution-time — an in-flight fan-out diverges from the confirmed plan | the `devague deviate` move (`--list [--json]`, `--confirm`/`--reject`), backed by the delivery store |
-| `summarize-delivery` | execution → accountability artifact (the delivery-side closure leg) | starts from `devague summary` / `devague deviate --list`; reads plan / git / PR / test evidence (read-only) |
+| `summarize-delivery` | execution → accountability artifact (the delivery-side closure leg) | starts from `devague summary` / `devague deviate --list` / `devague lapse --list`; reads plan / git / PR / test evidence (read-only) |
 
 ### `scope` — idea → explored scope (method-only)
 
@@ -246,7 +246,11 @@ probes) against the exported spec, routes findings through the existing
 deterministic moves (`capture` / `interrogate` / `question` / `park` /
 `devague scope` / `devague plan risk`) as `--origin llm`-proposed content the
 human adjudicates, then reconverges and re-exports the same dated spec file.
-Mandatory but proportional — lightweight for ordinary work, rigorous when an
+If the pass notices its own reasoning degraded while sweeping — not a finding
+about the spec, but the agent's own self-report — it files that the same
+moment via `devague lapse --origin llm` instead (issue #97); adjudication is
+`devague lapse --confirm`/`--reject`, exercised by the same human who already
+owns the spec gate, not a new role. Mandatory but proportional — lightweight for ordinary work, rigorous when an
 escalation signal (migrations, security-sensitive work, distributed state,
 hardware, destructive or hard-to-reverse changes, concurrency hazards, any
 data-loss surface) applies. Not a fourth standing gate: findings are
@@ -312,6 +316,16 @@ verbatim (#70) — so gate 2's go/no-go sees what the plan actually produces, no
 just its task map. Degrades gracefully to a one-line version hint on a
 `devague` too old to have the `deliverables` verb.
 
+**No devague move runs inside a task worktree — not just `devague plan`
+(issue #97).** If a task agent notices its own reasoning degraded (a skipped
+check, an assumption standing in for a real measurement, …), it reports that
+in its transcript rather than filing it; the **main agent** files the record
+after reconciling the worktree (`devague lapse "<what>" --code <code>
+--origin llm`) the same way exploration subagents in `/scope` report rather
+than run a `devague` move themselves (#79/#91). Adjudicating a filed lapse is
+`devague lapse --confirm`/`--reject`, exercised by the same human who owns
+gate 2/3 — no new role.
+
 **The durable gate-2 artifact (`split-plan --write`, new in 0.21.0, #82).**
 The exported spec (`docs/specs/*.md`) and the exported plan
 (`docs/plans/*.md`) both persist; gate 2 previously survived only in
@@ -367,7 +381,11 @@ unchanged, #20). New in 0.17.0. As of 0.18.0 it starts from the
 `devague summary` (optionally `--pr`) skeleton and quotes every approved
 `/deviate` record by its `dN` id as recorded ground truth for Drift From Plan
 and Mid-work Decisions, instead of reconstructing execution-time drift from
-memory.
+memory. It also reads `devague lapse --list` (issue #97): an **approved**
+reasoning-degradation lapse grounds a Delivery Claims confidence level
+honestly instead of letting it default to `high`; a still-**proposed** one is
+pending, not yet evidence; and adjudicating one (`devague lapse --confirm`/
+`--reject`) is the same gate-owning human's job, never this skill's.
 
 - Source:
   [`.claude/skills/summarize-delivery/`](https://github.com/agentculture/devague/blob/main/.claude/skills/summarize-delivery/SKILL.md)

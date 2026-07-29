@@ -119,10 +119,18 @@ directly (if `devague` isn't on your PATH: `uv tool install devague`).
    test suite, the linters, `git log` — to substantiate a claim *before* you
    write it. Verification never mutates code or state. A claim you cannot
    verify stays `unverified`.
-6. **State delivery claims with confidence + evidence.** Each claim carries a
-   confidence level (`high` / `medium` / `low` / `unverified`) and at least one
-   **resolvable** evidence pointer, or an explicit `unverified` marker. A claim
-   without evidence is `unverified` — never asserted as done.
+6. **State delivery claims with confidence + evidence — grounded in the lapse
+   ledger.** Each claim carries a confidence level (`high` / `medium` / `low` /
+   `unverified`) and at least one **resolvable** evidence pointer, or an
+   explicit `unverified` marker. Read `devague lapse --list` first (or the
+   `Lapse ledger evidence:` block `devague summary`'s skeleton already renders
+   under this section — see Method step 1): an **approved** lapse touching a
+   claim — an unverified grader, a below-target sample size, an assumption
+   standing in for a real measurement, or another of `LAPSE_CODES`
+   (`devague/frame.py`) — caps that claim's confidence honestly instead of
+   letting it default to `high`; a still-**proposed** lapse is pending, not
+   yet evidence, and must not be cited as if it already were. A claim without
+   evidence is `unverified` — never asserted as done.
 7. **Name the remaining work.** What is incomplete, deferred, or newly
    discovered — including any failure and its cause.
 8. **Write the artifact and commit it.** Fill the eight-section template into a
@@ -240,6 +248,15 @@ Every Delivery Claims row carries three fields:
   number** that is real, or a **test node id** that ran. "It works" is not
   evidence.
 
+`devague summary`'s skeleton already appends a `Lapse ledger evidence:` block
+beneath the placeholder row whenever the frame has any filed lapses —
+**approved** entries rendered as a small `Lapse | Code | What` table,
+still-**proposed** ones listed as `pending approval (not yet evidence)`, and
+**rejected** ones omitted entirely (`devague/render/summary_md.py`'s
+`_lapse_evidence_lines`). Treat that block as the ledger's contribution to
+this section — read it (or run `devague lapse --list` directly) rather than
+re-deriving by memory which lapses bear on which claim.
+
 ### Drift From Plan — the entry contract
 
 Every Drift From Plan entry names three things:
@@ -288,6 +305,7 @@ it documents is read-only:
 |------|---------------|
 | `devague summary [--pr] [--json]` | The eight-section delivery-summary skeleton (or condensed `--pr` skeleton), pre-filled verbatim from the plan's tasks, its live source frame, and the delivery (deviation) store — the primary planned-work baseline (Method step 1). |
 | `devague deviate --list [--json]` | Every recorded deviation, read back by `dN` id — the source Drift From Plan and Mid-work Decisions quote. Recording or confirming a deviation is `/deviate`'s job, never this skill's. |
+| `devague lapse --list [--json]` | Every filed reasoning-degradation lapse, read back by `lN` id — **approved** entries are the evidence that grounds a Delivery Claims confidence level (Method step 6); **proposed** ones are pending, not yet evidence; **rejected** ones are omitted. Filing a lapse is the agent's job at the moment the degradation is noticed (`/challenge`, `/assign-to-workforce`); confirming or rejecting one is `devague lapse --confirm`/`--reject`, exercised by the gate-owning human — never this skill's. |
 | `devague plan show [--json]` | The plan's tasks, acceptance criteria, dependencies — the hand-assembly fallback when `devague summary` (or the state it needs) is unavailable. |
 | `devague plan waves --json` | The wave batches + per-task `summary` / `instruction` / `acceptance_criteria` / `covers`, keyed by id — the hand-assembly fallback's verbatim planned-work baseline. |
 | `devague scope --list [--json]` | Recorded scope-exploration findings, if the frame carried any. |
@@ -314,12 +332,14 @@ These are the point of the method — a delivery summary must be trustworthy.
   `git log` to substantiate a claim before writing it. Verification **never**
   mutates code or state. A claim you cannot verify stays `unverified`.
 - **No devague state mutation.** The only devague moves this skill uses are the
-  read-only `summary`, `deviate --list`, `plan show`, `plan waves`,
-  `scope --list`, `show`, and `status` (see the table above). `deviate --list`
-  is read-only — recording or confirming a deviation belongs to `/deviate`,
-  never this skill. Never run a mutating devague command, and never run
-  `devague plan` inside a task worktree to "mark a task done" — that is
-  `/assign-to-workforce`'s boundary too (#20).
+  read-only `summary`, `deviate --list`, `lapse --list`, `plan show`,
+  `plan waves`, `scope --list`, `show`, and `status` (see the table above).
+  `deviate --list` and `lapse --list` are both read-only — recording or
+  confirming a deviation belongs to `/deviate`, and filing or adjudicating a
+  lapse (`lapse --confirm`/`--reject`) belongs to whoever filed it and the
+  gate-owning human, never this skill. Never run a mutating devague command,
+  and never run `devague plan` inside a task worktree to "mark a task done" —
+  that is `/assign-to-workforce`'s boundary too (#20).
 - **Account for 100 % of plan tasks.** Every plan task appears in Actual
   Delivery as delivered / partial / dropped / blocked — no silent omissions.
   Both the task count and the claim-evidence coverage are checkable by
