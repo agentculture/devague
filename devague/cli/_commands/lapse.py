@@ -60,7 +60,7 @@ def _record(args: argparse.Namespace, frame) -> int:
             args.what,
             skipped_check=args.skipped_check or "",
             refs=args.refs,
-            origin=args.origin,
+            origin=args.origin or "user",
         )
     except ValueError as exc:
         raise DevagueError(
@@ -131,6 +131,30 @@ def cmd_lapse(args: argparse.Namespace) -> int:
             "list and record are separate moves: run 'devague lapse --list' "
             "or 'devague lapse \"<what>\" --code <code>'",
         )
+    # Record-only flags with no `what` used to fall through to listing, so
+    # `devague lapse --code <code> --skipped "<check>"` exited 0 having filed
+    # nothing (Qodo, PR #101). For a ledger whose premise is that filing is
+    # cheap enough to do mid-flight, a silent no-op is the worst failure
+    # available: the operator believes the degradation is recorded and it is
+    # not. Fail closed, matching the flag/positional-ambiguity precedent (#72).
+    if not args.what:
+        given = [
+            flag
+            for flag, value in (
+                ("--code", args.code),
+                ("--skipped", args.skipped_check),
+                ("--ref", args.refs),
+                ("--origin", args.origin),
+            )
+            if value
+        ]
+        if given:
+            raise DevagueError(
+                EXIT_USER_ERROR,
+                f"{', '.join(given)} given without a positional 'what' to file",
+                'record the lapse in one move: devague lapse "<what>" '
+                "--code <code>, or drop the flags to list",
+            )
     frame = resolve(args.frame)
     if args.confirm:
         return _resolve_status(args, frame, args.confirm, "approved")
@@ -164,7 +188,10 @@ def register(sub: argparse._SubParsersAction) -> None:
         metavar="REF",
         help="A free-text reference this lapse relates to (repeatable, never validated).",
     )
-    p.add_argument("--origin", choices=ORIGINS, default="user", help="Who proposed it.")
+    # default=None (not "user") so an explicitly-passed --origin is
+    # distinguishable from the default — cmd_lapse needs that to tell
+    # record intent from a bare list. _record resolves None to "user".
+    p.add_argument("--origin", choices=ORIGINS, default=None, help="Who proposed it.")
     resolution = p.add_mutually_exclusive_group()
     resolution.add_argument(
         "--confirm", metavar="ID", help="Approve a proposed lapse id (user-only)."

@@ -4,7 +4,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-07-29T16:31:48Z",
-  "updated": "2026-07-29T18:24:59Z",
+  "updated": "2026-07-29T19:15:41Z",
   "claims": [
     {
       "id": "c1",
@@ -571,6 +571,30 @@
       "skipped_check": "run markdownlint-cli2 as part of the merge gate, or check what the gate actually asserts before trusting it",
       "refs": [
         "d1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l3",
+      "code": "grader-unverified",
+      "what": "I reported 'the project isn't registered on SonarCloud, so no quality gate ran' on the strength of one instrument \u2014 agex pr read printed 'Project not on SonarCloud (skipped)'. The cicd status extension, querying SonarCloud directly, shows the gate ran and passed with 0 open issues and 0 hotspots; the sonarqubecloud bot had also posted a passing gate on the same PR",
+      "skipped_check": "cross-check the second Sonar surface the same skill ships (workflow.sh status) before relaying the first one's verdict",
+      "refs": [
+        "d1",
+        "PR 101"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l4",
+      "code": "grader-unverified",
+      "what": "I reported 'Qodo required no fixes' after reading one comment; the actual Code Review \u2014 carrying a real correctness bug \u2014 landed three minutes later. My poll's exit condition matched any qodo comment that was not the 'busy working' placeholder, so it fired on the PR Summary and I treated arrival as completion",
+      "skipped_check": "validate the poll's exit condition against what a completed Qodo review actually looks like, rather than against 'a comment appeared'",
+      "refs": [
+        "PR 101",
+        "l3"
       ],
       "origin": "llm",
       "status": "proposed"

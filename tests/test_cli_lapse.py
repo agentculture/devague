@@ -446,3 +446,78 @@ def test_lapse_deterministic_no_subprocess_or_llm(tmp_path, monkeypatch) -> None
     monkeypatch.setattr(subprocess, "run", _guard)
     main(["lapse", "no subprocess used", "--code", "grader-unverified"])
     assert called["n"] == 0
+
+
+# ── Qodo #101: record flags must never be silently ignored ───────────────────
+# `cmd_lapse` fell through to listing whenever the positional `what` was
+# absent, so `devague lapse --code <code> --skipped "<check>"` exited 0 having
+# filed nothing. For a ledger whose whole premise is "filing is cheap enough
+# to do mid-flight", a silent no-op is the worst available failure: the
+# operator believes the degradation is on record and it is not. Fail closed
+# instead, matching the flag/positional-ambiguity precedent set in PR #72.
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--code", "provenance-missing"],
+        ["--skipped", "the check I skipped"],
+        ["--ref", "s10"],
+        ["--origin", "llm"],
+        ["--code", "provenance-missing", "--skipped", "a check", "--ref", "d1"],
+    ],
+)
+def test_lapse_record_flags_without_what_are_refused(tmp_path, monkeypatch, capsys, flags) -> None:
+    _seed(monkeypatch, tmp_path)
+    rc = main(["lapse", *flags])
+    assert rc != 0
+    err = capsys.readouterr().err
+    assert "without a positional" in err
+    assert "hint:" in err
+    # Nothing was filed — the refusal is not a partial write.
+    assert store.load("sharper-method").lapses == []
+
+
+def test_lapse_record_flags_with_confirm_are_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    main(["lapse", "grading was manual", "--code", "grader-unverified", "--origin", "llm"])
+    capsys.readouterr()
+    rc = main(["lapse", "--confirm", "l1", "--code", "control-absent"])
+    assert rc != 0
+    assert "without a positional" in capsys.readouterr().err
+    # The record kept its own code and stayed proposed — no partial resolution.
+    rec = store.load("sharper-method").lapses[0]
+    assert rec.code == "grader-unverified"
+    assert rec.status == "proposed"
+
+
+def test_lapse_record_flags_with_list_are_refused(tmp_path, monkeypatch, capsys) -> None:
+    _seed(monkeypatch, tmp_path)
+    rc = main(["lapse", "--list", "--code", "provenance-missing"])
+    assert rc != 0
+    assert "without a positional" in capsys.readouterr().err
+
+
+def test_lapse_bare_and_explicit_list_still_work_after_the_guard(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """The guard keys off record-intent flags, never off `--list` alone."""
+    _seed(monkeypatch, tmp_path)
+    assert main(["lapse"]) == 0
+    assert "no lapses filed yet" in capsys.readouterr().out
+    assert main(["lapse", "--list"]) == 0
+    assert "no lapses filed yet" in capsys.readouterr().out
+    assert main(["lapse", "--list", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["lapses"] == []
+
+
+def test_lapse_origin_still_defaults_to_user_when_what_is_given(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Detecting an explicit --origin must not change the default it resolves to."""
+    _seed(monkeypatch, tmp_path)
+    main(["lapse", "a lapse", "--code", "control-absent"])
+    capsys.readouterr()
+    rec = store.load("sharper-method").lapses[0]
+    assert rec.origin == "user"
+    assert rec.status == "approved"
