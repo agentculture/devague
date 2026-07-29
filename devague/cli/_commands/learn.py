@@ -52,6 +52,12 @@ MOVES = {
     "status": "Report where the frame stands + the recommended next move (read-only).",
     "show": "Render the Announcement Frame.",
     "list": "List frames.",
+    "lapse": (
+        "File a reasoning-degradation lapse against the current frame "
+        "('lapse \"<what>\" --code <code>', --origin llm lands proposed); "
+        "'--confirm/--reject <lN>' resolves a proposed one (user-only); "
+        "'--list [--json]' shows every filed lapse."
+    ),
 }
 
 FIRST_QUESTION = "What's the announcement?"

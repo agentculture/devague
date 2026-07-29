@@ -1,0 +1,21 @@
+{
+  "plan_slug": "reasoning-degradation-ledger",
+  "schema_version": 1,
+  "created": "2026-07-29T18:22:32Z",
+  "updated": "2026-07-29T18:22:32Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "the split-plan --write path escapes verbatim task text before writing markdown",
+      "task_ref": "t5",
+      "reason": "the committed gate-2 artifact failed the repo's own markdownlint: cli/__init__.py in t2's instruction rendered as strong-emphasis (MD050 x2, MD037 x1). No plan task covers the split-plan script, and CI does not lint markdown, so nothing would have caught it before review. Approved by the user mid-run.",
+      "affects": [
+        "t5",
+        "c19"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable"
+    }
+  ]
+}

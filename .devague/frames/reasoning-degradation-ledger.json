@@ -1,0 +1,603 @@
+{
+  "slug": "reasoning-degradation-ledger",
+  "title": "reasoning-degradation ledger",
+  "schema_version": 5,
+  "status": "exported",
+  "created": "2026-07-29T16:31:48Z",
+  "updated": "2026-07-29T19:15:41Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "devague gains a deterministic move that records degradations of the reasoning process \u2014 moments where an assumption was silently substituted for a check \u2014 as first-class append-only ledger entries filed when they happen: the reasoning-side twin of deviate, never gating convergence",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "filing an entry is one deterministic CLI call \u2014 no LLM, no subprocess \u2014 and converge output is byte-identical before and after filing, pinned by a test",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q1",
+          "text": "where does the ledger attach: the existing delivery store (zero new engine, but keyed 1:1 by plan slug \u2014 unreachable before a plan exists, resolve_plan fails closed with `no plan selected`), frame state, plan state, or a frame-keyed fourth store? the issue evidence arose at execution time, but its codes can arise during think and challenge too",
+          "resolved": true,
+          "blocking": true,
+          "resolution": "frame-level list, like scope_entries: reachable from devague new through execution; entries may free-text-ref plan tasks the way the deviate affects field does; no new store"
+        },
+        {
+          "id": "q2",
+          "text": "what is the verb named? `ledger` collides semantically with the established delivery-ledger vocabulary across contested.py, delivery_store.py, and deviate.py; `degrade` collides with the fail-open error-handling idiom in 8 files; `lapse` and `erode` are unused; the record id prefix must avoid c, h, q, v, s, t, r, and d",
+          "resolved": true,
+          "blocking": true,
+          "resolution": "the verb is lapse; record ids are lN"
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "the move reuses the deviate chassis: prefix-generic id minting (`Delivery._next`, devague/delivery.py:63-72), origin-driven initial status (llm-origin lands proposed, delivery.py:85), fail-closed enum validation in `__post_init__`, and append-only records with no delete path",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "the new record type reuses `_next`, origin-driven initial status, and fail-closed `__post_init__` validation rather than re-implementing them \u2014 checked in review of the shipping diff",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q3",
+          "text": "does filing require human approval before recording, as deviate mandates (a user-origin record IS the approval, deviate/SKILL.md:97-100), or is the agent self-report recorded without approval as issue 97 proposes (the agent decides when it degraded; the CLI records it deterministically)? the load-bearing feature of the deviate template is exactly what the proposal drops",
+          "resolved": true,
+          "blocking": true,
+          "resolution": "file free, adjudicate later: llm-origin entries land proposed and never block; the human adjudicates in bulk at summarize-delivery time; only approved entries are citable as confidence evidence"
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c3",
+      "kind": "non_goal",
+      "text": "the ledger never gates: no participation in blockers, warnings, or parked_items \u2014 both convergence gates iterate hand-written allowlists (frame.claims and frame.open_vagueness in convergence.py; plan.tasks and plan.risks in plan_convergence.py), so a new list field is invisible to them by default, the scope_entries precedent",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "devague summary consumes approved ledger entries as evidence for the Delivery Claims confidence column, following the Mid-work Decisions and Drift From Plan render pattern (render/summary_md.py:205-244); the high/medium/low/unverified vocabulary lives only in the summarize-delivery skill today, not in code",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "devague summary renders approved entries only; proposed entries render as visibly pending (mirroring the deviation pattern); a missing ledger degrades to the existing empty-state line, never an error",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c5",
+      "kind": "requirement",
+      "text": "the closed move enumerations in the producer and consumer skills are amended to name the new move: the challenge routing rule (findings route through existing deterministic moves only \u2014 nothing else, challenge/SKILL.md:204-208) has no row shaped like a degradation that already happened, and the summarize-delivery read-only move table (SKILL.md:282-296) is likewise closed",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "the challenge and summarize-delivery closed move enumerations name the new move in the same PR that ships the verb \u2014 no doc-drift window",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c6",
+      "kind": "boundary",
+      "text": "fan-out subagents never file ledger entries \u2014 only the main agent runs devague moves; a degradation noticed inside a task worktree is reported in the task-agent transcript and recorded by the main agent (assign-to-workforce SKILL.md:320-322 currently forbids only `devague plan` commands by name)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "assign-to-workforce SKILL.md generalizes its worktree prohibition to name the new verb, not just `devague plan` commands",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "the move lands in the MOVES dict in learn.py (today only 15 entries \u2014 deviate, summary, and plan are already absent, so `devague explain deviate` fails), the per-move contract tables in docs/spec-contract.md, README.md, and docs/skills.md, plus a CHANGELOG entry and the CI-enforced version bump",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "`devague explain <verb>` works for the new verb in the shipping PR \u2014 the MOVES dict entry is test-pinned \u2014 and the pre-existing deviate/summary/plan explain gap is filed as its own issue",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c8",
+      "kind": "assumption",
+      "text": "degradation codes ship as a closed enum validated fail-closed at construction, like every existing kind vocabulary (CLAIM_KINDS, VAGUENESS_KINDS, and CLASSIFICATIONS \u2014 the nearest precedent: an optional single code per record, delivery.py:32); the six codes in issue 97 are the starting set, not the contract",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [
+        {
+          "id": "q4",
+          "text": "how does the spec distinguish covered from reachable for each code (embodiment#18: a code nobody ever files reads as a category nobody ever hit) \u2014 does each shipped code need a named producer moment in a skill, or a dogfood report before the vocabulary freezes?",
+          "resolved": false,
+          "blocking": false,
+          "resolution": ""
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c9",
+      "kind": "audience",
+      "text": "operators \u2014 the main agent driving the CLI mid-run \u2014 plus the humans who own gate 2 and the final PR, and downstream method consumers (embodiment) whose delivery summaries cite ledger entries as confidence evidence",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "no new human workflow is introduced: the same humans who own gate 2 and the final PR adjudicate ledger entries, inside gates that already exist",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c10",
+      "kind": "after_state",
+      "text": "a degradation is filed in seconds at the moment an assumption substitutes for a check; the delivery summary confidence column cites entry ids instead of end-of-run memory, and recovering a transition no longer costs hours of reading raw data afterwards",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "in the dogfood cycle no single filing costs the operator more than a minute \u2014 otherwise the cheap-enough-to-use-mid-flight premise is false",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c11",
+      "kind": "before_state",
+      "text": "corrections records are reconstructed at the end, from memory, shaped by how the story turned out \u2014 in the embodiment cycle four graders failed, every one found by reading data afterwards, none by a test failing, and one nearly shipped a false safety claim",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "the embodiment corrections record and its four grader failures are real committed artifacts quoted in issue 97, not a reconstruction made for this spec",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c12",
+      "kind": "why_it_matters",
+      "text": "written late is written flattering: a ledger entry at the moment of the transition costs seconds, recovering it afterwards costs hours \u2014 so the recording move must be cheap enough that filing mid-flight actually happens",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "at least one transition in the embodiment cycle was recoverable only because raw data happened to be committed \u2014 the near-miss is documented, not anecdotal",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c13",
+      "kind": "success_signal",
+      "text": "in >= 1 dogfooded embodiment cycle, every degradation entry is filed mid-flight (0 reconstructed in the retrospective) and 0 codes ship without a named producer moment \u2014 codes with zero filings are dropped before the vocabulary freezes",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "a code with zero filings after the dogfood cycle is actually removed from the enum, not kept as documentation \u2014 covered is distinguished from reachable",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c14",
+      "kind": "decision",
+      "text": "the ledger attaches to the Frame as a new list of lapse records \u2014 the scope_entries pattern: reachable from `devague new` through execution, rendered but never gating; entries may free-text-ref plan tasks (tN) the way the deviate affects field does; no new store, no new engine",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c15",
+      "kind": "decision",
+      "text": "filing is friction-free: the agent files a lapse immediately at the moment of the transition; llm-origin entries land proposed and never block anything; the human adjudicates in bulk at summarize-delivery time, and only approved entries are citable as confidence evidence in the Delivery Claims table",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c16",
+      "kind": "decision",
+      "text": "the verb is `lapse` (noun and verb, like park and deviate); record ids are `lN`; the degrade and ledger names were rejected for collisions with the fail-open error-handling idiom and the delivery-ledger vocabulary",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c17",
+      "kind": "requirement",
+      "text": "adding the lapses list bumps SCHEMA_VERSION 4 to 5: without the bump an older installed binary loads a lapse-bearing frame tolerantly and its next save silently drops every filed lapse (save re-stamps the current version and to_dict writes only known fields) \u2014 the scope_entries v2 precedent; the fail-closed version check is what turns silent data loss into a version hint",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "a v4-reading binary pointed at a v5 frame fails closed with the version hint instead of silently dropping lapse records on save \u2014 pinned by a reject-newer store test",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c18",
+      "kind": "requirement",
+      "text": "adjudication is on the verb, mirroring deviate: `devague lapse --confirm <lN>` / `--reject <lN>` (confirm and reject keep taking only c* and h* ids); statuses are proposed/approved/rejected, and a user-origin filing lands approved immediately \u2014 the deviate origin contract",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "an llm-origin lapse never becomes citable without a human --confirm; devague summary renders it as visibly pending until then \u2014 no path upgrades it automatically",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c19",
+      "kind": "requirement",
+      "text": "lapses render in devague show (frame_md) and the delivery summary; the exported spec-md never grows a lapse section \u2014 export overwrites the same dated file, so execution-time lapses would rewrite the what-to-build artifact on re-export; the contested-marker philosophy applies: process history points forward, the spec is not rewritten",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h14",
+          "text": "re-exporting the spec after filing lapses produces a byte-identical spec-md \u2014 pinned by a test that files a lapse and diffs the export",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c20",
+      "kind": "boundary",
+      "text": "lapse records are append-only in the strong sense: no amend and no delete \u2014 unlike scope entries, which amend in place with no trail; a wrong lapse is rejected and refiled, because an editable lapse re-enables written-late-is-written-flattering",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h15",
+          "text": "no CLI path mutates a lapse record after filing except the status transition \u2014 pinned by the argument surface (no amend flag) and a test",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c21",
+      "kind": "requirement",
+      "text": "code validation is fail-closed at filing time but tolerant at load time: retiring a dead code after the dogfood cycle must never brick an existing frame \u2014 probe-confirmed: an unknown kind raises ValueError at construction, and from_dict constructs at load, so a closed load-time enum would refuse to load any frame that ever filed the retired code",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h16",
+          "text": "a frame holding a lapse with a retired code still loads and renders after the code leaves the filing enum \u2014 pinned by a test that files, retires, reloads",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c22",
+      "kind": "assumption",
+      "text": "lapse refs are free text and never validated \u2014 the deviate comparison in decision c14 is imprecise: deviate validates id-shaped affects refs against the plan and its live frame (deviate.py:78-113), which a frame-side lapse cannot do for tN refs before a plan exists; the record is testimony, not a join",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "embodiment offers to dogfood a prototype and report back real entry counts and which degradation codes turned out dead \u2014 the closing offer in issue 97",
+      "kind": "follow_up",
+      "claim_id": "c8",
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v2",
+      "text": "whether id-shaped lapse refs later deserve a contested-style join into plan and summary renders \u2014 deferred until dogfood shows refs are actually filed",
+      "kind": "follow_up",
+      "claim_id": "c22",
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    }
+  ],
+  "scope_entries": [
+    {
+      "id": "s1",
+      "surface": "agentculture/devague#97 (issue body)",
+      "finding": "the evidence base: a 21-task, 7-wave embodiment run whose corrections record was reconstructed from memory at the end; four graders failed, all caught by reading data afterwards, none by a test failing; three explicit non-asks \u2014 not a gate, no new engine if a move on existing state suffices, no automation",
+      "seeds": [
+        "c1"
+      ]
+    },
+    {
+      "id": "s2",
+      "surface": "devague/delivery.py + delivery_store.py + cli/_commands/deviate.py",
+      "finding": "DeviationRecord is the direct template (append-only, origin-driven status, fail-closed enums, prefix-generic `_next`); but the store is keyed 1:1 by plan slug and every entry point resolves a plan first, failing closed with `no plan selected` \u2014 pre-plan degradations have nowhere to land without generalizing the keying",
+      "seeds": [
+        "c2",
+        "q1"
+      ]
+    },
+    {
+      "id": "s3",
+      "surface": "devague/frame.py + plan.py + store.py + plan_store.py + docs/spec-contract.md",
+      "finding": "id prefixes c, h, q, v, s, t, r, d are taken (per-list prefix-generic `_next`); a new optional list field loads tolerantly without a schema bump (the `Claim.revisions` precedent) though new top-level lists have bumped by convention (`scope_entries`, v2); every kind vocabulary is a closed enum validated in `__post_init__` \u2014 no free-string kinds exist",
+      "seeds": [
+        "c8",
+        "q2"
+      ]
+    },
+    {
+      "id": "s4",
+      "surface": "devague/convergence.py + plan_convergence.py",
+      "finding": "both gates are hand-written allowlists over named fields \u2014 frame.claims and frame.open_vagueness, plan.tasks and plan.risks, nothing else; scope_entries appears nowhere in convergence.py (grep-confirmed) \u2014 the shipped precedent that a new list field is recorded, visible in renders, and never gates by default",
+      "seeds": [
+        "c3"
+      ]
+    },
+    {
+      "id": "s5",
+      "surface": "devague/render/summary_md.py + _md_safety.py + cli/_commands/summary.py",
+      "finding": "the Delivery Claims section renders a bare `<fill: confidence>` placeholder \u2014 the high/medium/low/unverified vocabulary exists only in summarize-delivery SKILL.md, not in code; approved deviations render in exactly two sections (Mid-work Decisions, Drift From Plan); a new verbatim render site needs `md_safe_text` plus table-cell escaping",
+      "seeds": [
+        "c4"
+      ]
+    },
+    {
+      "id": "s6",
+      "surface": ".claude/skills/{challenge,deviate,summarize-delivery,assign-to-workforce}/SKILL.md",
+      "finding": "the deviate method gates the recording itself behind explicit human approval (the one non-negotiable step); the challenge routing table has no row for a degradation that already happened and its hard rule is a closed nothing-else enumeration; the summarize-delivery read-only move table is likewise closed; assign-to-workforce forbids subagents only `devague plan` commands by name",
+      "seeds": [
+        "c5",
+        "c6",
+        "q3"
+      ]
+    },
+    {
+      "id": "s7",
+      "surface": "devague/cli/__init__.py + cli/_commands/learn.py + README.md + docs/skills.md",
+      "finding": "a new verb is one `_commands/` module exposing register() plus two lines in `_build_parser` (cli/__init__.py:73-127); the MOVES dict in learn.py holds only 15 of 20 verbs \u2014 deviate, summary, and plan are absent, so `devague explain deviate` fails today, a live gap the new move must not repeat; version-check CI blocks merge without a pyproject bump",
+      "seeds": [
+        "c7",
+        "q2"
+      ]
+    },
+    {
+      "id": "s8",
+      "surface": "challenge pass / adjacent-systems lens: devague/store.py + frame.py tolerant load",
+      "finding": "an older binary loads a frame carrying an unknown list tolerantly and re-saves without it \u2014 silent loss of filed lapses unless SCHEMA_VERSION bumps; scope_entries shipped with the v2 bump for exactly this reason",
+      "seeds": [
+        "c17"
+      ]
+    },
+    {
+      "id": "s9",
+      "surface": "challenge pass / failure-mode lens: frame.py `__post_init__` validation at load (probe)",
+      "finding": "probe: a Claim with kind bogus-kind raises ValueError at construction; from_dict constructs at load \u2014 so retiring a lapse code from a closed enum bricks loading of frames that filed it; write-closed load-tolerant validation is what makes the h11 dead-code removal safe",
+      "seeds": [
+        "c21"
+      ]
+    },
+    {
+      "id": "s10",
+      "surface": "challenge pass / lifecycle lens: export overwrite semantics (spec_md, frame_md, summary_md)",
+      "finding": "the spec left render placement undefined while export overwrites the same dated file \u2014 execution-time lapses would rewrite the spec artifact on re-export unless spec_md deliberately excludes the ledger",
+      "seeds": [
+        "c19"
+      ]
+    },
+    {
+      "id": "s11",
+      "surface": "challenge pass / unstated-assumptions lens: the adjudication surface",
+      "finding": "decision c15 says adjudicate in bulk but names no move \u2014 confirm and reject take c* and h* ids only today; the deviate precedent is confirm and reject flags on the verb itself",
+      "seeds": [
+        "c18"
+      ]
+    },
+    {
+      "id": "s12",
+      "surface": "challenge pass / data-flow lens: deviate.py `_validate_refs` vs frame-side refs",
+      "finding": "the deviate affects field validates id-shaped refs against plan tasks, coverage targets, and the live source frame \u2014 a frame-side lapse cannot validate tN refs before a plan exists, so the free-text-ref language in decision c14 is imprecise as written",
+      "seeds": [
+        "c22"
+      ]
+    },
+    {
+      "id": "s13",
+      "surface": "challenge pass / reversibility lens: deviate append-only vs scope --amend",
+      "finding": "two correction idioms coexist: deviate corrects by append (no amend move), scope amends in place (no trail) \u2014 the lapse ledger must pick append-only or the written-late-is-written-flattering rationale collapses",
+      "seeds": [
+        "c20"
+      ]
+    },
+    {
+      "id": "s14",
+      "surface": "challenge pass / concurrency lens: single-writer CLI + worktree fan-out",
+      "finding": "clean \u2014 only the main agent at the repo root mutates .devague state (boundary c6), no locking exists today; residual risk confined to two operators sharing one checkout, which no current flow does",
+      "seeds": []
+    }
+  ],
+  "lapses": [
+    {
+      "id": "l1",
+      "code": "provenance-missing",
+      "what": "the challenge pass concluded markdown-safety was handled after reading only the three CLI renderers (spec_md, frame_md, summary_md); it never read assign-to-workforce.sh, which also writes committed markdown and had never ported md_safe_text",
+      "skipped_check": "grep the repo for every writer of committed .md, not just the render/ package",
+      "refs": [
+        "s10",
+        "d1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l2",
+      "code": "grader-unverified",
+      "what": "the per-task TDD merge gate ran pytest and flake8 and I read green as 'the artifacts are clean' \u2014 the gate never ran markdownlint at any point, so it could not have caught the broken split artifact it was implicitly trusted to catch",
+      "skipped_check": "run markdownlint-cli2 as part of the merge gate, or check what the gate actually asserts before trusting it",
+      "refs": [
+        "d1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l3",
+      "code": "grader-unverified",
+      "what": "I reported 'the project isn't registered on SonarCloud, so no quality gate ran' on the strength of one instrument \u2014 agex pr read printed 'Project not on SonarCloud (skipped)'. The cicd status extension, querying SonarCloud directly, shows the gate ran and passed with 0 open issues and 0 hotspots; the sonarqubecloud bot had also posted a passing gate on the same PR",
+      "skipped_check": "cross-check the second Sonar surface the same skill ships (workflow.sh status) before relaying the first one's verdict",
+      "refs": [
+        "d1",
+        "PR 101"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l4",
+      "code": "grader-unverified",
+      "what": "I reported 'Qodo required no fixes' after reading one comment; the actual Code Review \u2014 carrying a real correctness bug \u2014 landed three minutes later. My poll's exit condition matched any qodo comment that was not the 'busy working' placeholder, so it fired on the PR Summary and I treated arrival as completion",
+      "skipped_check": "validate the poll's exit condition against what a completed Qodo review actually looks like, rather than against 'a comment appeared'",
+      "refs": [
+        "PR 101",
+        "l3"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    }
+  ]
+}

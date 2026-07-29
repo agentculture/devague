@@ -268,6 +268,18 @@ def _seed_label(frame: Frame, seed_id: str) -> str:
     return f"`{seed_id}`"
 
 
+def _surface_span(surface: str) -> str:
+    """Wrap a scope surface in one code span — unless it already carries one.
+
+    A surface containing a backtick cannot be blindly wrapped (the nested
+    spans render broken and trip MD038); it routes through ``_safe`` instead,
+    which passes its embedded code spans through untouched.
+    """
+    if "`" in surface:
+        return _safe(surface)
+    return f"`{surface}`"
+
+
 def _scope_section(frame: Frame) -> list[str]:
     """Scope-exploration provenance: each recorded surface + finding, with the
     claim ids it seeded — citing what was actually explored, not a generic
@@ -277,7 +289,7 @@ def _scope_section(frame: Frame) -> list[str]:
         return []
     out = ["## Scope exploration", ""]
     for e in frame.scope_entries:
-        out.append(f"- `{e.id}` — `{e.surface}`: {_safe(e.finding)}")
+        out.append(f"- `{e.id}` — {_surface_span(e.surface)}: {_safe(e.finding)}")
         if e.seeds:
             out.append(f"  - seeds: {', '.join(_seed_label(frame, s) for s in e.seeds)}")
     return out + [""]

@@ -132,7 +132,11 @@ through these structured lenses (from issue 73):
 4. **Route every finding through an existing move.** Use the routing table
    below. Everything the agent proposes carries `--origin llm` and lands
    `proposed` — the pass cannot silently convert speculation into confirmed
-   requirements.
+   requirements. If the pass itself notices its own reasoning degraded while
+   sweeping — a skipped check, an assumption standing in for a real
+   measurement — that is not a finding about the spec; self-report it the same
+   moment via `devague lapse --origin llm` (the routing table's last row,
+   issue #97).
 5. **Let the human adjudicate.** `devague review` lists every proposal with
    ids; `devague confirm` / `devague reject` / `devague question --resolve`
    are user-only decisions. This is the existing spec gate doing its job.
@@ -160,6 +164,21 @@ move to land in:
 | unexamined surfaces | what this pass did not (or could not) look at | `devague scope "<surface>" --finding "<what was and wasn't examined, and why>"` |
 | residual surprise risk | uncertainty that survives the pass | `park` on the frame while speccing; `devague plan risk --kind <kind>` once the plan exists |
 | resilience measures | containment, rollback, recovery the surprise cost demands | spec-side `capture --kind requirement` / `--kind boundary`; plan-side `devague plan risk` (see below) |
+| reasoning degradation *(not one of issue 73's six — the pass's own self-report, not a spec finding)* | a shortcut, skipped check, or degraded reasoning the pass itself made while sweeping | `devague lapse "<what>" --code <code> [--skipped "<check>"] [--ref <lens/surface>] --origin llm` |
+
+Every row above except the last lands **proposed content about the spec** —
+a claim, a question, a park, a scope finding — that the human adjudicates
+through the spec gate. The `lapse` row is different in kind: it is not a
+finding about the spec at all but the agent's own self-report that its
+reasoning degraded while running the pass — an assumption stood in for a real
+measurement, a check the pass meant to run was skipped, an unverified
+grader, missing provenance, and the other codes in `devague/frame.py`'s
+`LAPSE_CODES` (issue #97). It still carries `--origin llm` and lands
+`proposed` — the same anti-fabrication discipline as every other row — but it
+is filed the instant the degradation is noticed rather than batched with the
+sweep's other findings, and it is adjudicated later via `devague lapse
+--confirm`/`--reject`, exercised by the same human who already owns this
+leg's gate — never a new gate or role.
 
 Every finding names the **lens and surface** it came from (the
 `challenge pass / <lens>: <surface>` convention in scope entries; provenance
@@ -201,11 +220,12 @@ blocking risks visible until resolved.
   finding the agent proposes carries `--origin llm` and lands `proposed`;
   only the user's `confirm` makes it real. The pass must not be able to
   silently convert speculation into confirmed requirements.
-- **Findings route through existing deterministic moves only.** `capture`,
-  `interrogate`, `question`, `park`, `devague scope`, `devague plan risk` —
-  nothing else. No parallel prose artifact, no new CLI verb, engine, or
-  state model (issue 20; issue 73's stated preference). If it didn't land in
-  a move, it didn't land.
+- **Findings — and the pass's own reasoning self-reports — route through
+  existing deterministic moves only.** `capture`, `interrogate`, `question`,
+  `park`, `devague scope`, `devague plan risk`, `devague lapse` — nothing
+  else. No parallel prose artifact, no new CLI verb, engine, or state model
+  (issue 20; issue 73's stated preference; issue #97 for the lapse ledger).
+  If it didn't land in a move, it didn't land.
 - **Provenance on every finding.** Name the lens and the surface it came
   from. If you didn't read it, don't claim it — same bar as `/scope`.
 - **Proportional, never skipped.** Lightweight is the floor, not an

@@ -20,7 +20,7 @@ see [`llm-guidance.md`](llm-guidance.md) (also surfaced in `devague learn`).
 
 ## Versioning
 
-Every frame carries an integer `schema_version` (currently `4`). It is written
+Every frame carries an integer `schema_version` (currently `5`). It is written
 on save and checked on load: a frame whose `schema_version` is newer than this
 devague supports is rejected, fail-closed, with an actionable error. A 0.4.0
 frame predates the field and loads as the current schema, so existing frames
@@ -34,6 +34,18 @@ does not recognise a key yet, instead of the intended fail-closed
 `HardQuestion` / `Vagueness` loading is tolerant of unknown keys rather than
 splatting the raw dict. The plan store carries the identical guard.
 
+> **v5 (issue #97 t1).** Bumped to add `Frame.lapses` and the `LapseRecord`
+> entity — the Reasoning Degradation Ledger (see *LapseRecord* under
+> Entities). Unlike the `Claim.revisions` addition just below (deliberately
+> shipped *without* a bump, since a missing list defaults tolerantly to
+> `[]`), this one is a hard requirement: `save()` re-stamps `schema_version`
+> and `to_dict` only serializes known dataclass fields, so an older
+> v4-labeled binary that loads a v5 frame and re-saves it would silently
+> drop every filed lapse — the same failure mode the `scope_entries` v2 bump
+> exists to prevent (c17/h12). A v4 frame predates the field entirely; it
+> loads with `lapses` defaulted to `[]` — an empty ledger, never a
+> fabricated one.
+>
 > **v4 (issue-backlog-sweep t4/t6).** Bumped to add `HardQuestion.resolution`
 > (#48/#52) and `Claim.revisions` (#84) — see *HardQuestion* and *Claim* under
 > Entities. A v3 frame predates both: it loads with `resolution` defaulted to
@@ -72,6 +84,8 @@ A feature-framing workspace.
 - `claims` — list of Claim.
 - `open_vagueness` — list of Vagueness.
 - `scope_entries` — list of ScopeEntry (v2, #53 t1; see below).
+- `lapses` — list of LapseRecord — the Reasoning Degradation Ledger (v5, issue
+  #97 t1; see below).
 
 ### Claim
 
@@ -190,6 +204,79 @@ A seed that cites a **rejected** claim renders with a `(rejected)` marker in
 the exported spec rather than as a bare dead reference, and a `q*` seed
 renders as `(question)` — or `(question, resolved)` once answered (#84).
 
+### LapseRecord
+
+A filed reasoning-degradation lapse — the **Reasoning Degradation Ledger**
+(issue #97), the reasoning-side twin of a deviation record. Lives on the
+frame as `Frame.lapses` (v5, #97 t1), not a separate store: a lapse is about
+how the frame itself was reasoned through — an assumption silently
+substituted for a check — not about execution against a confirmed plan, so
+it has to be reachable before a plan exists. It deliberately mirrors
+`DeviationRecord` (see *The delivery peer* below) in shape: prefix-generic
+id minting, origin-driven initial status, append-only with no delete path.
+
+- `id` — `l1`, `l2`, …
+- `code` — which degradation shape this instance is; one of `LAPSE_CODES`,
+  the starting vocabulary: `assumption-for-measurement`,
+  `grader-unverified`, `control-absent`, `n-below-claim`,
+  `instrument-changed-mid-series`, `provenance-missing`.
+- `what` — what lapsed, verbatim.
+- `skipped_check` — what check should have caught this but didn't; `""`
+  means none.
+- `refs` — free-text references this lapse relates to (task ids, claim ids,
+  prose, or nothing). Stored verbatim and **never validated** — unlike
+  `ScopeEntry.seeds`. A deviation's `--affects` can validate id-shaped refs
+  against a plan and its live frame; a frame-side lapse has no plan to
+  validate against (one may not exist yet), and demanding a resolvable id
+  would let a filer dodge filing when they can't, or shouldn't, cite one
+  precisely — the ledger records what was skipped, as testimony, not a join.
+- `origin` — `user` | `llm` (who filed it).
+- `status` — `proposed` | `approved` | `rejected`.
+
+**`code` validates fail-closed at the filing path, not in `__post_init__` —
+a deliberate exception to how every other vocabulary in this document
+behaves.** `kind`, `origin`, `status`, and vagueness `kind` all validate in
+their dataclass's `__post_init__`, which also runs at *load* time
+(`from_dict` constructs each dataclass directly); that is the right rule for
+a vocabulary that never retires, but the wrong rule for lapse codes, whose
+whole premise is that dogfooding surfaces new degradation shapes over time.
+`Frame.add_lapse` — the filing path — is the only place `code` is checked
+against `LAPSE_CODES`; `LapseRecord.__post_init__` and `from_dict` load it
+unchecked, so retiring a code after a dogfood cycle never bricks a frame
+that already filed it. `status` and `origin` still validate in
+`__post_init__` — they never retire.
+
+A user-authored lapse (the default) **auto-approves**, landing directly as
+`approved` — filing is meant to be friction-free enough that it actually
+happens mid-flight, and a user-authored record already carries the human's
+own attention. An `llm`-authored lapse (`--origin llm`) lands `proposed` and
+needs an explicit user `--confirm`/`--reject` (`devague lapse --confirm <lN>`
+/ `--reject <lN>`) — the same anti-fabrication rule as claims, tasks, and
+deviation records; only `Frame.set_lapse_status` can move it, and only from
+`proposed`. Only an `approved` lapse is ever citable as confidence evidence
+(`render/summary_md.py`); a `proposed` one renders only as a visibly pending
+id, and a `rejected` one is omitted entirely.
+
+The ledger is **append-only in the strong sense**: there is no amend and no
+delete API — `set_lapse_status` is the only mutator a filed lapse ever gets.
+A wrong lapse is rejected and refiled, never edited in place. This is
+deliberately unlike `scope --amend`, which corrects a scope finding's text
+in place with no trail: an editable lapse would re-enable exactly the
+written-late-is-written-flattering failure the ledger exists to prevent.
+
+The ledger never gates: no convergence blocker, warning, or parked item ever
+names a lapse, on either the frame or the plan side (issue #97 t4; pinned by
+`tests/test_convergence.py` and `tests/test_plan_convergence.py`) — the same
+`scope_entries` precedent, since both convergence gates iterate hand-written
+allowlists over named fields and a new list is invisible to them by
+default. It renders in `devague show` (every lapse, any status) and in
+`devague summary`'s Delivery Claims evidence; the exported spec-md never
+grows a lapse section at all — `export` overwrites the same dated file on
+every re-export, so an execution-time lapse rendering there would rewrite
+the what-to-build artifact rather than record process history (the same
+principle behind *Contested claims* below: process history points forward,
+the spec is not rewritten).
+
 ## Vocabulary
 
 ### Claim kinds
@@ -281,6 +368,11 @@ A frame converges when there are confirmed `announcement` / `audience` /
 and no unresolved blocking vagueness or unresolved blocking hard question on a
 non-rejected claim. `export` is gated on `ready_for_spec`.
 
+The Reasoning Degradation Ledger (`Frame.lapses`, see *LapseRecord* above)
+never appears in any of the four lists above, in any status, on either
+engine — no blocker, warning, or parked item ever names a lapse (issue #97
+t4; pinned by `tests/test_convergence.py` and `tests/test_plan_convergence.py`).
+
 ### Structural sharpness warnings (soft rollout)
 
 Two more deterministic warnings tighten the frame gate without changing what
@@ -318,6 +410,9 @@ the exit code is non-zero and `stderr` carries a `hint:` line.
 | `confirm <id> [<id>…]` / `reject <id> [<id>…]` | claim or honesty ids | `{confirmed, rejected, cascaded}` | the **only** path to `confirmed` / `rejected` — user-only, transactional; rejecting a claim cascades onto its still-live honesty conditions and unresolved hard questions (`cascaded`, echoed as `(also rejected: h3, q1)`, #83) |
 | `park "<text>" --kind K` | text, vagueness kind | `{id, kind}` | adds first-class open vagueness |
 | `park --resolve VID --decision "<text>" [--claim CN]` | vagueness id, decision text, optional deciding claim id | `{id, resolved, resolution, resolution_claim_id}` | closes out a parked item (v3, resolve-parked-vagueness t5) — the **only** path to `Vagueness.resolved`; user-only, mirrors `question --resolve` |
+| `lapse "<what>" --code K [--skipped "<check>"] [--ref <text> …] [--origin]` | what, code, skipped-check text, refs, origin | `{id, code, what, skipped_check, refs, origin, status}` | appends a LapseRecord to the Reasoning Degradation Ledger (v5, issue #97 t1/t2); `llm` → `proposed`, else auto-`approved` — never gates convergence |
+| `lapse --confirm <lN>` / `lapse --reject <lN>` | lapse id | `{id, status}` | the only path to `approved` / `rejected` — user-only; mutually exclusive with each other; refused unless the record is currently `proposed` |
+| `lapse --list [--json]` / bare `lapse` | — | `{frame, lapses: […]}` | none (default action) |
 | `converge` | — | the convergence result | promotes/demotes frame `status` |
 | `export [--format spec-md]` | — | `{path, format}` | writes the spec; requires `ready_for_spec` |
 | `show` / `list` | — | frame dict / slug list | none |
@@ -334,7 +429,11 @@ id, an unknown or wrong-claim hard-question id, or an already-resolved
 question on `interrogate --resolve`, and `--resolve` combined with any
 add-flag; an unknown `--seeds` id on `scope` (resolving to neither a claim nor
 a claim-attached hard question); an unknown entry id or a missing `--finding`
-on `scope --amend`; an invalid `--frame` slug; a missing frame;
+on `scope --amend`; a missing `--code` on `lapse`, or an unknown `--code`
+(rejected at the filing path, never at load — see *LapseRecord* above);
+combining `lapse --confirm` / `--reject` / `--list` with a positional `what`;
+an unknown lapse id, or a lapse that is not currently `proposed`, on
+`lapse --confirm` / `--reject`; an invalid `--frame` slug; a missing frame;
 a malformed or hand-edited frame file (including one whose embedded slug
 doesn't match the requested slug, or whose `schema_version` is not an
 integer); a frame whose `schema_version` is too new.
@@ -358,6 +457,14 @@ It also extends to deviation records (see *The delivery peer* below): an
 `--confirm` / `--reject`; nothing auto-approves an LLM-authored deviation, and
 `set_status` only ever accepts a transition **from** `proposed` — it never lets
 `--confirm` or `--reject` silently overwrite an already-resolved record.
+
+It also extends to lapse records (see *LapseRecord* above): an `llm`-origin
+lapse lands `proposed` and requires an explicit user `--confirm` /
+`--reject`; only an `approved` lapse is ever rendered as confidence
+evidence in `devague summary`, and the ledger's only mutator,
+`set_lapse_status`, accepts a transition only **from** `proposed` — the same
+guarantee, applied to a record about the reasoning process rather than the
+plan's execution.
 
 ## Worked example
 

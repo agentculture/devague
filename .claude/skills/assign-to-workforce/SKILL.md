@@ -227,6 +227,14 @@ Once the human approves, the main agent fans out each wave in order:
    - Instruction to work **test-first** (TDD): write the failing test(s) that
      match the acceptance criteria before implementing.
    - Instruction to commit its work to the worktree branch.
+   - Instruction to **report, never file**, any reasoning-degradation lapse it
+     notices in its own work — a skipped check, an assumption standing in for
+     a real measurement, an unverified grader, missing provenance, or another
+     of the six `LAPSE_CODES` in `devague/frame.py`. The task agent names it
+     in its transcript or final report; it never runs `devague lapse` itself,
+     because it never runs any devague command inside its worktree (see the
+     hard rule below). The **main agent** files the record (`devague lapse
+     "<what>" --code <code> --origin llm`) once the worktree is reconciled.
 
 3. **Same-wave tasks run in parallel** (within-wave tasks have no
    inter-task dependency; the dependency graph guarantees this). Same-file
@@ -317,9 +325,21 @@ These protect the human-gate contract and the TDD guarantee.
   baseline was already broken — fix the baseline first.
 - **Human does not gate per-task merges.** The TDD contract replaces the
   human here. Do not pause for human approval between wave tasks.
-- **devague CLI is not orchestrated.** `devague plan waves` is read-only
-  scheduling metadata (#20). Never run `devague plan` commands inside a task
-  worktree to "mark a task done" or modify plan state from a subagent.
+- **No devague move runs inside a task worktree — not just `devague plan`.**
+  `devague plan waves` is read-only scheduling metadata (#20); more broadly, a
+  task agent never runs any devague command in its worktree, including
+  `devague lapse`. If a task agent notices its own reasoning degraded — a
+  skipped check, an assumption standing in for a real measurement, an
+  unverified grader, missing provenance, or another `LAPSE_CODES` case
+  (`devague/frame.py`) — it reports the degradation in its transcript or
+  final report; it does not file it. The **main agent** files that record
+  after reconciling the worktree (`devague lapse "<what>" --code <code>
+  --origin llm`), the same way it alone runs every plan-mutating move —
+  mirroring the `/scope` subagent boundary, where exploration subagents
+  report and only the main agent runs a `devague` move (#79/#91). Adjudicating
+  a filed lapse (`devague lapse --confirm`/`--reject`) is the same human who
+  already owns gate 2/3 — no new role — typically exercised once the run
+  reaches `/summarize-delivery`.
 - **Three gates only.** The human's gates are: (1) the exported spec, (2) the
   implementation split plan, (3) the final PR. No silent fourth gate.
 - **No LLM calls in the devague CLI.** The CLI is deterministic. This skill
