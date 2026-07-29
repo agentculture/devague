@@ -24,7 +24,7 @@ devague --version
   shipped"), capture and pressure-test claims, park open vagueness, and `export`
   a spec only once the frame *converges*. Flat verbs: `devague new` /
   `capture` / `amend` / `interrogate` / `confirm` / `park` / `scope` /
-  `converge` / `export` / …
+  `lapse` / `converge` / `export` / …
 - **Plan engine** (spec→plan) — seed a plan from a converged frame, cover every
   target with tasks that carry acceptance criteria and an acyclic dependency
   order, and `export` a plan only once it *converges*. Nested group:
@@ -104,6 +104,15 @@ route through the same moves `/think` already uses. The CLI-driving pair —
 `/think` and `/spec-to-plan` — add a portable wrapper and a `status`
 next-move helper over the convergence gate; the CLI is the deterministic
 affordance and the agent decides the next move.
+
+Cutting across all seven legs is `devague lapse` (issue #97) — file a
+reasoning-degradation lapse (an assumption silently substituted for a check)
+the moment it happens, instead of reconstructing a corrections record from
+memory once the run ends. It is never a gate: filing is friction-free
+(`llm`-origin lands `proposed`, a user-authored one auto-approves), it never
+blocks convergence on either engine, and only an **approved** entry is ever
+cited as confidence evidence in `/summarize-delivery`'s Delivery Claims
+section.
 
 These skills serve two audiences: **operators** — the main agent that drives
 the deterministic CLI move by move across all seven legs — and the **humans**

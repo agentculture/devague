@@ -4,6 +4,44 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**The Reasoning Degradation Ledger lands (0.22.0, issue #97).** A new flat
+verb, **`devague lapse "<what>" --code <code> [--skipped "<check>"] [--ref
+REF ...] [--origin user|llm] [--json]`** (plus `--list [--json]` and
+`--confirm <lN>` / `--reject <lN>`), files a reasoning-degradation lapse — a
+moment an assumption was silently substituted for a check — as a
+first-class, **append-only** ledger entry on the frame (`Frame.lapses` /
+`LapseRecord`, `SCHEMA_VERSION` 4→5): six starting codes
+(`assumption-for-measurement`, `grader-unverified`, `control-absent`,
+`n-below-claim`, `instrument-changed-mid-series`, `provenance-missing`)
+validated fail-closed at the *filing* path (`Frame.add_lapse`), deliberately
+**not** in `__post_init__` — a code retired after a dogfood cycle must not
+brick a frame that already filed it, unlike every other kind vocabulary in
+this codebase, which validates (and therefore re-validates on load) in
+`__post_init__`. Filing mirrors `deviate`: `llm`-origin lands `proposed`
+(needs a human `--confirm`/`--reject`), `user`-origin auto-approves — but
+adjudication is the *only* mutation a filed lapse ever gets; there is no
+amend and no delete, a deliberate asymmetry with `scope --amend`, since an
+editable lapse would re-enable the written-late-is-written-flattering
+failure the ledger exists to prevent. The ledger **never gates**: no
+convergence blocker, warning, or parked item on either engine ever names a
+lapse, in any status (pinned by `tests/test_convergence.py` and
+`tests/test_plan_convergence.py`). It renders in `devague show` (every
+lapse, any status) and as confidence evidence in `devague summary`'s
+Delivery Claims section (approved entries only; a proposed one renders as
+visibly pending; a rejected one is omitted); the exported spec-md never
+grows a lapse section at all, since `export` overwrites the same dated file
+on every re-export and process history must not rewrite the
+what-to-build artifact. The motivating evidence, cited verbatim from issue
+`agentculture/devague#97`: the embodiment repo's 21-task, 7-wave
+`/scope`→`/summarize-delivery` fan-out produced its most useful artifact — a
+corrections record — reconstructed only at the end, from memory; four
+graders failed in that cycle (three inside a single task), every one found
+by reading data
+afterwards and none by a test failing, and one nearly shipped a false
+safety claim; at least one of those transitions was recoverable only
+because raw data happened to be committed, not because anything guaranteed
+it would be.
+
 **The fifteen-issue backlog sweep (0.21.0, issues #48 #49 #52 #79 #82 #83 #84 #85 #86 #87 #88 #90 #91 #92 #93).**
 One workforce fan-out (the
 `issue-backlog-sweep` plan, t1–t19) closing fifteen issues, three of which
@@ -447,10 +485,11 @@ that unless the user asks otherwise. The established sibling shape is:
   split, `--json` support).
 - `devague/cli/_commands/` — one module per verb, each exposing `register()`.
   Frame verbs: `new`, `capture`, `amend`, `interrogate`, `confirm`, `reject`,
-  `review`, `question`, `park`, `scope`, `converge`, `export`, `status`,
-  `show`, `list`, `learn`, `explain` (`status` shares `cli/_status.py` with
-  the plan engine), plus two more flat verbs, `deviate` (`--list`,
-  `--confirm`, `--reject`) and `summary` (`--pr`), backed by
+  `review`, `question`, `park`, `scope`, `lapse` (`--list`, `--confirm`,
+  `--reject`; the Reasoning Degradation Ledger, #97), `converge`, `export`,
+  `status`, `show`, `list`, `learn`, `explain` (`status` shares
+  `cli/_status.py` with the plan engine), plus two more flat verbs, `deviate`
+  (`--list`, `--confirm`, `--reject`) and `summary` (`--pr`), backed by
   `devague/delivery.py` + `devague/delivery_store.py`. The plan engine adds
   one module, `_commands/plan.py`, registering the nested `plan` subcommand
   group — `new` / `task` / `instruct` / `accept` / `amend` / `depend` (plus
