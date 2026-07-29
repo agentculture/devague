@@ -1,10 +1,10 @@
 {
   "slug": "reasoning-degradation-ledger",
   "title": "reasoning-degradation ledger",
-  "schema_version": 4,
+  "schema_version": 5,
   "status": "exported",
   "created": "2026-07-29T16:31:48Z",
-  "updated": "2026-07-29T17:05:13Z",
+  "updated": "2026-07-29T18:24:59Z",
   "claims": [
     {
       "id": "c1",
@@ -549,6 +549,31 @@
       "surface": "challenge pass / concurrency lens: single-writer CLI + worktree fan-out",
       "finding": "clean \u2014 only the main agent at the repo root mutates .devague state (boundary c6), no locking exists today; residual risk confined to two operators sharing one checkout, which no current flow does",
       "seeds": []
+    }
+  ],
+  "lapses": [
+    {
+      "id": "l1",
+      "code": "provenance-missing",
+      "what": "the challenge pass concluded markdown-safety was handled after reading only the three CLI renderers (spec_md, frame_md, summary_md); it never read assign-to-workforce.sh, which also writes committed markdown and had never ported md_safe_text",
+      "skipped_check": "grep the repo for every writer of committed .md, not just the render/ package",
+      "refs": [
+        "s10",
+        "d1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l2",
+      "code": "grader-unverified",
+      "what": "the per-task TDD merge gate ran pytest and flake8 and I read green as 'the artifacts are clean' \u2014 the gate never ran markdownlint at any point, so it could not have caught the broken split artifact it was implicitly trusted to catch",
+      "skipped_check": "run markdownlint-cli2 as part of the merge gate, or check what the gate actually asserts before trusting it",
+      "refs": [
+        "d1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
     }
   ]
 }
