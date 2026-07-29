@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-07-29
+
+The Reasoning Degradation Ledger (issue #97) — the reasoning-side twin of
+`deviate`: a first-class, append-only ledger entry filed the moment an
+assumption is silently substituted for a check, instead of a corrections
+record reconstructed at the end from memory. The motivating evidence is a
+real, committed artifact: the embodiment repo's 21-task, 7-wave
+`/scope`→`/summarize-delivery` fan-out produced its most useful artifact —
+that corrections record — only at the end, reconstructed from memory. Four
+graders failed in that cycle (three inside a single task); every one was
+found by reading data afterwards, none by a test failing; and one nearly
+shipped a false safety claim. At least one of those transitions was
+recoverable only because raw data happened to be committed, not because
+anything guaranteed it would be. The most repeated entry in that record was
+"the mechanism was right and the verification was the defect" — a
+degradation class, not a bug class, and the reason filing has to be cheap
+enough to happen mid-flight rather than at the end.
+
+### Added
+
+- **`devague lapse "<what>" --code <code> [--skipped "<check>"] [--ref REF
+  ...] [--origin user|llm] [--json]`** (plus `--list [--json]` and
+  `--confirm <lN>` / `--reject <lN>`) — file a reasoning-degradation lapse
+  against the current frame. New `Frame.lapses` / `LapseRecord`, deliberately
+  mirroring `DeviationRecord`: prefix-generic `lN` ids, origin-driven initial
+  status (`llm` → `proposed`, needs a human `--confirm`/`--reject`; `user` →
+  auto-`approved`), and six starting codes
+  (`assumption-for-measurement`, `grader-unverified`, `control-absent`,
+  `n-below-claim`, `instrument-changed-mid-series`, `provenance-missing`).
+  `code` validates fail-closed at the **filing** path (`Frame.add_lapse`),
+  deliberately *not* in `__post_init__` like every other kind vocabulary in
+  this codebase — retiring a code after a dogfood cycle must not brick a
+  frame that already filed it under that code. The ledger is append-only in
+  the strong sense: no amend, no delete — the only post-filing mutation is
+  the status transition, a deliberate asymmetry with `scope --amend`, whose
+  in-place correction would re-enable the written-late-is-written-flattering
+  failure this ledger exists to prevent.
+- The ledger **never gates**: no convergence blocker, warning, or parked item
+  on either engine ever names a lapse, in any status — pinned by
+  `tests/test_convergence.py` and `tests/test_plan_convergence.py`. It
+  renders in `devague show` (every filed lapse, any status, under a new
+  "Lapse ledger" section) and as confidence evidence in `devague summary`'s
+  Delivery Claims section (only `approved` entries render fully; a
+  `proposed` one surfaces as a visibly pending id; a `rejected` one is
+  omitted). The exported spec-md gains **no** lapse section at all —
+  `export` overwrites the same dated file on every re-export, so an
+  execution-time entry rendering there would rewrite the what-to-build
+  artifact rather than record process history; a byte-identical-export
+  regression test pins this.
+- `SCHEMA_VERSION` bumped 4→5 for `Frame.lapses`. Unlike the `Claim.revisions`
+  addition in 0.21.0 (shipped without a bump, since a missing list defaults
+  tolerantly to `[]`), this one is a hard requirement: an older v4-labeled
+  binary that loads a v5 frame and re-saves it would silently drop every
+  filed lapse (`save()` re-stamps `schema_version`, and `to_dict` only
+  serializes known dataclass fields) — the same failure mode the
+  `scope_entries` v2 bump exists to prevent. A v4 frame predates the field
+  and loads with an empty ledger, never a fabricated one.
+
 ## [0.21.0] - 2026-07-28
 
 The fifteen-issue backlog sweep (the `issue-backlog-sweep` plan, tasks t1–t19)
