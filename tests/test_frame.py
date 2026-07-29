@@ -125,11 +125,13 @@ def test_dataclasses_validate_enums() -> None:
 # --- resolve-parked-vagueness t1: Vagueness resolution state (schema v3) ------
 
 
-def test_schema_version_is_4() -> None:
+def test_schema_version_is_5() -> None:
     # v3 (resolve-parked-vagueness t1) added Vagueness.resolved/resolution; v4
-    # (issue-backlog-sweep t2) reserves the next bump for t4's HardQuestion
-    # resolution field — t2 itself only hardens load order/tolerance.
-    assert SCHEMA_VERSION == 4
+    # (issue-backlog-sweep t2) reserved the next bump for t4's HardQuestion
+    # resolution field — t2 itself only hardened load order/tolerance; v5
+    # (issue #97 t1) adds Frame.lapses / LapseRecord, the Reasoning
+    # Degradation Ledger.
+    assert SCHEMA_VERSION == 5
 
 
 def test_vagueness_gains_resolved_and_resolution_defaults() -> None:
