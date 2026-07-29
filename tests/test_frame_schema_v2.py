@@ -27,9 +27,9 @@ def test_schema_version_bumped_exactly_once() -> None:
     # Pinned at 2 when this file was written (#53 t1); each later legitimate bump
     # (resolve-parked-vagueness t1's v3: Vagueness.resolved/resolution; then
     # issue-backlog-sweep t2's v4, reserved for t4's HardQuestion resolution
-    # field) moves this pin forward rather than leaving a stale, now-false
-    # assertion.
-    assert SCHEMA_VERSION == 4
+    # field; then issue #97 t1's v5, Frame.lapses / LapseRecord) moves this pin
+    # forward rather than leaving a stale, now-false assertion.
+    assert SCHEMA_VERSION == 5
 
 
 def test_claim_and_honesty_instruction_default_empty() -> None:

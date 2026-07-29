@@ -20,7 +20,12 @@ from typing import Optional
 # it is purely additive with a `default_factory=list`, and `from_dict` below
 # loads it tolerantly (`c.get("revisions", [])`), so a v4 frame written before
 # t6 still loads cleanly with an empty revision trail.
-SCHEMA_VERSION = 4
+# v5 (issue #97 t1) adds Frame.lapses / LapseRecord — the Reasoning Degradation
+# Ledger. This DOES need a real bump (unlike Claim.revisions above): save()
+# re-stamps schema_version and to_dict only serializes known dataclass fields,
+# so an older v4-labeled binary reading a v5 frame and re-saving it would
+# silently drop every filed lapse (the scope_entries v2 precedent, c17/h12).
+SCHEMA_VERSION = 5
 
 CLAIM_KINDS = (
     "announcement",
@@ -61,6 +66,21 @@ VAGUENESS_KINDS = (
 CLAIM_STATUSES = ("proposed", "confirmed", "rejected")
 HONESTY_STATUSES = ("proposed", "confirmed", "rejected")
 ORIGINS = ("user", "llm")
+
+# The Reasoning Degradation Ledger's starting vocabulary (issue #97 t1). Unlike
+# every other vocabulary tuple above, this one is expected to grow/retire over
+# time as dogfooding surfaces new degradation shapes — see LapseRecord's
+# __post_init__ docstring for why that means `code` is validated at the filing
+# path (Frame.add_lapse), never here at load/construction time.
+LAPSE_CODES = (
+    "assumption-for-measurement",
+    "grader-unverified",
+    "control-absent",
+    "n-below-claim",
+    "instrument-changed-mid-series",
+    "provenance-missing",
+)
+LAPSE_STATUSES = ("proposed", "approved", "rejected")
 
 
 @dataclass
@@ -174,6 +194,45 @@ class ScopeEntry:
 
 
 @dataclass
+class LapseRecord:
+    """A filed reasoning-degradation lapse (issue #97) — the Reasoning
+    Degradation Ledger's record shape, mirroring ``DeviationRecord``
+    (:mod:`devague.delivery`): prefix-generic id minting via ``Frame._next``,
+    origin-driven initial status, append-only with no delete path.
+
+    ``code`` deliberately refines that chassis pattern (c21): it is validated
+    at the *filing* path (``Frame.add_lapse``), NOT here in
+    ``__post_init__``. Every other enum-like field in this module validates
+    in ``__post_init__``, which also means it validates at *load* time
+    (``from_dict`` constructs the dataclass directly) — correct for
+    ``kind``/``origin``/``status`` vocabularies that never retire, but wrong
+    for lapse codes: retiring a code after a dogfood cycle must not brick
+    every frame that ever filed it. ``status`` and ``origin`` still validate
+    here — they never retire.
+
+    ``refs`` is stored verbatim as free text (task/claim ids, prose, or
+    nothing) and is never validated — unlike ``ScopeEntry.seeds``, which
+    checks its ids against the frame.
+    """
+
+    id: str
+    code: str
+    what: str
+    skipped_check: str = ""
+    refs: list[str] = field(default_factory=list)
+    origin: str = "user"  # user | llm
+    status: str = "approved"  # proposed | approved | rejected
+
+    def __post_init__(self) -> None:
+        if self.origin not in ORIGINS:
+            raise ValueError(f"unknown lapse origin: {self.origin!r}")
+        if self.status not in LAPSE_STATUSES:
+            raise ValueError(f"unknown lapse status: {self.status!r}")
+        # `code` is NOT validated here on purpose — see the class docstring
+        # and Frame.add_lapse.
+
+
+@dataclass
 class Frame:
     slug: str
     title: str
@@ -184,6 +243,9 @@ class Frame:
     claims: list[Claim] = field(default_factory=list)
     open_vagueness: list[Vagueness] = field(default_factory=list)
     scope_entries: list[ScopeEntry] = field(default_factory=list)
+    # The Reasoning Degradation Ledger (issue #97 t1, schema v5). Append-only:
+    # no amend, no delete — the only post-filing mutation is set_lapse_status.
+    lapses: list[LapseRecord] = field(default_factory=list)
 
     @staticmethod
     def _next(items: list, prefix: str) -> str:
@@ -436,6 +498,64 @@ class Frame:
         entry.finding = finding
         return entry
 
+    def add_lapse(
+        self,
+        code: str,
+        what: str,
+        skipped_check: str = "",
+        refs: Optional[list[str]] = None,
+        origin: str = "user",
+    ) -> LapseRecord:
+        """File a reasoning-degradation lapse (issue #97).
+
+        ``code`` is validated here — the filing path — against
+        :data:`LAPSE_CODES`, fail-closed with a clear error naming the
+        unknown code. This is deliberately NOT in ``LapseRecord.__post_init__``
+        (see that class's docstring): a code retired after this call already
+        succeeded must still be loadable via ``from_dict``, which constructs
+        ``LapseRecord`` directly and never goes through this method.
+
+        ``origin`` drives the initial ``status`` exactly like
+        ``Delivery.add_deviation``: ``llm`` lands ``proposed`` (needs a human
+        ``set_lapse_status`` to approve), ``user`` auto-approves. ``refs`` is
+        stored verbatim free text, never validated (unlike
+        :meth:`add_scope_entry`'s seed ids).
+        """
+        if code not in LAPSE_CODES:
+            raise ValueError(f"unknown lapse code: {code!r}")
+        status = "proposed" if origin == "llm" else "approved"
+        rec = LapseRecord(
+            id=self._next(self.lapses, "l"),
+            code=code,
+            what=what,
+            skipped_check=skipped_check,
+            refs=list(refs) if refs else [],
+            origin=origin,
+            status=status,
+        )
+        self.lapses.append(rec)
+        return rec
+
+    def find_lapse(self, lid: str) -> Optional[LapseRecord]:
+        return next((r for r in self.lapses if r.id == lid), None)
+
+    def set_lapse_status(self, lid: str, status: str) -> bool:
+        """Set a lapse record's status, failing closed on a typo'd/unknown value.
+
+        The only mutator a filed lapse ever gets — there is no amend or
+        delete API (c20): a wrong lapse is rejected and refiled, never
+        edited in place. Mirrors :meth:`devague.delivery.Delivery.set_status`:
+        validates ``status`` against :data:`LAPSE_STATUSES` *before* touching
+        the record, so an invalid string never mutates anything.
+        """
+        if status not in LAPSE_STATUSES:
+            raise ValueError(f"unknown lapse status: {status!r}")
+        rec = self.find_lapse(lid)
+        if rec is not None:
+            rec.status = status
+            return True
+        return False
+
     def set_status(self, item_id: str, status: str) -> bool:
         claim = self.find_claim(item_id)
         if claim is not None:
@@ -595,6 +715,21 @@ def from_dict(d: dict) -> Frame:
         )
         for s in d.get("scope_entries", [])
     ]
+    lapses = [
+        LapseRecord(
+            id=r["id"],
+            code=r["code"],
+            what=r["what"],
+            skipped_check=r.get("skipped_check", ""),
+            refs=list(r.get("refs", [])),
+            origin=r.get("origin", "user"),
+            status=r.get("status", "approved"),
+        )
+        # Pre-v5 frames predate this field entirely (issue #97 t1); default to
+        # an empty ledger. `code` is deliberately NOT re-validated here — a
+        # retired code must still load (see LapseRecord's docstring).
+        for r in d.get("lapses", [])
+    ]
     return Frame(
         slug=d["slug"],
         title=d["title"],
@@ -607,4 +742,6 @@ def from_dict(d: dict) -> Frame:
         open_vagueness=vag,
         # v1 frames predate this field (#53 t1); default to no scope entries.
         scope_entries=scope_entries,
+        # v5 frames only (issue #97 t1); default to no lapses.
+        lapses=lapses,
     )
