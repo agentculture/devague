@@ -292,13 +292,21 @@ PY
     # extra read-only call (for the plan's `created`/`title`, to match the
     # date-prefixed filename convention `devague plan export` already uses).
     if [ "$write_mode" -eq 1 ]; then
-        local show_json show_rc
+        local show_json show_rc show_err show_tmp_err
+        # A successful `devague plan show --json` now also emits a one-line
+        # `next: ...` stderr hint (next-leg-hints t1) — stderr must stay OFF
+        # the captured JSON string (a plain `2>&1` merge would corrupt it), so
+        # it is captured separately and only surfaced on a real failure,
+        # mirroring the `plan waves --json` capture above.
+        show_tmp_err="$(mktemp)"
         set +e
-        show_json="$("${DEVAGUE[@]}" plan show --json "${extra_args[@]}" 2>&1)"
+        show_json="$("${DEVAGUE[@]}" plan show --json "${extra_args[@]}" 2>"$show_tmp_err")"
         show_rc=$?
         set -e
+        show_err="$(cat "$show_tmp_err")"
+        rm -f "$show_tmp_err"
         if [ "$show_rc" -ne 0 ]; then
-            printf '%s\n' "$show_json" >&2
+            printf '%s\n' "$show_err" >&2
             return "$show_rc"
         fi
 

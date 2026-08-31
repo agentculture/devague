@@ -555,7 +555,9 @@ def test_amend_proposed_claim_does_not_flip_and_no_echo(tmp_path, monkeypatch, c
     capsys.readouterr()
     rc = main(["amend", "c2", "--text", "x, corrected"])
     assert rc == 0
-    assert capsys.readouterr().err == ""
+    # No flip note (it was already proposed); the next-leg-hints stderr line
+    # is expected on every successful non-exempt call (issue next-leg-hints t1).
+    assert capsys.readouterr().err == "next: run devague status\n"
     f = store.load(store.current_slug())
     assert f.find_claim("c2").status == "proposed"
 
