@@ -103,6 +103,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import show as _show_cmd
     from devague.cli._commands import status as _status_cmd
     from devague.cli._commands import summary as _summary_cmd
+    from devague.cli._commands import today as _today_cmd
 
     _learn_cmd.register(sub)
     _explain_cmd.register(sub)
@@ -123,6 +124,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _lapse_cmd.register(sub)
     _status_cmd.register(sub)
     _summary_cmd.register(sub)
+    _today_cmd.register(sub)
     _show_cmd.register(sub)
     _list_cmd.register(sub)
 
