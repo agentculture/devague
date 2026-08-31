@@ -74,6 +74,20 @@ MOVES = {
         "execution/sensitivity strength; '--confirm/--reject <eN>' resolves a "
         "proposed one (user-only); '--list [--json]' shows every filed record."
     ),
+    "delta": (
+        "File, list, supersede, retract, or adjudicate a behavioral delta "
+        "against the current/named plan's delivery ledger ('delta --kind "
+        "added|amended|removed --behavior <text> --caused-by <ref> "
+        "[--caused-by <ref> ...] [--evidence <ref> ...]', --origin llm lands "
+        "proposed); --caused-by refs are validated by shape (claim ids "
+        "against the live frame, deviation ids against approved deviations, "
+        "delta ids against existing deltas — free-form text always passes); "
+        "'--supersede <ref> [--replacement <ref>]' and '--retract <ref>' "
+        "append supersession events without ever editing a record's content; "
+        "'--confirm/--reject <bN>' resolves a proposed delta (user-only); "
+        "'--list [--json]' shows every filed delta plus the trailing "
+        "supersession-event log."
+    ),
     "today": (
         "Project the current behavior of the app from the delivery ledger and "
         "write docs/current-spec.md (read-only over every store; '--json' "
