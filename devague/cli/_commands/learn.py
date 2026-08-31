@@ -65,6 +65,15 @@ MOVES = {
         "'--list [--json]' shows every filed obligation, with a drift marker "
         "when the claim's text changed since filing."
     ),
+    "evidence": (
+        "File an evidence record against the current/named plan's delivery "
+        "ledger ('evidence --obligation <oN> --test <ref> --behavior <text> "
+        "--contract <text> --type <type> --strength <level> --basis <text> "
+        "--outcome pass|fail [--run-commit <sha> --run-timestamp <ts>]', "
+        "--origin llm lands proposed); a run reference is required at "
+        "execution/sensitivity strength; '--confirm/--reject <eN>' resolves a "
+        "proposed one (user-only); '--list [--json]' shows every filed record."
+    ),
 }
 
 FIRST_QUESTION = "What's the announcement?"
