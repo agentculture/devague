@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-08-31
+
+### Added
+
+- Behavioral obligations: `Obligation` on frame claims (`devague oblige`, SCHEMA_VERSION 6) and `CriterionObligation` on plan acceptance criteria (`devague plan oblige`, PLAN_SCHEMA_VERSION 5), each snapshotting source text with pure drift detection (#107, bvts t1/t2/t4)
+- Evidence and behavioral-delta ledgers in the delivery store (`EvidenceRecord`/`DeltaRecord`/`SupersessionEvent`, DELIVERY_SCHEMA_VERSION 2): four evidence types, the coverage/fidelity/execution/sensitivity strength ladder with recorded bases, mandatory run references at execution+, verbatim pass/fail outcomes, append-only with superseded flags (`devague evidence`, `devague delta`, bvts t3/t5/t6)
+- Unmet-obligation warnings in both convergence engines — S1/S2 soft-rollout shape, never gating, never reading lapses; first fail-open frame-engine read of delivery state (bvts t7)
+- Staleness joins (`devague/staleness.py`): approved deviations with un-updated evidence and orphaned evidence, rendered in `show`/`status` (bvts t8)
+- The today spec: `devague/today.py` behavior-ledger projection (supersedes links, human-decision conflicts, coverage span) and `devague today` writing the committed, undated `docs/current-spec.md` (bvts t9/t10)
+- Delivery Claims populated from real evidence in `devague summary` — strength ladder as the confidence vocabulary, approved lapses cap renderable strength (bvts t11)
+- `/validate-delivery`, the eighth origin skill (execution→evidence leg), with the behavioral-test convention (pytest marker or dedicated folder) (bvts t12)
+- `devague learn` refresh (behavioral-validation guidance, strength ladder, unmet-is-unmet operating rules) and `devague learn review`, the self-contained gate-3 reviewer-audit topic (bvts t13/t14)
+- End-to-end success-signal test measuring warning counts and evidence rows from real command output (bvts t15)
+
+### Changed
+
+- Docs swept to the eight-leg flow: scope → think → challenge → spec-to-plan → assign-to-workforce → deviate → validate-delivery → summarize-delivery (#107)
+- contested.py's fail-open loaders are now public (`load_plan_safely`/`load_delivery_safely` with diagnostic labels), shared by the staleness and obligation-evidence joins
+
 ## [0.22.0] - 2026-07-29
 
 The Reasoning Degradation Ledger (issue #97) — the reasoning-side twin of
