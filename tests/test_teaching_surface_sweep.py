@@ -235,13 +235,15 @@ def test_learn_json_scope_stage_includes_fan_out_key(
     assert "sonnet" in payload["scope_stage"]["fan_out"].lower()
 
 
-# ── 10. plan learn names all seven skills (stale "six"/missing "challenge") ────
-def test_plan_learn_names_seven_skills_including_challenge(
+# ── 10. plan learn names all eight skills (stale "six"/"seven" counts) ────────
+def test_plan_learn_names_eight_skills_including_validate_delivery(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     rc = main(["plan", "learn"])
     assert rc == 0
     out = capsys.readouterr().out.lower()
-    assert "seven operator skills" in out
+    assert "eight operator skills" in out
     assert "challenge" in out
+    assert "validate-delivery" in out
     assert "six operator skills" not in out
+    assert "seven operator skills" not in out

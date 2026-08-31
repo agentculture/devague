@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
 from devague.cli import main
-from devague.cli._commands.learn import MOVES
+from devague.cli._commands.learn import LAPSE_CODES_FOR_REVIEW, MOVES, REVIEW_COMMANDS
 
 
 def test_learn_documents_assign_to_workforce_invocation(
@@ -102,7 +103,9 @@ def test_plan_learn_names_risk_resolve_close_out(capsys: pytest.CaptureFixture[s
     assert "risk" in out
 
 
-# The seven origin skills, in seven-leg workflow order (devague#73).
+# The eight origin skills, in eight-leg workflow order (devague#73, bvts t14 —
+# `validate-delivery` is the seventh leg, between `deviate` and
+# `summarize-delivery`).
 SKILL_NAMES = (
     "scope",
     "think",
@@ -110,13 +113,20 @@ SKILL_NAMES = (
     "spec-to-plan",
     "assign-to-workforce",
     "deviate",
+    "validate-delivery",
     "summarize-delivery",
 )
 
 # Method-only skills ship a SKILL.md and NO scripts/<name>.sh resolver — they
 # invoke the devague CLI directly. The other three are CLI-driving and DO ship
 # a scripts/<name>.sh resolver.
-METHOD_ONLY_NAMES = ("scope", "challenge", "deviate", "summarize-delivery")
+METHOD_ONLY_NAMES = (
+    "scope",
+    "challenge",
+    "deviate",
+    "validate-delivery",
+    "summarize-delivery",
+)
 CLI_DRIVING_NAMES = ("think", "spec-to-plan", "assign-to-workforce")
 
 
@@ -236,6 +246,7 @@ def test_learn_unknown_skill_errors(capsys: pytest.CaptureFixture[str]) -> None:
         "skills:scope",
         "skills:challenge",
         "skills:deviate",
+        "skills:validate-delivery",
         "skills:summarize-delivery",
     ],
 )
@@ -420,3 +431,207 @@ def test_plan_oblige_verb_has_working_help(capsys: pytest.CaptureFixture[str]) -
     with pytest.raises(SystemExit) as exc:
         main(["plan", "oblige", "--help"])
     assert exc.value.code == 0
+
+
+# --- `devague learn review` — the reviewer seam (bvts t14) --------------------
+
+
+def _review_text(capsys: pytest.CaptureFixture[str]) -> str:
+    rc = main(["learn", "review"])
+    assert rc == 0
+    return capsys.readouterr().out
+
+
+def test_learn_review_teaches_obligations_as_the_checklist(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC1: obligations are the reviewer's ready-made checklist, and unmet ones
+    arrive precomputed as visibly-untested convergence warnings.
+    """
+    out = _review_text(capsys)
+    lowered = out.lower()
+    assert "checklist" in lowered
+    assert "obligation" in lowered
+    assert "untested" in lowered
+    assert "warning" in lowered
+
+
+def test_learn_review_states_the_checklist_is_a_floor(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC2: the enumerated records are a floor, not a ceiling — a finding
+    outside them is still a finding.
+    """
+    out = _review_text(capsys).lower()
+    assert "floor, not a ceiling" in out
+
+
+def test_learn_review_teaches_three_way_fidelity_audit(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC1: the three-way comparison — claim text vs recorded behavior text vs
+    what the test actually asserts — read from the test source in the PR, with
+    the behavioral-test convention naming how the test is found.
+    """
+    out = _review_text(capsys)
+    lowered = out.lower()
+    assert "three-way" in lowered
+    assert "claim text" in lowered
+    assert "recorded behavior" in lowered
+    assert "asserts" in lowered
+    # The behavioral-test convention: a marker or a dedicated folder.
+    assert "@pytest.mark.behavioral" in out
+    assert "tests/behavioral/" in out
+    # The test source as it stands in the PR, never the recorded text alone.
+    assert "test source" in lowered
+
+
+def test_learn_review_teaches_strength_verification_and_stale_runs(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC1: each ladder level is checked against its recorded basis, execution
+    is re-run, and a run reference behind the PR head demotes the claim.
+    """
+    out = _review_text(capsys)
+    lowered = out.lower()
+    for level in ("coverage", "fidelity", "execution", "sensitivity"):
+        assert level in lowered
+    assert "--run-commit" in out
+    assert "pr head" in lowered
+    assert "demote" in lowered
+    assert "passing long ago is not passing now" in lowered
+    assert "never accepted above its basis" in lowered or "above its basis" in lowered
+
+
+def test_learn_review_teaches_delta_completeness_both_directions(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC1: both directions — an undeclared behavioral change and a fabricated
+    delivery — are findings, derived from the diff and the ledger actually read.
+    """
+    out = _review_text(capsys).lower()
+    assert "undeclared behavioral change" in out
+    assert "fabricated delivery" in out
+    assert "both directions" in out
+    assert "diff" in out
+
+
+def test_learn_review_teaches_propose_never_confirm(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC2: findings land as PR comments, proposed lapses, or superseding
+    evidence; the gate-3 human adjudicates; an approved lapse caps strength.
+    """
+    out = _review_text(capsys)
+    lowered = out.lower()
+    assert "pr comment" in lowered
+    assert "grader-unverified" in out
+    assert "provenance-missing" in out
+    assert "--origin llm" in out
+    assert "caps" in lowered
+    assert "gate 3" in lowered or "gate-3" in lowered
+    # The reviewer never confirms their own finding.
+    assert "never" in lowered and "confirm" in lowered
+
+
+def test_learn_review_teaches_retraction_on_the_record(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC2 / the honesty bar quoted verbatim from the spec: a finding retracted
+    under pushback is retracted ON the record, never deleted.
+    """
+    out = _review_text(capsys).lower()
+    assert "retracted on the record" in out
+    assert "not deleted" in out or "never deleted" in out
+    assert "append-only" in out
+
+
+def test_learn_review_is_self_contained_about_its_commands(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC3 (first direction): every command the topic relies on is named in the
+    rendered text with its `devague ` prefix.
+    """
+    out = _review_text(capsys)
+    assert REVIEW_COMMANDS, "the review topic must name the commands it relies on"
+    for parts, _purpose in REVIEW_COMMANDS:
+        assert "devague " + " ".join(parts) in out
+
+
+@pytest.mark.parametrize("parts", [parts for parts, _ in REVIEW_COMMANDS])
+def test_learn_review_named_command_exists(parts: tuple[str, ...]) -> None:
+    """AC3 (the pin): every command the review topic names resolves on the real
+    CLI surface — '<command> --help' exits 0, never an argparse error.
+    """
+    with pytest.raises(SystemExit) as exc:
+        main([*parts, "--help"])
+    assert exc.value.code == 0
+
+
+def test_learn_review_text_names_no_unknown_devague_command(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """AC3 (second direction): the topic mentions `devague` only in command
+    position, and every such mention is one of the declared REVIEW_COMMANDS —
+    so the taught text can never drift into naming a command that isn't real.
+    """
+    out = _review_text(capsys)
+    declared = {" ".join(parts) for parts, _ in REVIEW_COMMANDS}
+    mentioned = set()
+    for match in re.finditer(r"\bdevague ((?:plan )?[a-z][a-z-]*)", out):
+        mentioned.add(match.group(1))
+    assert mentioned, "the topic should name at least one devague command"
+    assert mentioned <= declared, f"undeclared devague commands taught: {mentioned - declared}"
+
+
+def test_learn_review_lapse_codes_match_the_real_vocabulary() -> None:
+    """`learn` keeps its own literal copy of the lapse codes (it never imports a
+    domain module) — pin it equal to the real vocabulary so the taught codes
+    cannot drift away from the ones `devague lapse --code` accepts.
+    """
+    from devague.frame import LAPSE_CODES
+
+    assert LAPSE_CODES_FOR_REVIEW == LAPSE_CODES
+
+
+def test_learn_review_json_payload(capsys: pytest.CaptureFixture[str]) -> None:
+    """`learn review --json` carries the audit method as structured sections and
+    shares the learn family's tool/version/topic identity.
+    """
+    rc = main(["learn", "review", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["tool"] == "devague"
+    assert payload["version"]
+    assert payload["topic"] == "review"
+    review = payload["review"]
+    for key in (
+        "checklist",
+        "fidelity_audit",
+        "strength_verification",
+        "delta_completeness",
+        "propose_never_confirm",
+    ):
+        assert review[key]
+    commands = {" ".join(entry["command"]): entry["purpose"] for entry in review["commands"]}
+    assert commands
+    for parts, purpose in REVIEW_COMMANDS:
+        assert commands[" ".join(parts)] == purpose
+
+
+def test_learn_review_topic_listed_in_unknown_topic_hint(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """An unknown topic's hint names `review` alongside the skills topics."""
+    rc = main(["learn", "bogus"])
+    assert rc != 0
+    err = capsys.readouterr().err.lower()
+    assert "review" in err
+
+
+def test_bare_learn_points_at_the_review_topic(capsys: pytest.CaptureFixture[str]) -> None:
+    """Bare `learn` surfaces the reviewer seam so a gate-3 reviewer can find it."""
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "learn review" in out
