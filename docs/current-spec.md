@@ -8,10 +8,21 @@ Anything predating this boundary, or belonging to an unledgered frame, is not re
 
 ## Current behavior
 
-No behavior currently projects from the ledger.
+- converge and plan converge warn on behavioral obligations with no approved evidence — visibly untested, never gating (`behavior-validation-and-today-spec:b1`, added)
+  - provenance: caused by `c6` — plan `behavior-validation-and-today-spec`, frame `behavior-validation-and-today-spec`
+  - proof: best strength `execution`
+    - evidence: automated — execution: pass (run 2026-08-31 @ 3945fb7)
+- devague today projects the behavior ledger across all frames, plans, and deliveries into the committed docs/current-spec.md, fail-open and read-only over stores (`behavior-validation-and-today-spec:b2`, added)
+  - provenance: caused by `c7` — plan `behavior-validation-and-today-spec`, frame `behavior-validation-and-today-spec`
+  - proof: best strength `execution`
+    - evidence: automated — execution: pass (run 2026-08-31 @ 3945fb7)
+- devague summary's Delivery Claims table renders per-claim evidence strength on the coverage/fidelity/execution/sensitivity ladder, capped by approved lapses (`behavior-validation-and-today-spec:b3`, added)
+  - provenance: caused by `c20` — plan `behavior-validation-and-today-spec`, frame `behavior-validation-and-today-spec`
+  - proof: best strength `execution`
+    - evidence: automated — execution: pass (run 2026-08-31 @ 3945fb7)
 
 ## Ledger status
 
-- proposed deltas awaiting adjudication: 3
+- proposed deltas awaiting adjudication: 0
 - rejected deltas (excluded from this projection): 0
 - retired lineages (superseded with no live replacement): 0

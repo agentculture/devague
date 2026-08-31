@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-08-31T16:54:00Z",
-  "updated": "2026-08-31T18:33:38Z",
+  "updated": "2026-08-31T18:41:30Z",
   "claims": [
     {
       "id": "c1",
@@ -847,7 +847,7 @@
         "t1"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l2",
@@ -858,7 +858,7 @@
         "t3"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l3",
@@ -869,7 +869,7 @@
         "t9"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l4",
@@ -880,7 +880,7 @@
         "t7"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l5",
@@ -891,7 +891,7 @@
         "t7"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l6",
@@ -902,7 +902,7 @@
         "t14"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ],
   "obligations": [
@@ -913,7 +913,7 @@
       "behavior": "an obligation with no approved evidence emits a visibly-untested warning naming the obligation and its seam, and ready_for_spec / ready_for_plan stay untouched",
       "source_text": "an unmet test obligation surfaces as a non-gating convergence warning, following the S1 and S2 structural-sharpness precedent in devague/convergence.py \u2014 warnings only, ready_for_spec untouched, no previously-converging frame is newly blocked",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o2",
@@ -922,7 +922,7 @@
       "behavior": "the projection walks every frame, plan, and delivery fail-open, writes only docs/current-spec.md, and leaves every store file byte-identical",
       "source_text": "the today spec (the derived current spec) is a projection of an explicit behavior ledger \u2014 each delivery contributes behavioral deltas (added, amended, removed) carrying provenance back to the spec claim or approved deviation that caused them and forward to the evidence that validates them; the projection stays read-only and fail-open (contested.py's load-safely template), rendered to a single undated artifact by a sibling module beside the stores",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "o3",
@@ -931,7 +931,7 @@
       "behavior": "one row per obligation-bearing claim renders ladder strength from approved passing evidence, with approved lapses capping renderable strength",
       "source_text": "a validate-delivery step lands in the flow between execution and summarize-delivery \u2014 method-side like the other legs, driving record-only CLI moves; its output feeds the summary's Delivery Claims table (issue 107)",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ]
 }
