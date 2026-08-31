@@ -32,7 +32,9 @@ marker (e.g. `@pytest.mark.behavioral`) or a dedicated folder (e.g.
 `tests/behavioral/` or `behavioral-tests/`) — both defined in the skill. The
 exact `oblige` / `evidence` / `delta` CLI surface ships separately; this
 leg's docs are written against those verb names with minimal command
-examples so reconciliation stays cheap. `README.md`, this file,
+examples so reconciliation stays cheap. `devague learn skills` now teaches
+all **eight** operator skills in eight-leg order, and `devague learn review`
+adds the self-contained gate-3 reviewer topic. `README.md`, this file,
 `docs/skills.md`, `docs/skill-sources.md`, and `docs/spec-contract.md` are
 swept to the **eight-leg flow** — `scope` → `think` → `challenge` →
 `spec-to-plan` → `assign-to-workforce` → `deviate` → `validate-delivery` →

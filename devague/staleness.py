@@ -136,18 +136,30 @@ def _resolve_obligation(
     return frozenset(), None
 
 
+def _filed_at_or_before(ev, dev) -> bool:
+    """Was this evidence filed at or before this deviation, on the ledger?
+
+    Records filed since the shared ``seq`` counter exists carry their true
+    position on the delivery's one filing timeline — compare those directly.
+    Legacy records (``seq == 0`` on either side) fall back to the numeric id
+    suffix, where "<=" (not "<") reflects that each family mints ids
+    independently from 1, so an id-1 evidence record and an id-1 deviation
+    are treated as "at or before" (the common real sequence is evidence
+    first, then the deviation). Only a strictly later position counts as a
+    genuine re-filing.
+    """
+    if ev.seq and dev.seq:
+        return ev.seq <= dev.seq
+    return _numeric_suffix(ev.id) <= _numeric_suffix(dev.id)
+
+
 def _scan_evidence_against(
-    dev_pos: int, affected: frozenset, frame: Frame, plan: Plan, delivery: Delivery
+    dev, affected: frozenset, frame: Frame, plan: Plan, delivery: Delivery
 ) -> tuple[list[str], set, bool]:
     """Scan the ledger's evidence against one approved deviation's affects.
 
-    Returns ``(stale_refs, overlap_claims, refiled)``. "<=" (not "<"): each
-    family mints its ids independently starting at 1, so an id-1 evidence
-    record and an id-1 deviation share the same numeric position on this
-    module's shared-timeline convention (see the module docstring) — treated
-    as "at or before" rather than strictly after, since the common real
-    sequence is evidence filed first, then the deviation. Only a strictly
-    later position counts as a genuine re-filing.
+    Returns ``(stale_refs, overlap_claims, refiled)`` — ordering per
+    :func:`_filed_at_or_before`.
     """
     stale_refs: list[str] = []
     overlap_claims: set = set()
@@ -159,7 +171,7 @@ def _scan_evidence_against(
         shared = claims & affected
         if not shared:
             continue
-        if _numeric_suffix(ev.id) <= dev_pos:
+        if _filed_at_or_before(ev, dev):
             stale_refs.append(ev.id)
             overlap_claims |= shared
         else:
@@ -178,7 +190,7 @@ def _stale_deviations_for(
         if not affected:
             continue
         stale_refs, overlap_claims, refiled = _scan_evidence_against(
-            _numeric_suffix(dev.id), affected, frame, plan, delivery
+            dev, affected, frame, plan, delivery
         )
         if stale_refs and not refiled:
             findings.append(

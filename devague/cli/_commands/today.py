@@ -54,6 +54,6 @@ def register(sub: argparse._SubParsersAction) -> None:
     p.add_argument(
         "--json",
         action="store_true",
-        help="Emit the structured projection instead of writing docs/current-spec.md.",
+        help="Emit the structured projection on stdout (docs/current-spec.md is still written).",
     )
     p.set_defaults(func=cmd_today)

@@ -107,6 +107,23 @@ def test_stale_deviation_not_flagged_when_evidence_is_refiled_after(tmp_path, mo
     assert stale_devs == []
 
 
+def test_refiled_evidence_with_lower_id_than_deviation_is_not_stale(tmp_path, monkeypatch) -> None:
+    """Cross-family id suffixes lie about order (d1..d5 filed first, then e1
+    re-validates after) — the shared ``seq`` filing timeline, stamped at
+    add-time, is authoritative over the legacy id heuristic (PR #109 review)."""
+    frame, plan = _frame_plan_with_obligation(monkeypatch, tmp_path)
+    d = Delivery(plan_slug="demo")
+    for n in range(5):  # d1..d5 filed first — only d5 touches c1
+        affects = ["c1"] if n == 4 else ["t1"]
+        d.add_deviation(f"drift {n}", "t1", "measured", affects=affects, origin="user")
+    _evidence(d)  # e1 filed AFTER every deviation -> genuine re-validation
+    delivery_store.save(d)
+
+    stale_devs, orphaned, diagnostics = find_staleness(frame)
+    assert diagnostics == []
+    assert stale_devs == []
+
+
 def test_stale_deviation_not_flagged_when_no_evidence_ever_overlapped(
     tmp_path, monkeypatch
 ) -> None:

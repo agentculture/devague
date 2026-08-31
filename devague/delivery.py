@@ -91,6 +91,9 @@ class DeviationRecord:
     origin: str = "user"  # user | llm
     status: str = "approved"  # proposed | approved | rejected
     classification: Optional[str] = None  # one of CLASSIFICATIONS, or None
+    # Position on the ledger's one shared filing timeline (0 = legacy record
+    # filed before seq existed; consumers fall back to an id heuristic then).
+    seq: int = 0
 
     def __post_init__(self) -> None:
         if self.origin not in ORIGINS:
@@ -168,6 +171,8 @@ class EvidenceRecord:
     origin: str = "user"  # user | llm
     status: str = "approved"  # proposed | approved | rejected
     superseded: bool = False
+    # Shared filing-timeline position; 0 = legacy record (see DeviationRecord.seq).
+    seq: int = 0
 
     def __post_init__(self) -> None:
         if self.evidence_type not in EVIDENCE_TYPES:
@@ -258,6 +263,10 @@ class Delivery:
     deltas: list[DeltaRecord] = field(default_factory=list)
     supersessions: list[SupersessionEvent] = field(default_factory=list)
 
+    def _next_seq(self) -> int:
+        recs = list(self.deviations) + list(self.evidence)
+        return max((r.seq for r in recs), default=0) + 1
+
     @staticmethod
     def _next(items: list, prefix: str) -> str:
         n = 0
@@ -290,6 +299,7 @@ class Delivery:
             origin=origin,
             status=status,
             classification=classification,
+            seq=self._next_seq(),
         )
         self.deviations.append(rec)
         return rec
@@ -376,6 +386,7 @@ class Delivery:
             run=run,
             origin=origin,
             status=status,
+            seq=self._next_seq(),
         )
         self.evidence.append(rec)
         return rec
@@ -534,6 +545,7 @@ def from_dict(d: dict) -> Delivery:
             origin=r.get("origin", "user"),
             status=r.get("status", "approved"),
             classification=r.get("classification"),
+            seq=int(r.get("seq", 0)),
         )
         for r in d.get("deviations", [])
     ]
@@ -553,6 +565,7 @@ def from_dict(d: dict) -> Delivery:
             origin=r.get("origin", "user"),
             status=r.get("status", "approved"),
             superseded=bool(r.get("superseded", False)),
+            seq=int(r.get("seq", 0)),
         )
         for r in d.get("evidence", [])
     ]

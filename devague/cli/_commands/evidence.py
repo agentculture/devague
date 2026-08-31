@@ -68,6 +68,7 @@ def _record_dict(rec) -> dict:
         "run": {"timestamp": rec.run.timestamp, "commit": rec.run.commit} if rec.run else None,
         "origin": rec.origin,
         "status": rec.status,
+        "superseded": rec.superseded,
     }
 
 

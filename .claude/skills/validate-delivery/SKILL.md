@@ -140,8 +140,9 @@ marked `@pytest.mark.behavioral`, plus two more behavioral tests for
 adjacent claims — one of which fails.
 
 ```bash
-# 1. Identify the obligation
-devague oblige "round-tripping a widget loses no fields" --claim c9
+# 1. Identify the obligation (echoes its id, e.g. o1)
+devague oblige c9 --seam "widget export round-trip" \
+  --behavior "round-tripping a widget loses no fields"
 
 # 2. Locate and run the behavioral tests agent-side (read-only)
 pytest -m behavioral -q
@@ -149,15 +150,25 @@ pytest -m behavioral -q
 # -> tests/behavioral/test_widget_export.py::test_empty_field_rendering FAILED
 
 # 3. File evidence for each outcome — the failure included, not smoothed over
-devague evidence "c9 round-trips with no field loss" \
-  --test tests/behavioral/test_widget_export.py::test_round_trip --outcome pass
-devague evidence "c11 renders an absent field honestly" \
+devague evidence --obligation o1 \
+  --test tests/behavioral/test_widget_export.py::test_round_trip \
+  --behavior "asserts an exported-then-reimported widget compares equal field by field" \
+  --contract "round-tripping a widget loses no fields" \
+  --type automated --strength execution \
+  --basis "behavioral test ran green at the named commit" \
+  --outcome pass --run-commit abc1234 --run-timestamp 2026-08-31T12:00:00
+devague evidence --obligation o2 \
   --test tests/behavioral/test_widget_export.py::test_empty_field_rendering \
-  --outcome fail
+  --behavior "asserts an absent widget field renders as an empty line" \
+  --contract "an absent field renders honestly, never as filler" \
+  --type automated --strength execution \
+  --basis "behavioral test ran red at the named commit" \
+  --outcome fail --run-commit abc1234 --run-timestamp 2026-08-31T12:00:00
 
 # 4. File a delta if the failure reveals a real behavioral divergence
-devague delta "empty widget fields render as garbled text, not an empty line" \
-  --kind amended --claim c11 --evidence e2
+devague delta --kind amended \
+  --behavior "empty widget fields render as garbled text, not an empty line" \
+  --caused-by c11 --evidence e2
 
 # 5. Report faithfully: c9 is validated; c11's claimed behavior is unmet —
 #    say so plainly, hand it to /summarize-delivery as Remaining Work, not
