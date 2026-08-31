@@ -19,6 +19,7 @@ import sys
 
 from devague import __version__
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
+from devague.cli._hints import emit_next_hint
 from devague.cli._output import emit_error
 
 
@@ -158,7 +159,10 @@ def _dispatch(args: argparse.Namespace) -> int:
         )
         emit_error(wrapped, json_mode=json_mode)
         return wrapped.code
-    return rc if rc is not None else 0
+    code = rc if rc is not None else 0
+    if code == 0:
+        emit_next_hint(args)
+    return code
 
 
 def main(argv: list[str] | None = None) -> int:

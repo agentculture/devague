@@ -671,7 +671,9 @@ def test_cli_summary_pr_mode_stdout_only(tmp_path, monkeypatch, capsys) -> None:
     rc = main(["summary", "--pr"])
     assert rc == 0
     captured = capsys.readouterr()
-    assert captured.err == ""
+    # The rendered summary is stdout-only; the next-leg-hints stderr line is
+    # expected on every successful non-exempt call (issue next-leg-hints t1).
+    assert captured.err == "next: run /summarize-delivery\n"
     assert captured.out.startswith("#")
     assert "## Wave / Task Map" in captured.out
     assert "Delivery summary: `docs/deliveries/" in captured.out
