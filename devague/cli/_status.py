@@ -71,6 +71,29 @@ def _contested_line(entry: dict) -> str:
     return f"{line}: {entry['reason']}"
 
 
+def _stale_deviation_line(entry: dict) -> str:
+    """Render one derived stale-deviation entry (#97/bvts t8) — mirrors
+    :func:`_contested_line`'s dict-shaped, decoupled-from-the-domain-module
+    contract. Takes :func:`devague.staleness.stale_deviation_to_dict`-shaped
+    dicts.
+    """
+    line = f"stale: deviation {entry['deviation']} affects {', '.join(entry['claims'])}"
+    if entry.get("classification"):
+        line += f" ({entry['classification']})"
+    refs = ", ".join(entry["stale_evidence"])
+    return f"{line} — evidence {refs} never re-filed since: {entry['reason']}"
+
+
+def _orphaned_evidence_line(entry: dict) -> str:
+    """Render one derived orphaned-evidence entry (#97/bvts t8). Takes
+    :func:`devague.staleness.orphaned_evidence_to_dict`-shaped dicts.
+    """
+    return (
+        f"stale: evidence {entry['evidence']} ({entry['test']}) "
+        f"in plan {entry['plan']}: {entry['reason']}"
+    )
+
+
 def emit_status(
     labels: StatusLabels,
     *,
@@ -79,6 +102,8 @@ def emit_status(
     result: ConvergenceResult,
     json_mode: bool,
     contested: Optional[list[dict]] = None,
+    stale_deviations: Optional[list[dict]] = None,
+    orphaned_evidence: Optional[list[dict]] = None,
 ) -> None:
     """Render the convergence verdict + recommended next move for one artifact.
 
@@ -90,7 +115,10 @@ def emit_status(
     omits the JSON key entirely; an empty list means "checked, nothing
     contested" and still renders the key (JSON) but no lines (text) — the
     same never-fabricate-an-empty-section convention every other renderer
-    here follows.
+    here follows. ``stale_deviations``/``orphaned_evidence`` (#97/bvts t8)
+    are the staleness join's two directions (see :mod:`devague.staleness`),
+    following the exact same ``None`` vs ``[]`` contract and, like
+    ``contested``, only ever passed by the frame engine's ``status``.
     """
     if json_mode:
         payload = {
@@ -104,6 +132,10 @@ def emit_status(
         }
         if contested is not None:
             payload["contested"] = contested
+        if stale_deviations is not None:
+            payload["stale_deviations"] = stale_deviations
+        if orphaned_evidence is not None:
+            payload["orphaned_evidence"] = orphaned_evidence
         emit_result(payload, json_mode=True)
         return
 
@@ -111,6 +143,10 @@ def emit_status(
     lines = [f"{labels.noun}: {selected}    ({total} {labels.noun}{plural} total)"]
     if contested:
         lines += [_contested_line(c) for c in contested]
+    if stale_deviations:
+        lines += [_stale_deviation_line(s) for s in stale_deviations]
+    if orphaned_evidence:
+        lines += [_orphaned_evidence_line(o) for o in orphaned_evidence]
     if result.ready:
         lines.append("convergence: PASSED ✓")
         lines += [f"  ⚠ {w}" for w in result.warnings]

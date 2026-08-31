@@ -9,6 +9,13 @@ from devague.cli._frames import resolve
 from devague.cli._output import emit_diagnostic, emit_result
 from devague.contested import find_contested_markers, marker_to_dict, sorted_markers
 from devague.frame import to_dict
+from devague.staleness import (
+    find_staleness,
+    orphaned_evidence_line,
+    orphaned_evidence_to_dict,
+    stale_deviation_line,
+    stale_deviation_to_dict,
+)
 
 
 def _contested_line(m) -> str:
@@ -27,14 +34,26 @@ def cmd_show(args: argparse.Namespace) -> int:
     for diag in diagnostics:
         emit_diagnostic(diag)
     flat = sorted_markers(markers)
+    # Staleness derivation (#97/bvts t8): the second read-only join beside
+    # contested, same fail-open contract.
+    stale_devs, orphaned, staleness_diags = find_staleness(frame)
+    for diag in staleness_diags:
+        emit_diagnostic(diag)
     if getattr(args, "json", False):
         payload = to_dict(frame)
         payload["contested"] = [marker_to_dict(m) for m in flat]
+        payload["stale_deviations"] = [stale_deviation_to_dict(f) for f in stale_devs]
+        payload["orphaned_evidence"] = [orphaned_evidence_to_dict(f) for f in orphaned]
         emit_result(payload, json_mode=True)
     else:
         text = render.render(frame, args.format)
-        if flat:
-            text = text.rstrip("\n") + "\n\n" + "\n".join(_contested_line(m) for m in flat) + "\n"
+        extra_lines = (
+            [_contested_line(m) for m in flat]
+            + [stale_deviation_line(f) for f in stale_devs]
+            + [orphaned_evidence_line(f) for f in orphaned]
+        )
+        if extra_lines:
+            text = text.rstrip("\n") + "\n\n" + "\n".join(extra_lines) + "\n"
         emit_result(text, json_mode=False)
     return 0
 
