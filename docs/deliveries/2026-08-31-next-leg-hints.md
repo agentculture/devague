@@ -72,7 +72,10 @@ hints off or replaced the text
   on all touched Python; `markdownlint-cli2` — 0 errors on every touched
   markdown file
 - commits: `ddfcfcd..052af63` (branch `feat/next-leg-hints`, five task
-  branches merged `--no-ff` under `agent/next-leg-hints/*`)
+  branches merged `--no-ff` under `agent/next-leg-hints/*`); after PR #109
+  squash-merged, the branch was rebased onto main — `052af63` maps to
+  `342d420` on the pushed history (identical tree, suite re-ran green:
+  1629 passed post-rebase)
 - evidence ledger: `o1`-`o3` approved obligations; `e1`-`e4` approved
   execution-strength evidence (all pass, run-commit `052af63`); `b1`-`b3`
   approved behavioral deltas; projected into `docs/current-spec.md` via
