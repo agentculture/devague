@@ -232,7 +232,8 @@ def test_obligation_drift_reports_when_claim_text_changed() -> None:
     claim.text = "the API must validate and sanitize input"
     drift = obligation_drift(o, claim)
     assert drift is not None
-    assert "o1" in drift and "c1" in drift
+    assert "o1" in drift
+    assert "c1" in drift
 
 
 def test_obligation_drift_rejects_mismatched_claim() -> None:

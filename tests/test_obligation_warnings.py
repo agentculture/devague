@@ -185,7 +185,8 @@ def test_only_approved_non_superseded_evidence_counts() -> None:
     replacement = _evidence(d, "o4")
     d.supersede(stale.id, replacement.id)
 
-    assert approved.status == "approved" and proposed.status == "proposed"
+    assert approved.status == "approved"
+    assert proposed.status == "proposed"
     refs = obligation_evidence.approved_evidence_refs(d)
     # o4 is still met — by the *replacement*, not by the superseded record.
     assert refs == {"o1", "o4"}
@@ -245,7 +246,8 @@ def test_frame_side_loader_fails_open_on_corrupt_ledger(tmp_path, monkeypatch) -
     delivery_store.path_for("demo").write_text("{not json", encoding="utf-8")
     refs, diags = obligation_evidence.met_obligation_refs_for_frame("s")
     assert refs == set()
-    assert len(diags) == 1 and diags[0].startswith("obligations:")
+    assert len(diags) == 1
+    assert diags[0].startswith("obligations:")
 
 
 def test_frame_side_loader_fails_open_on_newer_schema(tmp_path, monkeypatch) -> None:
@@ -258,7 +260,8 @@ def test_frame_side_loader_fails_open_on_newer_schema(tmp_path, monkeypatch) -> 
     path.write_text(json.dumps(raw), encoding="utf-8")
     refs, diags = obligation_evidence.met_obligation_refs_for_frame("s")
     assert refs == set()
-    assert len(diags) == 1 and "schema" in diags[0]
+    assert len(diags) == 1
+    assert "schema" in diags[0]
 
 
 def test_frame_side_loader_fails_open_on_corrupt_plan(tmp_path, monkeypatch) -> None:
@@ -267,7 +270,8 @@ def test_frame_side_loader_fails_open_on_corrupt_plan(tmp_path, monkeypatch) -> 
     plan_store.path_for("demo").write_text("{not json", encoding="utf-8")
     refs, diags = obligation_evidence.met_obligation_refs_for_frame("s")
     assert refs == set()
-    assert len(diags) == 1 and "plan" in diags[0]
+    assert len(diags) == 1
+    assert "plan" in diags[0]
 
 
 def test_frame_side_loader_fails_open_when_plans_cannot_be_listed(monkeypatch) -> None:
@@ -280,7 +284,8 @@ def test_frame_side_loader_fails_open_when_plans_cannot_be_listed(monkeypatch) -
     monkeypatch.setattr(plan_store, "list_slugs", _boom)
     refs, diags = obligation_evidence.met_obligation_refs_for_frame("s")
     assert refs == set()
-    assert len(diags) == 1 and diags[0].startswith("obligations:")
+    assert len(diags) == 1
+    assert diags[0].startswith("obligations:")
 
 
 def test_plan_side_loader_reads_only_its_own_ledger(tmp_path, monkeypatch) -> None:
@@ -292,13 +297,15 @@ def test_plan_side_loader_reads_only_its_own_ledger(tmp_path, monkeypatch) -> No
     _evidence(theirs, "o2")
     delivery_store.save(theirs)
     refs, diags = obligation_evidence.met_obligation_refs_for_plan("mine")
-    assert refs == {"o1"} and diags == []
+    assert refs == {"o1"}
+    assert diags == []
 
 
 def test_plan_side_loader_is_silent_without_a_ledger(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     refs, diags = obligation_evidence.met_obligation_refs_for_plan("nothing-here")
-    assert refs == set() and diags == []
+    assert refs == set()
+    assert diags == []
 
 
 def test_plan_side_loader_fails_open_on_corrupt_ledger(tmp_path, monkeypatch) -> None:
@@ -308,7 +315,8 @@ def test_plan_side_loader_fails_open_on_corrupt_ledger(tmp_path, monkeypatch) ->
     delivery_store.path_for("demo").write_text("]]not json", encoding="utf-8")
     refs, diags = obligation_evidence.met_obligation_refs_for_plan("demo")
     assert refs == set()
-    assert len(diags) == 1 and diags[0].startswith("obligations:")
+    assert len(diags) == 1
+    assert diags[0].startswith("obligations:")
 
 
 # ── CLI wiring ────────────────────────────────────────────────────────────────

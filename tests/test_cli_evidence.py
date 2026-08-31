@@ -444,7 +444,8 @@ def test_explain_evidence_succeeds(capsys) -> None:
 
 def test_moves_dict_has_evidence_entry() -> None:
     assert "evidence" in MOVES
-    assert isinstance(MOVES["evidence"], str) and MOVES["evidence"]
+    assert isinstance(MOVES["evidence"], str)
+    assert MOVES["evidence"]
 
 
 def test_bare_learn_lists_evidence_move(capsys) -> None:

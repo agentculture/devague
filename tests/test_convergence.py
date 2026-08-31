@@ -28,7 +28,8 @@ def _full_frame() -> Frame:
 
 def test_full_frame_converges() -> None:
     res = evaluate(_full_frame())
-    assert res.ready is True and res.blockers == []
+    assert res.ready is True
+    assert res.blockers == []
 
 
 def test_missing_required_kinds_reported() -> None:

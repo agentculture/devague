@@ -485,7 +485,9 @@ def test_same_stores_in_same_projection_out(tmp_path, monkeypatch):
 
 def test_projection_is_stable_across_repeated_runs(tmp_path, monkeypatch):
     _build_store(tmp_path, monkeypatch)
-    assert today.result_to_dict(_project()) == today.result_to_dict(_project())
+    first_run = today.result_to_dict(_project())
+    second_run = today.result_to_dict(_project())
+    assert first_run == second_run
 
 
 # ── criterion 3: the coverage span ───────────────────────────────────────────

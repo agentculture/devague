@@ -543,7 +543,9 @@ def test_v1_file_loads_with_no_error_and_resaves_under_v2(tmp_path, monkeypatch)
     delivery_store.save(loaded)
     raw = json.loads(delivery_store.path_for("demo").read_text(encoding="utf-8"))
     assert raw["schema_version"] == 2
-    assert raw["evidence"] == [] and raw["deltas"] == [] and raw["supersessions"] == []
+    assert raw["evidence"] == []
+    assert raw["deltas"] == []
+    assert raw["supersessions"] == []
 
 
 def test_load_fails_closed_on_the_raw_dict_before_parsing(tmp_path, monkeypatch) -> None:

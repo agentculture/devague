@@ -136,6 +136,37 @@ def _resolve_obligation(
     return frozenset(), None
 
 
+def _scan_evidence_against(
+    dev_pos: int, affected: frozenset, frame: Frame, plan: Plan, delivery: Delivery
+) -> tuple[list[str], set, bool]:
+    """Scan the ledger's evidence against one approved deviation's affects.
+
+    Returns ``(stale_refs, overlap_claims, refiled)``. "<=" (not "<"): each
+    family mints its ids independently starting at 1, so an id-1 evidence
+    record and an id-1 deviation share the same numeric position on this
+    module's shared-timeline convention (see the module docstring) — treated
+    as "at or before" rather than strictly after, since the common real
+    sequence is evidence filed first, then the deviation. Only a strictly
+    later position counts as a genuine re-filing.
+    """
+    stale_refs: list[str] = []
+    overlap_claims: set = set()
+    refiled = False
+    for ev in delivery.evidence:
+        if ev.superseded:
+            continue
+        claims, _status = _resolve_obligation(ev.obligation_ref, frame, plan)
+        shared = claims & affected
+        if not shared:
+            continue
+        if _numeric_suffix(ev.id) <= dev_pos:
+            stale_refs.append(ev.id)
+            overlap_claims |= shared
+        else:
+            refiled = True
+    return stale_refs, overlap_claims, refiled
+
+
 def _stale_deviations_for(
     frame: Frame, plan: Plan, delivery: Delivery
 ) -> list[StaleDeviationFinding]:
@@ -146,29 +177,9 @@ def _stale_deviations_for(
         affected = frozenset(dev.affects)
         if not affected:
             continue
-        dev_pos = _numeric_suffix(dev.id)
-        stale_refs: list[str] = []
-        overlap_claims: set = set()
-        refiled = False
-        for ev in delivery.evidence:
-            if ev.superseded:
-                continue
-            claims, _status = _resolve_obligation(ev.obligation_ref, frame, plan)
-            shared = claims & affected
-            if not shared:
-                continue
-            # "<=" (not "<"): each family mints its ids independently starting
-            # at 1, so an id-1 evidence record and an id-1 deviation share the
-            # same numeric position on this module's shared-timeline
-            # convention (see the module docstring) — treated as "at or
-            # before" rather than strictly after, since the common real
-            # sequence is evidence filed first, then the deviation. Only a
-            # strictly later position counts as a genuine re-filing.
-            if _numeric_suffix(ev.id) <= dev_pos:
-                stale_refs.append(ev.id)
-                overlap_claims |= shared
-            else:
-                refiled = True
+        stale_refs, overlap_claims, refiled = _scan_evidence_against(
+            _numeric_suffix(dev.id), affected, frame, plan, delivery
+        )
         if stale_refs and not refiled:
             findings.append(
                 StaleDeviationFinding(
@@ -184,6 +195,23 @@ def _stale_deviations_for(
     return findings
 
 
+def _orphan_reasons(ev, frame: Frame, plan: Plan, delivery: Delivery) -> list[str]:
+    reasons: list[str] = []
+    _claims, status = _resolve_obligation(ev.obligation_ref, frame, plan)
+    if status is None:
+        reasons.append(f"obligation {ev.obligation_ref!r} does not resolve")
+    elif status == "rejected":
+        reasons.append(f"obligation {ev.obligation_ref!r} was rejected")
+    for delta in delivery.deltas:
+        if ev.id not in delta.evidence_refs:
+            continue
+        if delta.superseded:
+            reasons.append(f"referencing delta {delta.id!r} is superseded")
+        if delta.kind == "removed":
+            reasons.append(f"referencing delta {delta.id!r} removed the behavior")
+    return reasons
+
+
 def _orphaned_evidence_for(
     frame: Frame, plan: Plan, delivery: Delivery
 ) -> list[OrphanedEvidenceFinding]:
@@ -191,19 +219,7 @@ def _orphaned_evidence_for(
     for ev in delivery.evidence:
         if ev.superseded:
             continue
-        reasons: list[str] = []
-        _claims, status = _resolve_obligation(ev.obligation_ref, frame, plan)
-        if status is None:
-            reasons.append(f"obligation {ev.obligation_ref!r} does not resolve")
-        elif status == "rejected":
-            reasons.append(f"obligation {ev.obligation_ref!r} was rejected")
-        for delta in delivery.deltas:
-            if ev.id not in delta.evidence_refs:
-                continue
-            if delta.superseded:
-                reasons.append(f"referencing delta {delta.id!r} is superseded")
-            if delta.kind == "removed":
-                reasons.append(f"referencing delta {delta.id!r} removed the behavior")
+        reasons = _orphan_reasons(ev, frame, plan, delivery)
         if reasons:
             findings.append(
                 OrphanedEvidenceFinding(

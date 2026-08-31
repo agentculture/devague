@@ -99,7 +99,7 @@ def _validate_caused_by(plan, delivery, refs: list[str]) -> None:
     for ref in refs:
         if ":" in ref:
             continue
-        if ref[:1] == "c" and ref[1:].isdigit():
+        if ref.startswith("c") and ref[1:].isdigit():
             refuse_unless_known(
                 ref,
                 known_claims,
@@ -107,7 +107,7 @@ def _validate_caused_by(plan, delivery, refs: list[str]) -> None:
                 what="a claim id on the plan's live source frame",
                 hint="run 'devague show' to see the frame's claim ids",
             )
-        elif ref[:1] == "d" and ref[1:].isdigit():
+        elif ref.startswith("d") and ref[1:].isdigit():
             refuse_unless_known(
                 ref,
                 known_deviations,
@@ -116,7 +116,7 @@ def _validate_caused_by(plan, delivery, refs: list[str]) -> None:
                 hint="run 'devague deviate --list' to see recorded deviation ids "
                 "(only an approved deviation is real provenance)",
             )
-        elif ref[:1] == "b" and ref[1:].isdigit():
+        elif ref.startswith("b") and ref[1:].isdigit():
             refuse_unless_known(
                 ref,
                 known_deltas,
@@ -129,7 +129,7 @@ def _validate_caused_by(plan, delivery, refs: list[str]) -> None:
         # else claims a specific known-ids family to be checked against.
 
 
-def _record(args: argparse.Namespace) -> int:
+def _record(args: argparse.Namespace) -> None:
     missing = []
     if not args.behavior:
         missing.append("--behavior")
@@ -160,10 +160,9 @@ def _record(args: argparse.Namespace) -> int:
         emit_result(_record_dict(rec), json_mode=True)
     else:
         emit_result(f"filed {rec.id} ({rec.status})", json_mode=False)
-    return 0
 
 
-def _supersede(args: argparse.Namespace) -> int:
+def _supersede(args: argparse.Namespace) -> None:
     slug = _plan_slug(args)
     delivery = resolve_delivery(slug)
     try:
@@ -181,10 +180,9 @@ def _supersede(args: argparse.Namespace) -> int:
         emit_result(_event_dict(event), json_mode=True)
     else:
         emit_result(f"{event.id}: {args.supersede} superseded", json_mode=False)
-    return 0
 
 
-def _retract(args: argparse.Namespace) -> int:
+def _retract(args: argparse.Namespace) -> None:
     slug = _plan_slug(args)
     delivery = resolve_delivery(slug)
     try:
@@ -200,10 +198,9 @@ def _retract(args: argparse.Namespace) -> int:
         emit_result(_event_dict(event), json_mode=True)
     else:
         emit_result(f"{event.id}: {args.retract} supersession retracted", json_mode=False)
-    return 0
 
 
-def _resolve_status(args: argparse.Namespace, bid: str, status: str) -> int:
+def _resolve_status(args: argparse.Namespace, bid: str, status: str) -> None:
     slug = _plan_slug(args)
     delivery = resolve_delivery(slug)
     rec = delivery.find_delta(bid)
@@ -225,10 +222,9 @@ def _resolve_status(args: argparse.Namespace, bid: str, status: str) -> int:
         emit_result({"id": bid, "status": status}, json_mode=True)
     else:
         emit_result(f"{bid} -> {status}", json_mode=False)
-    return 0
 
 
-def _list(args: argparse.Namespace) -> int:
+def _list(args: argparse.Namespace) -> None:
     slug = _plan_slug(args)
     delivery = resolve_delivery(slug)
     records = delivery.deltas
@@ -242,26 +238,25 @@ def _list(args: argparse.Namespace) -> int:
             },
             json_mode=True,
         )
-        return 0
+        return
     if not records and not events:
         emit_result("no deltas filed yet", json_mode=False)
-        return 0
+        return
     lines = []
     for r in records:
         state = "superseded" if r.superseded else "live"
         lines.append(f"{r.id}: {r.kind} {r.behavior_text!r} ({r.status}) [{state}]")
     if events:
         lines.append("--- supersession events ---")
-        for e in events:
-            if e.action == "supersede":
-                target = (
-                    f"{e.target_ref} -> {e.replacement_ref}" if e.replacement_ref else e.target_ref
-                )
-                lines.append(f"{e.id}: supersede {target} ({e.origin})")
-            else:
-                lines.append(f"{e.id}: retract {e.target_ref} ({e.origin})")
+        lines.extend(_event_line(e) for e in events)
     emit_result("\n".join(lines), json_mode=False)
-    return 0
+
+
+def _event_line(e) -> str:
+    if e.action == "supersede":
+        target = f"{e.target_ref} -> {e.replacement_ref}" if e.replacement_ref else e.target_ref
+        return f"{e.id}: supersede {target} ({e.origin})"
+    return f"{e.id}: retract {e.target_ref} ({e.origin})"
 
 
 def cmd_delta(args: argparse.Namespace) -> int:
@@ -316,16 +311,18 @@ def cmd_delta(args: argparse.Namespace) -> int:
                 '--behavior "<text>" --caused-by <ref> , or drop the flags to list',
             )
     if args.supersede:
-        return _supersede(args)
-    if args.retract:
-        return _retract(args)
-    if args.confirm:
-        return _resolve_status(args, args.confirm, "approved")
-    if args.reject:
-        return _resolve_status(args, args.reject, "rejected")
-    if args.kind:
-        return _record(args)
-    return _list(args)
+        _supersede(args)
+    elif args.retract:
+        _retract(args)
+    elif args.confirm:
+        _resolve_status(args, args.confirm, "approved")
+    elif args.reject:
+        _resolve_status(args, args.reject, "rejected")
+    elif args.kind:
+        _record(args)
+    else:
+        _list(args)
+    return 0
 
 
 def register(sub: argparse._SubParsersAction) -> None:

@@ -262,7 +262,8 @@ def test_learn_skills_json_payload(topic: str, capsys: pytest.CaptureFixture[str
     assert payload["tool"] == "devague"
     assert payload["version"]
     assert payload["topic"] == topic
-    assert "consent" in payload and payload["consent"]
+    assert "consent" in payload
+    assert payload["consent"]
     assert "authoring" in payload
     # Each skill carries its canonical raw-source URLs; method-only skills
     # carry no script_raw (there is no script to link to).
@@ -531,7 +532,8 @@ def test_learn_review_teaches_propose_never_confirm(
     assert "caps" in lowered
     assert "gate 3" in lowered or "gate-3" in lowered
     # The reviewer never confirms their own finding.
-    assert "never" in lowered and "confirm" in lowered
+    assert "never" in lowered
+    assert "confirm" in lowered
 
 
 def test_learn_review_teaches_retraction_on_the_record(

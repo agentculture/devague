@@ -77,7 +77,8 @@ def test_plan_new_happy_and_collision(tmp_path, monkeypatch, capsys) -> None:
     rc = main(["plan", "new", "--frame", slug, "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["slug"] == slug and payload["targets"] == 12
+    assert payload["slug"] == slug
+    assert payload["targets"] == 12
     # second attempt refuses (1:1 link, no clobber)
     rc = main(["plan", "new", "--frame", slug])
     assert rc == 1
@@ -99,7 +100,9 @@ def test_task_inline_flags_and_json(tmp_path, monkeypatch, capsys) -> None:
     )
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["id"] == "t2" and payload["covers"] == ["c1"] and payload["deps"] == ["t1"]
+    assert payload["id"] == "t2"
+    assert payload["covers"] == ["c1"]
+    assert payload["deps"] == ["t1"]
 
 
 def test_task_dep_self_cycle_errors(tmp_path, monkeypatch, capsys) -> None:
@@ -520,7 +523,8 @@ def test_risk_resolve_happy_path_and_json_parity(tmp_path, monkeypatch, capsys) 
     rc = main(["plan", "risk", "--resolve", "r1", "--decision", "capped at 10k"])
     assert rc == 0
     out = capsys.readouterr().out
-    assert "r1" in out and "resolved" in out
+    assert "r1" in out
+    assert "resolved" in out
     risk = plan_store.load(slug).find_risk("r1")
     assert risk.resolved is True
     assert risk.resolution == "capped at 10k"
@@ -788,7 +792,9 @@ def test_plan_oblige_list_empty_and_bare_invocation(tmp_path, monkeypatch, capsy
     rc = main(["plan", "oblige"])
     assert rc == 0
     out = capsys.readouterr().out
-    assert "o1" in out and "cli" in out and "rejects bad input" in out
+    assert "o1" in out
+    assert "cli" in out
+    assert "rejects bad input" in out
 
 
 def test_plan_oblige_list_and_show_render_drift_marker_when_criterion_changes(
@@ -884,7 +890,9 @@ def test_defer_text_output(tmp_path, monkeypatch, capsys) -> None:
     rc = main(["plan", "defer", "c1", "--reason", "Milestone 3"])
     assert rc == 0
     out = capsys.readouterr().out
-    assert "c1" in out and "deferred" in out and "Milestone 3" in out
+    assert "c1" in out
+    assert "deferred" in out
+    assert "Milestone 3" in out
 
 
 def test_defer_unknown_target_errors(tmp_path, monkeypatch, capsys) -> None:
@@ -1019,7 +1027,8 @@ def test_plan_with_deferred_targets_converges_exports_and_status_distinguishes(
     out = capsys.readouterr().out
     assert "PASSED" in out
     for tid in deferred:
-        assert tid in out and "deferred" in out
+        assert tid in out
+        assert "deferred" in out
     # Nothing about a deferred target is mislabeled as a plain uncovered gap.
     assert "has no confirmed task" not in out
 
@@ -1149,7 +1158,8 @@ def test_resolve_plan_rejects_newer_schema(tmp_path, monkeypatch, capsys) -> Non
     rc = main(["plan", "show", "--plan", slug])
     assert rc == 1
     err = capsys.readouterr().err
-    assert "schema_version" in err and "upgrade" in err
+    assert "schema_version" in err
+    assert "upgrade" in err
 
 
 def test_resolve_plan_rejects_malformed_value(tmp_path, monkeypatch, capsys) -> None:
@@ -1189,7 +1199,8 @@ def test_waves_text_mode_lists_each_wave(tmp_path, monkeypatch, capsys) -> None:
     _plan_with_deps(monkeypatch, tmp_path, capsys, [[], ["t1"]])
     assert main(["plan", "waves"]) == 0
     out = capsys.readouterr().out
-    assert "t1" in out and "t2" in out
+    assert "t1" in out
+    assert "t2" in out
 
 
 def test_waves_emit_on_unconverged_plan(tmp_path, monkeypatch, capsys) -> None:
@@ -1208,7 +1219,8 @@ def test_waves_excludes_rejected_tasks(tmp_path, monkeypatch, capsys) -> None:
     capsys.readouterr()
     assert main(["plan", "waves", "--json"]) == 0
     flat = [tid for w in json.loads(capsys.readouterr().out)["waves"] for tid in w]
-    assert "t2" not in flat and {"t1", "t3"} <= set(flat)
+    assert "t2" not in flat
+    assert {"t1", "t3"} <= set(flat)
 
 
 def test_waves_does_not_mutate_plan_state(tmp_path, monkeypatch, capsys) -> None:
@@ -1256,7 +1268,8 @@ def test_learn_and_explain(tmp_path, monkeypatch, capsys) -> None:
     assert "spec into a buildable plan" in capsys.readouterr().out
     assert main(["plan", "learn", "--json"]) == 0
     moves = json.loads(capsys.readouterr().out)["moves"]
-    assert "converge" in moves and "waves" in moves
+    assert "converge" in moves
+    assert "waves" in moves
     assert main(["plan", "explain", "waves", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)["move"] == "waves"
     assert main(["plan", "explain", "task", "--json"]) == 0

@@ -182,11 +182,11 @@ STRENGTH_LADDER = (
     ("coverage", "a test exists that exercises the obligated behavior (no run required)"),
     (
         "fidelity",
-        "the test asserts the promised behavior itself, not just that it runs " "(no run required)",
+        "the test asserts the promised behavior itself, not just that it runs (no run required)",
     ),
     (
         "execution",
-        "the test currently passes — requires a run reference " "(--run-commit/--run-timestamp)",
+        "the test currently passes — requires a run reference (--run-commit/--run-timestamp)",
     ),
     (
         "sensitivity",
@@ -490,7 +490,7 @@ def _review_text() -> str:
 def _review_payload() -> dict[str, object]:
     """Structured reviewer-seam payload for `--json`."""
     return {
-        **{k: v for k, v in REVIEW_GUIDANCE.items()},
+        **dict(REVIEW_GUIDANCE),
         "commands": [
             {"command": list(command), "purpose": purpose} for command, purpose in REVIEW_COMMANDS
         ],

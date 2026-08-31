@@ -301,7 +301,7 @@ def _looks_like_delta_ref(ref: str) -> bool:
     a claim id.
     """
     tail = ref.rpartition(":")[2]
-    return tail[:1] == "b" and tail[1:].isdigit()
+    return tail.startswith("b") and tail[1:].isdigit()
 
 
 # ── the fail-open walk ───────────────────────────────────────────────────────

@@ -297,7 +297,7 @@ def _lapse_refs_claim(
     return False
 
 
-def _evidence_pointer_cell(status: str, evidence: Optional[EvidenceRecord]) -> str:
+def _evidence_pointer_cell(evidence: Optional[EvidenceRecord]) -> str:
     if evidence is None:
         return "(none filed)"
     ref = _escape_table_cell(evidence.test_ref)
@@ -323,6 +323,36 @@ class _ClaimEvidenceEntry:
     stale_notes: list[str]
 
 
+def _capped_strength(
+    status: str, evidence: Optional[EvidenceRecord], cap: Optional[str]
+) -> Optional[str]:
+    if status != "passing" or evidence is None:
+        return None
+    if cap is None:
+        return evidence.strength
+    return _cap_strength(evidence.strength, cap)
+
+
+def _stale_notes(
+    claim_id: str,
+    evidence: Optional[EvidenceRecord],
+    stale_deviations: list[StaleDeviationFinding],
+    orphaned_evidence: list[OrphanedEvidenceFinding],
+) -> list[str]:
+    notes = [
+        f"stale: deviation {f.deviation_id} never re-validated"
+        for f in stale_deviations
+        if claim_id in f.claim_ids
+    ]
+    if evidence is not None:
+        notes.extend(
+            f"stale: evidence {f.evidence_id} orphaned ({f.reason})"
+            for f in orphaned_evidence
+            if f.evidence_id == evidence.id
+        )
+    return notes
+
+
 def _delivery_claim_entries(
     frame: Optional[Frame],
     plan: Plan,
@@ -335,19 +365,8 @@ def _delivery_claim_entries(
         evidence_list = _evidence_for_claim(claim.id, frame, plan, delivery)
         status, evidence = _best_evidence(evidence_list)
         cap = _applicable_cap(claim.id, frame, plan, delivery)
-        strength = None
-        if status == "passing" and evidence is not None:
-            strength = evidence.strength
-            if cap is not None:
-                strength = _cap_strength(strength, cap)
-        notes: list[str] = []
-        for f in stale_deviations:
-            if claim.id in f.claim_ids:
-                notes.append(f"stale: deviation {f.deviation_id} never re-validated")
-        if evidence is not None:
-            for f in orphaned_evidence:
-                if f.evidence_id == evidence.id:
-                    notes.append(f"stale: evidence {f.evidence_id} orphaned ({f.reason})")
+        strength = _capped_strength(status, evidence, cap)
+        notes = _stale_notes(claim.id, evidence, stale_deviations, orphaned_evidence)
         entries.append(
             _ClaimEvidenceEntry(
                 claim_id=claim.id,
@@ -380,7 +399,7 @@ def _delivery_claim_rows(
             confidence = "pending adjudication"
         else:
             confidence = "untested"
-        evidence_cell = _evidence_pointer_cell(entry.status, entry.evidence)
+        evidence_cell = _evidence_pointer_cell(entry.evidence)
         if entry.stale_notes:
             evidence_cell += " — ⚠ " + _escape_table_cell("; ".join(entry.stale_notes))
         claim_cell = _escape_table_cell(_verbatim(entry.claim_text))

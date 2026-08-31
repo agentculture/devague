@@ -410,7 +410,8 @@ def test_explain_oblige_succeeds(capsys) -> None:
 
 def test_moves_dict_has_oblige_entry() -> None:
     assert "oblige" in MOVES
-    assert isinstance(MOVES["oblige"], str) and MOVES["oblige"]
+    assert isinstance(MOVES["oblige"], str)
+    assert MOVES["oblige"]
 
 
 def test_bare_learn_lists_oblige_move(capsys) -> None:

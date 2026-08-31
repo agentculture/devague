@@ -577,7 +577,8 @@ def test_explain_delta_succeeds(capsys) -> None:
 
 def test_moves_dict_has_delta_entry() -> None:
     assert "delta" in MOVES
-    assert isinstance(MOVES["delta"], str) and MOVES["delta"]
+    assert isinstance(MOVES["delta"], str)
+    assert MOVES["delta"]
 
 
 # ── deviate's own --affects ref checks still pass after the _refs extraction ─

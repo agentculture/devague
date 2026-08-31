@@ -256,7 +256,8 @@ def test_criterion_obligation_drift_reports_when_criterion_text_changed() -> Non
     task.acceptance_criteria[0] = "criterion one, revised"
     drift = criterion_obligation_drift(o, task)
     assert drift is not None
-    assert "o1" in drift and "t1" in drift
+    assert "o1" in drift
+    assert "t1" in drift
 
 
 def test_criterion_obligation_drift_reports_when_criterion_removed() -> None:

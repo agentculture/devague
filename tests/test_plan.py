@@ -359,8 +359,10 @@ def _seed_frame() -> Frame:
 def test_targets_from_frame_includes_only_confirmed_spec_elements() -> None:
     targets = targets_from_frame(_seed_frame())
     by_id = {t.id: t for t in targets}
-    assert "c1" in by_id and by_id["c1"].kind == "announcement"
-    assert "h1" in by_id and by_id["h1"].kind == "honesty"
+    assert "c1" in by_id
+    assert by_id["c1"].kind == "announcement"
+    assert "h1" in by_id
+    assert by_id["h1"].kind == "honesty"
     assert "c5" in by_id  # success_signal claim is confirmed -> a target
     # excluded: proposed claim (c2), rejected (c3), open_question (c4), proposed honesty (h2)
     assert "c2" not in by_id
