@@ -94,6 +94,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import learn as _learn_cmd
     from devague.cli._commands import list_frames as _list_cmd
     from devague.cli._commands import new as _new_cmd
+    from devague.cli._commands import oblige as _oblige_cmd
     from devague.cli._commands import park as _park_cmd
     from devague.cli._commands import plan as _plan_cmd
     from devague.cli._commands import question as _question_cmd
@@ -121,6 +122,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _plan_cmd.register(sub)
     _deviate_cmd.register(sub)
     _lapse_cmd.register(sub)
+    _oblige_cmd.register(sub)
     _status_cmd.register(sub)
     _summary_cmd.register(sub)
     _show_cmd.register(sub)

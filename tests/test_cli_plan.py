@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import re
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from devague import plan_store, store
-from devague.cli import main
+from devague.cli import _build_parser, main
 
 _KINDS = ("audience", "after_state", "before_state", "boundary", "success_signal")
 # After a converged frame seeded below: claims c1..c6, honesty h1..h6 → 12 targets.
@@ -639,6 +640,227 @@ def test_risk_amend_unknown_id_refused(tmp_path, monkeypatch, capsys) -> None:
     rc = main(["plan", "risk", "--amend", "rX", "--text", "whatever"])
     assert rc == 1
     assert "unknown" in capsys.readouterr().err
+
+
+# ── oblige (bvts t4) ───────────────────────────────────────────────────────────
+def _plan_with_criteria(monkeypatch, tmp_path, capsys) -> str:
+    slug = _converged_frame(monkeypatch, tmp_path)
+    main(["plan", "new", "--frame", slug])
+    main(["plan", "task", "Build everything"])
+    main(["plan", "accept", "t1", "criterion one"])
+    main(["plan", "accept", "t1", "criterion two"])
+    capsys.readouterr()
+    return slug
+
+
+def test_plan_oblige_records_entry_and_unknown_task_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    rc = main(
+        [
+            "plan",
+            "oblige",
+            "t1",
+            "--criterion",
+            "1",
+            "--seam",
+            "cli",
+            "--behavior",
+            "rejects bad input",
+            "--json",
+        ]
+    )
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload == {
+        "id": "o1",
+        "task_id": "t1",
+        "criterion_index": 1,
+        "criterion_snapshot": "criterion one",
+        "seam": "cli",
+        "behavior": "rejects bad input",
+        "origin": "user",
+        "status": "approved",
+    }
+    obligation = plan_store.load(slug).find_obligation("o1")
+    assert obligation is not None
+
+    rc = main(["plan", "oblige", "tX", "--criterion", "1", "--seam", "cli", "--behavior", "x"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "unknown task id" in err
+    assert "hint:" in err
+
+
+def test_plan_oblige_out_of_range_criterion_errors(tmp_path, monkeypatch, capsys) -> None:
+    slug = _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    rc = main(["plan", "oblige", "t1", "--criterion", "9", "--seam", "cli", "--behavior", "x"])
+    assert rc == 1
+    assert "out of range" in capsys.readouterr().err
+    assert plan_store.load(slug).obligations == []
+
+
+def test_plan_oblige_missing_flags_error(tmp_path, monkeypatch, capsys) -> None:
+    slug = _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    rc = main(["plan", "oblige", "t1"])
+    assert rc == 1
+    err = capsys.readouterr().err
+    assert "--criterion" in err
+    assert "--seam" in err
+    assert "--behavior" in err
+    assert plan_store.load(slug).obligations == []
+
+
+def test_plan_oblige_llm_origin_lands_proposed(tmp_path, monkeypatch, capsys) -> None:
+    _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    main(
+        [
+            "plan",
+            "oblige",
+            "t1",
+            "--criterion",
+            "1",
+            "--seam",
+            "cli",
+            "--behavior",
+            "x",
+            "--origin",
+            "llm",
+        ]
+    )
+    capsys.readouterr()
+    assert main(["plan", "oblige", "--list", "--json"]) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["obligations"][0]["status"] == "proposed"
+
+
+def test_plan_oblige_confirm_and_reject(tmp_path, monkeypatch, capsys) -> None:
+    slug = _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    main(
+        [
+            "plan",
+            "oblige",
+            "t1",
+            "--criterion",
+            "1",
+            "--seam",
+            "cli",
+            "--behavior",
+            "x",
+            "--origin",
+            "llm",
+        ]
+    )
+    capsys.readouterr()
+    rc = main(["plan", "oblige", "--confirm", "o1", "--json"])
+    assert rc == 0
+    assert json.loads(capsys.readouterr().out) == {"id": "o1", "status": "approved"}
+    assert plan_store.load(slug).find_obligation("o1").status == "approved"
+
+    rc = main(["plan", "oblige", "--confirm", "o1"])
+    assert rc == 1
+    assert "already approved" in capsys.readouterr().err
+
+    rc = main(["plan", "oblige", "--reject", "oX"])
+    assert rc == 1
+    assert "no such obligation" in capsys.readouterr().err
+
+
+def test_plan_oblige_list_empty_and_bare_invocation(tmp_path, monkeypatch, capsys) -> None:
+    _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    rc = main(["plan", "oblige", "--list"])
+    assert rc == 0
+    assert "no obligations filed yet" in capsys.readouterr().out
+
+    main(
+        [
+            "plan",
+            "oblige",
+            "t1",
+            "--criterion",
+            "1",
+            "--seam",
+            "cli",
+            "--behavior",
+            "rejects bad input",
+        ]
+    )
+    capsys.readouterr()
+    rc = main(["plan", "oblige"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "o1" in out and "cli" in out and "rejects bad input" in out
+
+
+def test_plan_oblige_list_and_show_render_drift_marker_when_criterion_changes(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    main(
+        [
+            "plan",
+            "oblige",
+            "t1",
+            "--criterion",
+            "1",
+            "--seam",
+            "cli",
+            "--behavior",
+            "rejects bad input",
+        ]
+    )
+    capsys.readouterr()
+
+    # Drift the criterion out from under the obligation via amend.
+    main(["plan", "amend", "t1", "--accept-replace", "1", "criterion one, revised"])
+    capsys.readouterr()
+
+    rc = main(["plan", "oblige", "--list", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["obligations"][0]["drift"] is not None
+
+    rc = main(["plan", "oblige", "--list"])
+    assert "drifted" in capsys.readouterr().out
+
+    rc = main(["plan", "show"])
+    assert rc == 0
+    assert "⚠ drifted" in capsys.readouterr().out
+
+
+def test_plan_oblige_confirm_reject_mutually_exclusive_with_positional(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    _plan_with_criteria(monkeypatch, tmp_path, capsys)
+    rc = main(["plan", "oblige", "t1", "--confirm", "o1"])
+    assert rc == 1
+    assert "cannot combine --confirm/--reject" in capsys.readouterr().err
+
+    with pytest.raises(SystemExit) as exc:
+        main(["plan", "oblige", "--confirm", "o1", "--reject", "o1"])
+    assert exc.value.code == 1
+
+
+def test_plan_oblige_parser_has_no_amend_or_delete_flag() -> None:
+    p = _build_parser()
+    oblige_parser = None
+    for action in p._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            plan_parser = action.choices["plan"]
+            for a in plan_parser._actions:
+                if isinstance(a, argparse._SubParsersAction):
+                    oblige_parser = a.choices["oblige"]
+    assert oblige_parser is not None
+    flags = {opt for a in oblige_parser._actions for opt in (a.option_strings or [])}
+    assert "--amend" not in flags
+    assert "--delete" not in flags
+
+
+def test_plan_oblige_learn_and_explain(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["plan", "learn", "--json"]) == 0
+    moves = json.loads(capsys.readouterr().out)["moves"]
+    assert "oblige" in moves
+    assert main(["plan", "explain", "oblige", "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["move"] == "oblige"
 
 
 # ── defer (issue #85, t9) ─────────────────────────────────────────────────────

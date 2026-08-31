@@ -140,6 +140,43 @@ class CriterionObligation:
             raise ValueError(f"unknown obligation status: {self.status!r}")
 
 
+def criterion_obligation_drift(obligation: CriterionObligation, task: "Task") -> Optional[str]:
+    """Report drift between a criterion obligation's snapshot and the live
+    acceptance-criterion text (bvts t4, the plan-side twin of
+    ``frame.obligation_drift``).
+
+    Pure and read-only: takes the two records directly rather than a plan, so
+    it never has a chance to mutate either. Returns ``None`` when the live
+    criterion at ``obligation.criterion_index`` still matches
+    ``obligation.criterion_snapshot`` (no drift) — including when the index is
+    now out of range because the criterion was removed out from under it, since
+    a criterion that no longer exists cannot equal the snapshot and so falls
+    through to the drift message below. Raises ``ValueError`` if ``task`` is
+    not the obligation's own source task (``task.id != obligation.task_id``) —
+    a caller mismatch, not drift.
+    """
+    if task.id != obligation.task_id:
+        raise ValueError(
+            f"task {task.id!r} is not the source of obligation {obligation.id!r} "
+            f"(expected task {obligation.task_id!r})"
+        )
+    idx = obligation.criterion_index - 1
+    live = task.acceptance_criteria[idx] if 0 <= idx < len(task.acceptance_criteria) else None
+    if live == obligation.criterion_snapshot:
+        return None
+    if live is None:
+        return (
+            f"obligation {obligation.id} drifted: task {task.id} criterion "
+            f"{obligation.criterion_index} no longer exists "
+            f"(snapshot={obligation.criterion_snapshot!r})"
+        )
+    return (
+        f"obligation {obligation.id} drifted: task {task.id} criterion "
+        f"{obligation.criterion_index} text changed since filing "
+        f"(snapshot={obligation.criterion_snapshot!r}, current={live!r})"
+    )
+
+
 @dataclass
 class CoverageTarget:
     """A requirement the plan must cover, derived from a confirmed frame element.
