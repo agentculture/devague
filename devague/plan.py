@@ -32,13 +32,25 @@ from devague.frame import (
 # v4 (issue-backlog-sweep t2) is reserved for t9's per-target deferral state; t2
 # itself only bumps the number and hardens plan_store.load's check-before-parse
 # order (the plan-side twin of the same frame.SCHEMA_VERSION v4 hardening).
-PLAN_SCHEMA_VERSION = 4
+# v5 (Reasoning Degradation Ledger, issue #97 t2) adds Plan.obligations /
+# CriterionObligation — the plan-side twin of frame.SCHEMA_VERSION v5's
+# Frame.lapses / LapseRecord. This DOES need a real bump (mirroring frame.py's
+# v5 rationale verbatim): save() re-stamps schema_version and to_dict only
+# serializes known dataclass fields, so an older v4-labeled binary reading a
+# v5 plan and re-saving it would silently drop every filed obligation.
+PLAN_SCHEMA_VERSION = 5
 
 TASK_STATUSES = ("proposed", "confirmed", "rejected")
 # Risks reuse the frame's open-vagueness kinds: a plan risk is the task-level peer of
 # a frame's open vagueness. (NB: frame `interrogate --risk` records a non-blocking
 # hard question on a *claim*; a PlanRisk is first-class and attaches to a *task*.)
 RISK_KINDS = VAGUENESS_KINDS
+
+# Criterion obligations (issue #97 t2) reuse the lapse ledger's three-state
+# adjudication vocabulary verbatim — see CriterionObligation's docstring for
+# why an obligation's status mirrors LapseRecord.status rather than a plain
+# task/risk's two-state proposed|confirmed.
+OBLIGATION_STATUSES = ("proposed", "approved", "rejected")
 
 
 @dataclass
@@ -81,6 +93,54 @@ class PlanRisk:
 
 
 @dataclass
+class CriterionObligation:
+    """An obligation attached to a task's acceptance criterion (issue #97 t2) —
+    the plan-side twin of ``frame.LapseRecord`` (#97 t1): prefix-generic id
+    minting via ``Plan._next``, origin-driven initial status, fail-closed
+    validation, append-only-ish with ``set_obligation_status`` the only
+    post-filing mutator (no amend, no delete — the same c20-style asymmetry
+    as the Reasoning Degradation Ledger).
+
+    Unlike a lapse's ``code`` — a vocabulary validated at the filing path
+    (``Frame.add_lapse``) precisely because it is expected to retire — an
+    obligation's structural link has nothing to retire: it names *which*
+    task and *which* acceptance criterion it obligates, and acceptance
+    criteria carry no id of their own (they are a plain ``list[str]``, edited
+    by position via ``Plan.amend_task``). So the link is ``task_id`` plus a
+    1-based ``criterion_index`` (the same indexing convention
+    ``amend_task``'s ``accept_replace``/``accept_remove`` already use) —
+    validated fail-closed by :meth:`Plan.add_obligation` against the task's
+    *live* acceptance-criteria list, mirroring how ``code`` is validated at
+    ``add_lapse`` and nowhere else. Because a criterion can later be amended
+    or removed out from under an obligation that named it by position,
+    ``criterion_snapshot`` captures the criterion's exact text at filing
+    time — free-text provenance, like ``LapseRecord.refs``, not a live
+    pointer — so the obligation stays legible even if the criterion at that
+    index later says something else.
+
+    ``seam`` and ``behavior`` are plain verbatim text: ``seam`` names what
+    boundary/interface must be verified (e.g. "cli", "store round-trip"),
+    ``behavior`` what it must do — neither is a controlled vocabulary, so
+    neither is validated (matching ``LapseRecord.what``/``skipped_check``).
+    """
+
+    id: str
+    task_id: str
+    criterion_index: int
+    criterion_snapshot: str
+    seam: str
+    behavior: str
+    origin: str = "user"  # user | llm
+    status: str = "approved"  # proposed | approved | rejected
+
+    def __post_init__(self) -> None:
+        if self.origin not in ORIGINS:
+            raise ValueError(f"unknown obligation origin: {self.origin!r}")
+        if self.status not in OBLIGATION_STATUSES:
+            raise ValueError(f"unknown obligation status: {self.status!r}")
+
+
+@dataclass
 class CoverageTarget:
     """A requirement the plan must cover, derived from a confirmed frame element.
 
@@ -113,6 +173,9 @@ class Plan:
     targets: list[CoverageTarget] = field(default_factory=list)
     tasks: list[Task] = field(default_factory=list)
     risks: list[PlanRisk] = field(default_factory=list)
+    # The plan-side twin of Frame.lapses (issue #97 t2, schema v5). Append-only-ish:
+    # no amend, no delete — the only post-filing mutation is set_obligation_status.
+    obligations: list[CriterionObligation] = field(default_factory=list)
 
     @staticmethod
     def _next(items: list, prefix: str) -> str:
@@ -312,6 +375,69 @@ class Plan:
         for index in sorted(set(accept_remove), reverse=True):
             del task.acceptance_criteria[index - 1]
 
+    def add_obligation(
+        self,
+        task_id: str,
+        criterion_index: int,
+        seam: str,
+        behavior: str,
+        origin: str = "user",
+    ) -> CriterionObligation:
+        """File an obligation against one of ``task_id``'s acceptance criteria
+        (issue #97 t2, the plan-side twin of ``Frame.add_lapse``).
+
+        Both halves of the link are validated fail-closed here, at the filing
+        path, before any record is minted: an unknown ``task_id`` raises, and
+        ``criterion_index`` is validated the same way ``amend_task`` already
+        validates its indices (:meth:`_validate_acceptance_index`) — 1-based,
+        against the task's *current* acceptance-criteria list. The criterion's
+        text at that index is captured verbatim into
+        ``CriterionObligation.criterion_snapshot`` so the obligation stays
+        legible even if the criterion is later amended or removed out from
+        under it.
+
+        ``origin`` drives the initial ``status`` exactly like
+        ``Frame.add_lapse``: ``llm`` lands ``proposed`` (needs a human
+        ``set_obligation_status`` to approve), ``user`` auto-approves.
+        """
+        task = self.find_task(task_id)
+        if task is None:
+            raise ValueError(f"unknown task id: {task_id!r}")
+        self._validate_acceptance_index(task, criterion_index)
+        snapshot = task.acceptance_criteria[criterion_index - 1]
+        status = "proposed" if origin == "llm" else "approved"
+        rec = CriterionObligation(
+            id=self._next(self.obligations, "o"),
+            task_id=task_id,
+            criterion_index=criterion_index,
+            criterion_snapshot=snapshot,
+            seam=seam,
+            behavior=behavior,
+            origin=origin,
+            status=status,
+        )
+        self.obligations.append(rec)
+        return rec
+
+    def find_obligation(self, oid: str) -> Optional[CriterionObligation]:
+        return next((o for o in self.obligations if o.id == oid), None)
+
+    def set_obligation_status(self, oid: str, status: str) -> bool:
+        """Set an obligation's status, failing closed on a typo'd/unknown value.
+
+        The only mutator a filed obligation ever gets — mirrors
+        ``Frame.set_lapse_status`` exactly: validates ``status`` against
+        :data:`OBLIGATION_STATUSES` *before* touching the record, so an
+        invalid string never mutates anything.
+        """
+        if status not in OBLIGATION_STATUSES:
+            raise ValueError(f"unknown obligation status: {status!r}")
+        rec = self.find_obligation(oid)
+        if rec is not None:
+            rec.status = status
+            return True
+        return False
+
     def set_status(self, task_id: str, status: str) -> bool:
         task = self.find_task(task_id)
         if task is not None:
@@ -418,6 +544,21 @@ def from_dict(d: dict) -> Plan:
     ]
     targets = [CoverageTarget(**tg) for tg in d.get("targets", [])]
     risks = [PlanRisk(**r) for r in d.get("risks", [])]
+    obligations = [
+        CriterionObligation(
+            id=o["id"],
+            task_id=o["task_id"],
+            criterion_index=o["criterion_index"],
+            criterion_snapshot=o.get("criterion_snapshot", ""),
+            seam=o.get("seam", ""),
+            behavior=o.get("behavior", ""),
+            origin=o.get("origin", "user"),
+            status=o.get("status", "approved"),
+        )
+        # Pre-v5 plans predate this field entirely (issue #97 t2); default to
+        # an empty ledger — the plan-side twin of frame.from_dict's `lapses`.
+        for o in d.get("obligations", [])
+    ]
     return Plan(
         slug=d["slug"],
         title=d["title"],
@@ -430,4 +571,5 @@ def from_dict(d: dict) -> Plan:
         targets=targets,
         tasks=tasks,
         risks=risks,
+        obligations=obligations,
     )
