@@ -4,9 +4,9 @@ This is the canonical guide for **authoring the devague operator skills**
 in an agent runtime — what files they need, where they live, the entry-point
 shape, and the contract between a skill and devague's state. It is the long-form
 companion to `devague learn skills`, which surfaces a condensed, always-available
-version of the same recipe. (`devague learn skills` teaches all **seven** skills
-in flow order since 0.19.0 — three CLI-driving ones that ship a
-`scripts/<name>.sh` resolver, and four method-only ones that are a `SKILL.md`
+version of the same recipe. (`devague learn skills` teaches all **eight** skills
+in flow order — three CLI-driving ones that ship a
+`scripts/<name>.sh` resolver, and five method-only ones that are a `SKILL.md`
 alone.)
 
 These skills are devague's **outbound** skills — devague is their
@@ -147,7 +147,7 @@ A skill drives the deterministic CLI and adds no business logic of its own:
 
 ## The operator skills
 
-The **seven-leg flow**, with the two audiences each leg serves — **operators**
+The **eight-leg flow**, with the two audiences each leg serves — **operators**
 (the main agent driving the CLI move by move) and the **humans** who own the
 three standing gates (the exported spec, the go/no-go on the implementation
 split plan — including any mid-run deviation approved against it — and the
@@ -161,6 +161,7 @@ final PR review):
 | `spec-to-plan` | spec → plan (working forwards) | the `devague plan <move>` group |
 | `assign-to-workforce` | plan → parallel implementation | reads `devague plan waves` and `devague plan deliverables` (read-only); `split-plan --write` persists the gate-2 artifact |
 | `deviate` | execution-time — an in-flight fan-out diverges from the confirmed plan | the `devague deviate` move (`--list [--json]`, `--confirm`/`--reject`), backed by the delivery store |
+| `validate-delivery` | execution → evidence (the execution-to-evidence leg) — run the plan's behavioral tests agent-side once waves merge | `devague oblige` / `devague evidence` / `devague delta` (record-only; the CLI never runs a test); unmet is unmet |
 | `summarize-delivery` | execution → accountability artifact (the delivery-side closure leg) | starts from `devague summary` / `devague deviate --list` / `devague lapse --list`; reads plan / git / PR / test evidence (read-only) |
 
 ### `scope` — idea → explored scope (method-only)
@@ -365,6 +366,36 @@ reconstructing drift from memory. New in 0.18.0.
 
 - Source:
   [`.claude/skills/deviate/`](https://github.com/agentculture/devague/blob/main/.claude/skills/deviate/SKILL.md)
+  (`SKILL.md` only).
+
+### `validate-delivery` — execution-to-evidence leg: run the plan's behavioral tests
+
+Runs *after* a plan's waves merge (via `/assign-to-workforce`, plus any
+`/deviate` records) and *before* `/summarize-delivery` closes the loop: the
+agent runs the confirmed plan's behavioral tests agent-side, then files what
+it found as record-only devague entries — `devague oblige` (mark a claim's
+behavioral obligation), `devague evidence` (obligation met by this test,
+asserting this behavior, outcome pass or fail), and `devague delta` (a
+behavioral added/amended/removed record with provenance back to the claim or
+approved deviation and forward to its evidence). The CLI never runs a test
+itself (issue #20); `llm`-origin filings land `proposed`, same
+anti-fabrication contract as `deviate` and `lapse`. A failing or unchecked
+outcome is filed and reported exactly as such — unmet is unmet, never
+rounded up. Behavioral tests are identified either by a pytest marker (e.g.
+`@pytest.mark.behavioral`) or a dedicated folder (e.g. `tests/behavioral/`
+or `behavioral-tests/`) — both conventions are defined in the skill for
+consuming repos to pick from. Motivating record: issue
+[`agentculture/devague#97`](https://github.com/agentculture/devague/issues/97)
+("Four graders failed in that cycle... Every one was found by reading data
+afterwards; none by a test failing") and issue
+[`agentculture/devague#107`](https://github.com/agentculture/devague/issues/107)
+("Suggestion: behavioral validation and a derived current spec"). The exact
+`oblige` / `evidence` / `delta` CLI surface ships in a parallel task; this
+skill is written against those verb names with minimal command examples so
+reconciliation stays cheap.
+
+- Source:
+  [`.claude/skills/validate-delivery/`](https://github.com/agentculture/devague/blob/main/.claude/skills/validate-delivery/SKILL.md)
   (`SKILL.md` only).
 
 ### `summarize-delivery` — execution run → accountability artifact
