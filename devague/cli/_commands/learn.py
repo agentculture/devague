@@ -48,7 +48,12 @@ MOVES = {
         "answer, or close a decided one with 'park --resolve VID --decision TEXT'."
     ),
     "converge": "Check whether the frame is solid enough to export a spec.",
-    "export": "Write the buildable spec — only once the frame converges.",
+    "export": (
+        "Write the buildable spec — only once the frame converges. On success "
+        "prints a next-move stderr hint pointing at 'run /challenge or "
+        "/spec-to-plan' (override via '[tool.devague]'/'[tool.devague.hints]' "
+        "in pyproject.toml or the DEVAGUE_HINTS env var)."
+    ),
     "status": "Report where the frame stands + the recommended next move (read-only).",
     "show": "Render the Announcement Frame.",
     "list": "List frames.",
@@ -72,7 +77,12 @@ MOVES = {
         "--outcome pass|fail [--run-commit <sha> --run-timestamp <ts>]', "
         "--origin llm lands proposed); a run reference is required at "
         "execution/sensitivity strength; '--confirm/--reject <eN>' resolves a "
-        "proposed one (user-only); '--list [--json]' shows every filed record."
+        "proposed one (user-only); '--list [--json]' shows every filed record. "
+        "A successful filing run prints a next-move stderr hint pointing at "
+        "'run devague summary and /summarize-delivery' (override via "
+        "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml or the "
+        "DEVAGUE_HINTS env var); '--list'/'--confirm'/'--reject' hint the "
+        "within-leg default instead."
     ),
     "delta": (
         "File, list, supersede, retract, or adjudicate a behavioral delta "
@@ -86,12 +96,41 @@ MOVES = {
         "append supersession events without ever editing a record's content; "
         "'--confirm/--reject <bN>' resolves a proposed delta (user-only); "
         "'--list [--json]' shows every filed delta plus the trailing "
-        "supersession-event log."
+        "supersession-event log. A successful filing run prints a next-move "
+        "stderr hint pointing at 'run devague summary and "
+        "/summarize-delivery' (override via '[tool.devague]'/ "
+        "'[tool.devague.hints]' in pyproject.toml or the DEVAGUE_HINTS env "
+        "var); '--list'/'--confirm'/'--reject' hint the within-leg default "
+        "instead."
     ),
     "today": (
         "Project the current behavior of the app from the delivery ledger and "
         "write docs/current-spec.md (read-only over every store; '--json' "
-        "emits the structured projection instead of the write confirmation)."
+        "emits the structured projection instead of the write confirmation). "
+        "On success prints a next-move stderr hint pointing at 'commit "
+        "docs/current-spec.md' (override via '[tool.devague]'/ "
+        "'[tool.devague.hints]' in pyproject.toml or the DEVAGUE_HINTS env "
+        "var)."
+    ),
+    "deviate": (
+        "Record a first-class, append-only deviation from the confirmed plan "
+        '(\'deviate "<what>" [--task <ref>] [--reason <text>] [--affects '
+        "<ref> ...]', --origin llm lands proposed); '--confirm/--reject <dN>' "
+        "resolves a proposed one (user-only); '--list [--json]' shows every "
+        "filed deviation. A successful filing run prints a next-move stderr "
+        "hint pointing at 'resume the fan-out' (override via "
+        "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml or the "
+        "DEVAGUE_HINTS env var); '--list'/'--confirm'/'--reject' hint the "
+        "within-leg default instead."
+    ),
+    "summary": (
+        "Render the read-only delivery summary from state alone ('summary "
+        "[--pr] [--json]'), whose Delivery Claims section renders each "
+        "claim's confidence as its evidence strength, reduced by any approved "
+        "lapse that caps it. On success prints a next-move stderr hint "
+        "pointing at 'run /summarize-delivery' (override via "
+        "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml or the "
+        "DEVAGUE_HINTS env var)."
     ),
 }
 
@@ -534,6 +573,13 @@ OPERATING_RULES = (
     "blocker; it does not stop 'export', 'plan converge', or 'plan export'. "
     "The fix is filing real evidence, never silencing or rationalizing away "
     "the warning.",
+    "Every successful, non-exempt move prints a one-line next-move stderr "
+    "hint — never stdout, never in a '--json' payload. Treat it as a nudge, "
+    "not a command: verify it against this guidance rather than following it "
+    "blind. Override the default per verb, or turn hints off globally, via "
+    "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml, or "
+    "per-invocation with DEVAGUE_HINTS (off/0/false; the env var wins over "
+    "pyproject.toml).",
 )
 
 # The canonical guided sequence (devague#4). The engine is move-driven, not a

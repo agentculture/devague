@@ -48,6 +48,13 @@ the decision that closed it, and drops it out of the gate.
 Run `devague learn` (or `devague plan learn`) to learn the method, and `devague
 explain <move>` for any single move.
 
+Every successful, non-exempt move also prints a one-line `next: ...` stderr
+hint naming the recommended next move (`status` / `plan status` are exempt —
+they already report it). Turn hints off globally with `[tool.devague]
+hints = false` in `pyproject.toml`, replace one verb's text with
+`[tool.devague.hints]`, or disable them per invocation with `DEVAGUE_HINTS=off`
+(also `0` / `false`; the environment variable wins when both are set).
+
 ## Human Review Loop
 
 LLM-proposed claims and honesty conditions stay `proposed` until **you**
