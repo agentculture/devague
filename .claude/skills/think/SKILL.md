@@ -280,13 +280,15 @@ idea→spec leg cleanly before moving on:
    claim — keep them together. (Per the repo's standing convention this normally
    becomes a branch + PR via the `cicd` skill; commit-only is fine when the user
    asks for it.)
-2. **Hand off to `/spec-to-plan`.** The forward leg is the sibling skill:
-   `devague plan new --frame <slug>` seeds a plan from the converged frame and
-   works it forward into a buildable plan (it can equally feed
-   `superpowers:writing-plans` or a normal implementation PR).
+2. **Hand off to `/challenge`, then `/spec-to-plan`.** The next leg is the
+   blind-spot pass: `/challenge` pressure-tests the exported frame before it
+   becomes a plan. Once that pass clears (or lands nothing new), the forward
+   leg is the sibling skill: `devague plan new --frame <slug>` seeds a plan
+   from the converged frame and works it forward into a buildable plan (it can
+   equally feed `superpowers:writing-plans` or a normal implementation PR).
 
 Don't pause for a "what next?" menu after a reviewed export — the standing flow
-is **commit, then `/spec-to-plan`**.
+is **commit, then `/challenge`, then `/spec-to-plan`**.
 
 ## Provenance
 

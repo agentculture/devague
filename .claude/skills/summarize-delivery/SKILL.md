@@ -451,9 +451,12 @@ produces the artifact the human reviews.
 ## Provenance
 
 This is a **first-party** skill — its origin is `agentculture/devague`, the
-*fifth* in the outbound family after `/scope`, `/think`, `/spec-to-plan`, and
-`/assign-to-workforce`, covering the delivery-side closure leg after a plan is
-executed. guildmaster pulls it from here and broadcasts it to the AgentCulture
+*fifth* in the outbound family chronologically (after `/think`,
+`/spec-to-plan`, `/assign-to-workforce`, and `/scope`), but the **terminal,
+eighth leg in flow order** — the closing skill of the full eight-leg family:
+`/scope` → `/think` → `/challenge` → `/spec-to-plan` → `/assign-to-workforce`
+→ `/deviate` → `/validate-delivery` → `/summarize-delivery`. guildmaster
+pulls it from here and broadcasts it to the AgentCulture
 mesh; because devague is upstream, it is **never re-vendored back** from
 guildmaster's re-broadcast copy. The `cite, don't import` policy still holds:
 downstream repos copy it, they don't symlink or depend on it. See
