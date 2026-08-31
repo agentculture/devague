@@ -7,6 +7,7 @@ import json
 import pytest
 
 from devague.cli import main
+from devague.cli._commands.learn import MOVES
 
 
 def test_learn_documents_assign_to_workforce_invocation(
@@ -271,3 +272,151 @@ def test_bare_learn_json_has_skills_key(capsys: pytest.CaptureFixture[str]) -> N
     payload = json.loads(capsys.readouterr().out)
     assert "skills" in payload
     assert {s["name"] for s in payload["skills"]["operator_skills"]} == set(SKILL_NAMES)
+
+
+# --- Behavioral validation: obligations, evidence, deltas, strength ladder, today ---
+
+
+def test_learn_teaches_obligation_lifecycle(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` teaches planting obligations on both the think and plan
+    legs, and that they land 'proposed' under --origin llm like every other
+    LLM-proposed record.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "oblige" in out
+    assert "plan oblige" in out
+    lowered = out.lower()
+    assert "proposed" in lowered
+
+
+def test_learn_teaches_agent_side_test_run(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` teaches that behavioral tests run agent-side, never
+    inside the devague CLI itself (issue #20).
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out.lower()
+    assert "agent-side" in out
+    assert "validate-delivery" in out
+
+
+def test_learn_teaches_evidence_verbatim_outcomes(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` teaches that a failing evidence outcome is filed as a
+    fail, never smoothed into a pass or omitted — the operating-rules section
+    states this as an explicit anti-fabrication rule.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    lowered = out.lower()
+    assert "--outcome fail" in lowered or "outcome pass|fail" in lowered
+    assert "never smoothed" in lowered or "never omitted" in lowered
+
+
+def test_learn_teaches_delta_provenance(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` teaches that behavioral deltas carry --caused-by
+    provenance back to a claim, deviation, or prior delta.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "--caused-by" in out
+    assert "delta" in out.lower()
+
+
+def test_learn_teaches_unmet_is_unmet_never_gates(capsys: pytest.CaptureFixture[str]) -> None:
+    """The operating rules state the unmet-obligation warning never blocks
+    export or plan convergence — warnings never gate.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out.lower()
+    assert "unmet is unmet" in out
+    assert (
+        "never gate" in out
+        or "never a blocker" in out
+        or "not stop" in out.replace("does not stop", "not stop")
+    )
+
+
+def test_learn_teaches_today_projection(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` teaches `devague today` as the read-only current-behavior
+    projection, rendered after adjudication.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "devague today" in out
+    assert "docs/current-spec.md" in out
+
+
+def test_learn_teaches_strength_ladder(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` teaches the four-rung strength ladder — coverage,
+    fidelity, execution, sensitivity — and that it is assessed by the agent,
+    never inflated.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out.lower()
+    for level in ("coverage", "fidelity", "execution", "sensitivity"):
+        assert level in out
+    assert "never inflated" in out or "never claim a higher rung" in out
+
+
+def test_learn_states_two_audiences(capsys: pytest.CaptureFixture[str]) -> None:
+    """`devague learn` names both audiences it serves: the operator driving the
+    CLI, and the human who owns every confirm/reject and go/no-go decision.
+    """
+    rc = main(["learn"])
+    assert rc == 0
+    out = capsys.readouterr().out.lower()
+    assert "operator" in out
+    assert "human" in out
+
+
+def test_learn_json_includes_behavioral_validation_section(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The --json payload carries the behavioral-validation guidance and the
+    strength ladder as distinct, structured sections.
+    """
+    rc = main(["learn", "--json"])
+    assert rc == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert "behavioral_validation" in payload
+    assert payload["behavioral_validation"]["plant_obligations"]
+    assert "strength_ladder" in payload
+    levels = {entry["level"] for entry in payload["strength_ladder"]}
+    assert levels == {"coverage", "fidelity", "execution", "sensitivity"}
+
+
+# --- AC2: every command the refreshed learn output names actually exists on
+# the real CLI surface, pinned by running each named verb with --help. ---
+
+
+@pytest.mark.parametrize("verb", sorted(MOVES))
+def test_every_named_move_has_working_help(verb: str, capsys: pytest.CaptureFixture[str]) -> None:
+    """Every top-level verb `learn` names in MOVES resolves on the real CLI
+    surface — 'devague <verb> --help' must exit 0, never an argparse error.
+    """
+    with pytest.raises(SystemExit) as exc:
+        main([verb, "--help"])
+    assert exc.value.code == 0
+
+
+def test_learn_verb_itself_has_working_help(capsys: pytest.CaptureFixture[str]) -> None:
+    """'devague learn --help' exits 0 on the real CLI surface."""
+    with pytest.raises(SystemExit) as exc:
+        main(["learn", "--help"])
+    assert exc.value.code == 0
+
+
+def test_plan_oblige_verb_has_working_help(capsys: pytest.CaptureFixture[str]) -> None:
+    """'devague plan oblige --help' — the nested plan-side verb `learn` names
+    alongside the flat 'oblige' — exits 0 on the real CLI surface.
+    """
+    with pytest.raises(SystemExit) as exc:
+        main(["plan", "oblige", "--help"])
+    assert exc.value.code == 0

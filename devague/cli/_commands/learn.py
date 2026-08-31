@@ -172,6 +172,84 @@ ASSIGN_TO_WORKFORCE_GUIDANCE = {
     ),
 }
 
+# The progressive evidence strength ladder (weakest first), structurally
+# identical to devague.delivery.STRENGTH_LEVELS — kept as a local literal
+# rather than an import so `learn` never depends on the delivery module (the
+# same reason MOVES/STAGES above are hand-authored rather than introspected).
+# The agent assesses which rung a check actually reached; the CLI only
+# records what it's told — it never upgrades a rung on its own.
+STRENGTH_LADDER = (
+    ("coverage", "a test exists that exercises the obligated behavior (no run required)"),
+    (
+        "fidelity",
+        "the test asserts the promised behavior itself, not just that it runs " "(no run required)",
+    ),
+    (
+        "execution",
+        "the test currently passes — requires a run reference " "(--run-commit/--run-timestamp)",
+    ),
+    (
+        "sensitivity",
+        "the test would likely fail if the behavior broke — requires a run reference",
+    ),
+)
+
+# Behavioral validation: obligations, evidence, deltas, and the today
+# projection (bvts). This is the loop that plants a checkable promise on the
+# think/plan legs, checks it agent-side once a wave merges (the
+# validate-delivery leg — the seventh leg, between deviate and
+# summarize-delivery), files what was found with verbatim outcomes, and lets
+# the user adjudicate before the current-behavior projection is rendered.
+BEHAVIORAL_VALIDATION_GUIDANCE = {
+    "title": "Behavioral validation: obligations, evidence, deltas, and today",
+    "plant_obligations": (
+        "Plant obligations early, while you still remember why they matter — "
+        "'oblige <cN> --seam <seam> --behavior <behavior>' ties a claim to a "
+        "checkable seam on the think leg; 'plan oblige <tN> --criterion N "
+        "--seam <seam> --behavior <behavior>' does the same for a task's "
+        "acceptance criterion on the plan leg. Both land 'proposed' under "
+        "--origin llm and need an explicit user '--confirm', same as every "
+        "other LLM proposal."
+    ),
+    "run_tests": (
+        "Once a wave's worktrees merge (the validate-delivery leg — after "
+        "assign-to-workforce, before summarize-delivery), run the confirmed "
+        "plan's behavioral tests agent-side. devague itself never runs a test "
+        "(#20) — this is read-only against the codebase, and it never edits "
+        "code to make a test pass."
+    ),
+    "file_evidence": (
+        "File one evidence record per obligation checked: 'evidence "
+        "--obligation <oN> --test <ref> --behavior <text> --contract <text> "
+        "--type <type> --strength <level> --basis <text> --outcome pass|fail "
+        "[--run-commit <sha> --run-timestamp <ts>]'. A failing outcome is "
+        "filed exactly like a passing one — never smoothed, reworded, or "
+        "omitted."
+    ),
+    "file_deltas": (
+        "When the merged behavior added, amended, or removed something "
+        "relative to the plan, file a delta with provenance: 'delta --kind "
+        "added|amended|removed --behavior <text> --caused-by <ref> "
+        "[--caused-by <ref> ...] [--evidence <ref> ...]'. --caused-by points "
+        "back to the claim, approved deviation, or prior delta that actually "
+        "motivated it — never a bare assertion with nothing behind it."
+    ),
+    "adjudicate": (
+        "Obligations, evidence, and deltas all stay 'proposed' under --origin "
+        "llm until the user runs '--confirm' or '--reject' on them — the same "
+        "anti-fabrication rule as claims and tasks, now applied to what "
+        "actually ran, not just what was planned."
+    ),
+    "render_today": (
+        "'devague today' projects the live delivery ledger into "
+        "docs/current-spec.md — what the app actually does right now, "
+        "read-only over every store. Render it after adjudication so the "
+        "projection reflects confirmed evidence and deltas, not proposals "
+        "still awaiting a decision."
+    ),
+    "strength_ladder": STRENGTH_LADDER,
+}
+
 # The anti-fabrication rules. Agent-agnostic: repo-specific agreements live in
 # your agent's main instruction file (AGENTS.md, CLAUDE.md, a system prompt, …),
 # not here.
@@ -193,6 +271,21 @@ OPERATING_RULES = (
     "listed gap instead of declaring readiness on a hunch.",
     "Order is adaptive — the ten stages are an artifact shape, not a mandatory "
     "conversation order; capture what the user gives you and circle back.",
+    "Obligations and evidence follow claims and honesty conditions into the "
+    "same proposed/confirmed lifecycle — 'oblige' and 'evidence' under "
+    "--origin llm land 'proposed' and need an explicit user '--confirm'; never "
+    "self-confirm an obligation or evidence record you filed.",
+    "Evidence outcomes are recorded verbatim — a failing test is filed as "
+    "'--outcome fail', exactly as filed, never smoothed into a pass, reworded "
+    "softer, or left out of the run's evidence entirely. Strength (coverage / "
+    "fidelity / execution / sensitivity) is what you actually assessed and the "
+    "CLI records beside it — never claim a higher rung than the check you ran, "
+    "and never skip the run reference execution/sensitivity require.",
+    "Unmet is unmet, and warnings never gate — an obligation with no approved "
+    "evidence surfaces as a convergence warning on the frame or plan, never a "
+    "blocker; it does not stop 'export', 'plan converge', or 'plan export'. "
+    "The fix is filing real evidence, never silencing or rationalizing away "
+    "the warning.",
 )
 
 # The canonical guided sequence (devague#4). The engine is move-driven, not a
@@ -269,6 +362,9 @@ _TEXT = (
     "The arc emerges from the moves; it is not a fixed wizard. You (the agent)\n"
     "choose the next move; devague tracks state. LLM-proposed claims and honesty\n"
     "conditions stay 'proposed' until the user confirms them.\n\n"
+    "This serves two audiences: the operator (you) driving devague move by move,\n"
+    "and the human who owns every confirm/reject decision — on claims, on\n"
+    "obligations, on evidence outcomes, on deltas — and the go/no-go at each gate.\n\n"
     "Optional lead-in — scope exploration (recommended when the idea touches an\n"
     "existing codebase; skip freely for small ideas — not a mandatory first stage):\n"
     f"  {SCOPE_STAGE['prompt']}  [devague {SCOPE_STAGE['move']}]\n"
@@ -297,6 +393,17 @@ _TEXT = (
     f"  Main agent: {ASSIGN_TO_WORKFORCE_GUIDANCE['main_agent_merge_gate']}\n"
     f"  TDD: {ASSIGN_TO_WORKFORCE_GUIDANCE['tdd_acceptance_criteria']}\n"
     f"  Scope: {ASSIGN_TO_WORKFORCE_GUIDANCE['not_orchestration']}\n"
+    + "\n\n"
+    + f"{BEHAVIORAL_VALIDATION_GUIDANCE['title']}\n"
+    f"  Plant obligations: {BEHAVIORAL_VALIDATION_GUIDANCE['plant_obligations']}\n"
+    f"  Run tests: {BEHAVIORAL_VALIDATION_GUIDANCE['run_tests']}\n"
+    f"  File evidence: {BEHAVIORAL_VALIDATION_GUIDANCE['file_evidence']}\n"
+    f"  File deltas: {BEHAVIORAL_VALIDATION_GUIDANCE['file_deltas']}\n"
+    f"  Adjudicate: {BEHAVIORAL_VALIDATION_GUIDANCE['adjudicate']}\n"
+    f"  Render today: {BEHAVIORAL_VALIDATION_GUIDANCE['render_today']}\n"
+    "  Strength ladder (weakest first — assessed by you, recorded verbatim, "
+    "never inflated):\n"
+    + "\n".join(f"    - {level}: {desc}" for level, desc in STRENGTH_LADDER)
     + "\n\nFull portable guidance for any assisting model:\n"
     f"  {GUIDANCE_DOC_URL}\n"
     f"  (in the devague repo: {GUIDANCE_DOC_REPO_PATH})\n"
@@ -603,6 +710,10 @@ def cmd_learn(args: argparse.Namespace) -> int:
                     "guidance_doc": GUIDANCE_DOC_URL,
                     "guidance_doc_repo_path": GUIDANCE_DOC_REPO_PATH,
                     "assign_to_workforce": ASSIGN_TO_WORKFORCE_GUIDANCE,
+                    "behavioral_validation": BEHAVIORAL_VALIDATION_GUIDANCE,
+                    "strength_ladder": [
+                        {"level": level, "description": desc} for level, desc in STRENGTH_LADDER
+                    ],
                     "skills": _skills_payload(names),
                     "summary": _TEXT,
                 },
