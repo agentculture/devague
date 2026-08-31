@@ -76,3 +76,6 @@ skips = ["B101"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "behavioral: agent-side behavioral contract test (issue #97/#107) driven by /validate-delivery after a plan's waves merge.",
+]

@@ -479,3 +479,204 @@ def test_end_to_end_every_verb_hints_exactly_once_on_success(tmp_path, monkeypat
     # (belt-and-suspenders on the hand-written walk).
     missing = set(_ALL_KEYS) - seen
     assert not missing, f"verb table keys never exercised by the walk: {sorted(missing)}"
+
+
+# ── gap analysis additions (t5): error path, hint:-prefix, hint-following walk ──
+#
+# t1/t2 already cover: the exhaustive pure table (AC3), the real successful
+# walk asserting exactly one `next:` line per non-exempt verb and zero for
+# the two exempt verbs (AC1 success half, AC4 stdout-cleanliness half), the
+# no-call-sites-in-command-modules static check (AC2), and (in
+# test_hint_config.py) the byte-identical hints-off comparison. What was
+# missing per this task's brief: AC2's *failure*-path half (zero `next:`
+# lines when a command fails — `_dispatch` only calls `emit_next_hint` when
+# `code == 0`, per `devague/cli/__init__.py`, but nothing exercised that
+# branch through a real failing call), the "no stderr line starts with
+# `hint:` outside error paths" assertion (the `hint:` prefix is
+# `emit_error`'s remediation line, from `devague/cli/_output.py` — a
+# different prefix than `next:`, and the two must never be conflated), and
+# AC3's behavioral hint-following walk.
+
+
+def test_zero_next_lines_on_a_failing_command(tmp_path, monkeypatch, capsys) -> None:
+    """AC2 failure half: a command that fails (no frame selected) must emit
+    no `next:` line at all — `_dispatch` gates `emit_next_hint` on
+    ``code == 0``.
+    """
+    monkeypatch.chdir(tmp_path)
+    rc, out, err = _call(["confirm", "c99"], capsys)
+    assert rc != 0
+    assert "next:" not in err
+    assert out == ""
+
+
+def test_zero_next_lines_on_status_with_no_frames(tmp_path, monkeypatch, capsys) -> None:
+    # status is exempt regardless of outcome; the empty-store path (no
+    # frames yet) is a distinct code path from the populated one already
+    # exercised in the main walk above — pin it too.
+    monkeypatch.chdir(tmp_path)
+    rc, out, err = _call(["status"], capsys)
+    assert rc == 0
+    assert "next:" not in err
+
+
+def test_failing_command_emits_hint_prefixed_remediation_not_next(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    """Distinguishes the two stderr prefixes this codebase uses: `hint:` is
+    `emit_error`'s remediation line (an existing, pre-dating-this-feature
+    convention in ``devague/cli/_output.py``); `next:` is this feature's
+    success-only move hint (`devague/cli/_hints.py`). A failing call gets
+    the former and never the latter.
+    """
+    monkeypatch.chdir(tmp_path)
+    rc, out, err = _call(["confirm", "c99"], capsys)
+    assert rc != 0
+    lines = [ln for ln in err.splitlines() if ln]
+    assert any(ln.startswith("hint:") for ln in lines), f"expected a hint: line, got: {err!r}"
+    assert not any(ln.startswith("next:") for ln in lines)
+
+
+def test_no_hint_prefixed_line_on_a_successful_call(tmp_path, monkeypatch, capsys) -> None:
+    """The converse of the above: outside an error path, no stderr line may
+    start with `hint:` — only `next:` (or nothing, for an exempt verb).
+    """
+    monkeypatch.chdir(tmp_path)
+    rc, out, err = _call(["new", "Ship it", "--title", "t5-no-hint-prefix"], capsys)
+    assert rc == 0
+    lines = [ln for ln in err.splitlines() if ln]
+    assert not any(ln.startswith("hint:") for ln in lines), f"unexpected hint: line: {err!r}"
+    assert any(ln.startswith("next:") for ln in lines)
+
+
+# ── AC3: the behavioral hint-following walk (this plan's behavioral contract
+#    for /validate-delivery) ──────────────────────────────────────────────
+#
+# `devague status`'s `required_next_moves[0]` (see `devague/convergence.py`
+# `suggest_move`) is the concrete move text a `next: run devague status`
+# hint leads to — this walk drives `new -> capture -> interrogate ->
+# confirm -> converge -> export` by parsing exactly that text after every
+# step, never by hardcoding the frame's required claim kinds or ids. It
+# terminates only when the parsed hint chain reaches the leg-ending
+# `export` hint (`next: run /challenge or /spec-to-plan`), which is the
+# proof the walk actually drove the frame all the way to an exported spec
+# using nothing but what the CLI itself emitted.
+
+# One required claim (see `devague.frame.SPEC_AFFECTING_KINDS`) is captured
+# `--origin llm` so the walk also exercises the USER-confirm-a-claim path
+# `suggest_move` documents inline, not just the honesty-condition confirm
+# path every spec-affecting claim goes through regardless.
+_LLM_ORIGIN_KIND = "boundary"
+
+
+def _pick_move(moves: list[str]) -> str:
+    """Choose which of `required_next_moves` to act on next.
+
+    `status`/`converge` order blockers "missing kind" first, so
+    `required_next_moves[0]` keeps re-suggesting the *same* capture for a
+    kind that already has a proposed (not-yet-confirmed) claim sitting on
+    the frame — capturing again would create a second, redundant claim of
+    that kind rather than resolving the one that already exists. Preferring
+    any pending confirm/interrogate move first (over a fresh capture) keeps
+    the walk resolving what already exists before creating more, which is
+    the only way a `--origin llm` capture (used once below, deliberately)
+    ever actually clears.
+    """
+    for move in moves:
+        if re.search(r"devague confirm c\d+", move) or re.search(
+            r"devague interrogate c\d+ --honesty", move
+        ):
+            return move
+    return moves[0]
+
+
+def _required_move(tmp_path, monkeypatch, capsys) -> tuple[dict, str]:
+    """Run `devague status --json`, parse & return (payload, the chosen move).
+
+    A frame status payload always carries `required_next_moves` (possibly
+    empty, meaning "ready") once at least one frame exists.
+    """
+    rc, out, err = _call(["status", "--json"], capsys)
+    assert rc == 0
+    assert "next:" not in err  # status stays exempt throughout the walk too
+    payload = json.loads(out)
+    moves = payload["required_next_moves"]
+    return payload, (_pick_move(moves) if moves else "")
+
+
+@pytest.mark.behavioral
+def test_behavioral_new_capture_interrogate_confirm_converge_export_via_hints_only(
+    tmp_path, monkeypatch, capsys
+) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    def run(argv: list[str], *, json_mode: bool = False):
+        rc, out, err = _call(argv, capsys)
+        assert rc == 0, f"{argv!r} failed: {err!r}"
+        assert len(re.findall(r"^next:", err, flags=re.MULTILINE)) == 1
+        return json.loads(out) if json_mode else out
+
+    # Step 1: `new` — the only step whose command isn't itself derived from a
+    # prior hint (there is no frame yet to hint about). Its own `next:` hint
+    # (default: "run devague status") is what kicks the hint-following loop
+    # below off.
+    created = run(
+        ["new", "Ship next-leg hints (behavioral)", "--title", "t5-behavioral", "--json"],
+        json_mode=True,
+    )
+    slug = created["slug"]
+    assert slug
+
+    verbs_seen: set[str] = set()
+    guard = 0
+    while True:
+        guard += 1
+        assert guard < 50, "hint-following walk did not converge in a sane number of steps"
+        _, move = _required_move(tmp_path, monkeypatch, capsys)
+        if not move:
+            break  # required_next_moves is empty: the frame is ready to export
+
+        m = re.search(r"devague capture --kind (\w+)", move)
+        if m:
+            kind = m.group(1)
+            origin = "llm" if kind == _LLM_ORIGIN_KIND else "user"
+            run(["capture", "--kind", kind, f"the {kind} claim", "--origin", origin])
+            verbs_seen.add("capture")
+            continue
+
+        m = re.search(r"devague confirm (c\d+)", move)
+        if m:
+            run(["confirm", m.group(1)])
+            verbs_seen.add("confirm")
+            continue
+
+        m = re.search(r"devague interrogate (c\d+) --honesty", move)
+        if m:
+            cid = m.group(1)
+            added = run(
+                ["interrogate", cid, "--honesty", "this claim actually holds", "--json"],
+                json_mode=True,
+            )
+            hid = added["added"][0]["id"]
+            verbs_seen.add("interrogate")
+            run(["confirm", hid])
+            verbs_seen.add("confirm")
+            continue
+
+        raise AssertionError(f"hint-following walk hit an unhandled required move: {move!r}")
+
+    assert {"capture", "interrogate", "confirm"} <= verbs_seen
+
+    # `converge` re-checks against the live frame; by now the loop above
+    # drove it to ready (an empty required_next_moves), so this should
+    # report converged and change nothing further.
+    converged = run(["converge", "--json"], json_mode=True)
+    assert converged["ready_for_spec"] is True
+    assert converged["blockers"] == []
+
+    # `export` is the walk's terminal step: its leg-ending hint proves the
+    # walk reached an exported spec using only emitted hints.
+    rc, out, err = _call(["export"], capsys)
+    assert rc == 0
+    assert "exported spec to" in out
+    assert "next: run /challenge or /spec-to-plan" in err
