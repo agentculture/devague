@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 from devague import plan_store, store
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
@@ -28,6 +29,7 @@ from devague.obligation_evidence import met_obligation_refs_for_plan
 from devague.plan import (
     RISK_KINDS,
     Plan,
+    criterion_obligation_drift,
     dependency_waves,
     targets_from_frame,
     terminal_tasks,
@@ -72,6 +74,13 @@ PLAN_MOVES = {
         "Record a first-class plan risk instead of papering over it, "
         "--resolve RID --decision TEXT to close one out, or --amend RID --text "
         "TEXT to correct an existing risk's text in place."
+    ),
+    "oblige": (
+        "File a behavioral obligation against a task's acceptance criterion "
+        "('oblige tN --criterion N --seam <seam> --behavior <behavior>', "
+        "--origin llm lands proposed); --confirm/--reject OID resolves a "
+        "proposed one (user-only); --list [--json] shows every filed "
+        "obligation, with a drift marker when the criterion text changed."
     ),
     "converge": "Check whether the plan can export, against the live frame.",
     "export": "Write the buildable plan — only once the plan converges.",
@@ -739,6 +748,171 @@ def _cmd_plan_risk_amend(args: argparse.Namespace, plan: Plan) -> int:
     return 0
 
 
+def _oblige_record_dict(rec) -> dict:
+    return {
+        "id": rec.id,
+        "task_id": rec.task_id,
+        "criterion_index": rec.criterion_index,
+        "criterion_snapshot": rec.criterion_snapshot,
+        "seam": rec.seam,
+        "behavior": rec.behavior,
+        "origin": rec.origin,
+        "status": rec.status,
+    }
+
+
+def _oblige_drift_for(plan: Plan, rec) -> Optional[str]:
+    """The obligation's live drift message, or ``None`` — computed purely via
+    :func:`devague.plan.criterion_obligation_drift`, never re-derived here.
+    ``None`` when the source task itself is gone (a defensive fallback; tasks
+    are never deleted today, only rejected, so this path is currently
+    unreached)."""
+    task = plan.find_task(rec.task_id)
+    if task is None:
+        return None
+    return criterion_obligation_drift(rec, task)
+
+
+def cmd_plan_oblige(args: argparse.Namespace) -> int:
+    """File, list, or adjudicate a criterion obligation (bvts t4, the
+    plan-side twin of ``devague oblige``/``devague lapse``).
+
+    Argument surface mirrors ``devague oblige`` exactly, with the frame claim
+    id positional swapped for a task id plus a required ``--criterion``
+    index — an obligation's structural link (``Plan.add_obligation``'s
+    ``task_id``/``criterion_index`` pair) is validated fail-closed at the
+    filing path, mirroring ``devague oblige``'s claim-id check.
+    """
+    if (args.confirm or args.reject) and args.task_id:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "cannot combine --confirm/--reject with a positional task id",
+            "resolve and record are separate moves: run "
+            "'devague plan oblige --confirm <id>' (or --reject), then "
+            '\'devague plan oblige <tN> --criterion <N> --seam "<seam>" '
+            '--behavior "<behavior>"\'',
+        )
+    if args.list and args.task_id:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            "cannot combine --list with a positional task id",
+            "list and record are separate moves: run 'devague plan oblige --list' "
+            'or \'devague plan oblige <tN> --criterion <N> --seam "<seam>" '
+            '--behavior "<behavior>"\'',
+        )
+    if not args.task_id:
+        given = [
+            flag
+            for flag, value in (
+                ("--criterion", args.criterion),
+                ("--seam", args.seam),
+                ("--behavior", args.behavior),
+                ("--origin", args.origin),
+            )
+            if value
+        ]
+        if given:
+            raise DevagueError(
+                EXIT_USER_ERROR,
+                f"{', '.join(given)} given without a positional task id to file",
+                "file the obligation in one move: devague plan oblige <tN> "
+                '--criterion <N> --seam "<seam>" --behavior "<behavior>", or '
+                "drop the flags to list",
+            )
+
+    plan = resolve_plan(args.plan)
+    if args.confirm:
+        return _cmd_plan_oblige_resolve(args, plan, args.confirm, "approved")
+    if args.reject:
+        return _cmd_plan_oblige_resolve(args, plan, args.reject, "rejected")
+    if args.task_id:
+        return _cmd_plan_oblige_record(args, plan)
+    return _cmd_plan_oblige_list(args, plan)
+
+
+def _cmd_plan_oblige_record(args: argparse.Namespace, plan: Plan) -> int:
+    missing = []
+    if not args.criterion:
+        missing.append("--criterion")
+    if not args.seam:
+        missing.append("--seam")
+    if not args.behavior:
+        missing.append("--behavior")
+    if missing:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"missing {', '.join(missing)}",
+            'pass --criterion <N> --seam "<boundary>" --behavior "<what is owed>"',
+        )
+    try:
+        rec = plan.add_obligation(
+            args.task_id,
+            args.criterion,
+            args.seam,
+            args.behavior,
+            origin=args.origin or "user",
+        )
+    except ValueError as exc:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            str(exc),
+            "run 'devague plan show' to see current task ids and acceptance criteria",
+        ) from exc
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result(_oblige_record_dict(rec), json_mode=True)
+    else:
+        emit_result(f"filed {rec.id} ({rec.status})", json_mode=False)
+    return 0
+
+
+def _cmd_plan_oblige_resolve(args: argparse.Namespace, plan: Plan, oid: str, status: str) -> int:
+    rec = plan.find_obligation(oid)
+    if rec is None:
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"no such obligation: {oid}",
+            "run 'devague plan oblige --list' to see filed obligation ids",
+        )
+    if rec.status != "proposed":
+        raise DevagueError(
+            EXIT_USER_ERROR,
+            f"obligation {oid} is already {rec.status}",
+            f"only a 'proposed' obligation can be confirmed/rejected — "
+            f"{oid} is already {rec.status}",
+        )
+    plan.set_obligation_status(oid, status)
+    plan_store.save(plan)
+    if getattr(args, "json", False):
+        emit_result({"id": oid, "status": status}, json_mode=True)
+    else:
+        emit_result(f"{oid} -> {status}", json_mode=False)
+    return 0
+
+
+def _cmd_plan_oblige_list(args: argparse.Namespace, plan: Plan) -> int:
+    records = plan.obligations
+    if getattr(args, "json", False):
+        payload = []
+        for r in records:
+            d = _oblige_record_dict(r)
+            d["drift"] = _oblige_drift_for(plan, r)
+            payload.append(d)
+        emit_result({"plan": plan.slug, "obligations": payload}, json_mode=True)
+    elif not records:
+        emit_result("no obligations filed yet", json_mode=False)
+    else:
+        lines = []
+        for r in records:
+            marker = " — drifted" if _oblige_drift_for(plan, r) else ""
+            lines.append(
+                f"{r.id}: {r.task_id}#{r.criterion_index} [{r.seam}] "
+                f"{r.behavior} ({r.status}){marker}"
+            )
+        emit_result("\n".join(lines), json_mode=False)
+    return 0
+
+
 def cmd_plan_converge(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     _frame, targets = _live(plan)
@@ -1124,6 +1298,34 @@ def register(sub: argparse._SubParsersAction) -> None:
     )
     _plan_opt(prk)
     prk.set_defaults(func=cmd_plan_risk)
+
+    pob = psub.add_parser("oblige", help="File, list, or adjudicate a criterion obligation.")
+    pob.add_argument(
+        "task_id",
+        nargs="?",
+        help="Task id to obligate (e.g. t1); omit with --confirm/--reject/--list.",
+    )
+    pob.add_argument(
+        "--criterion",
+        type=int,
+        metavar="N",
+        help="1-based acceptance-criterion index this obligation attaches to.",
+    )
+    pob.add_argument("--seam", help="The boundary/interface this obligation applies to.")
+    pob.add_argument("--behavior", help="What behavior is owed at that seam.")
+    pob.add_argument("--origin", choices=("user", "llm"), default=None, help="Who proposed it.")
+    ob_resolution = pob.add_mutually_exclusive_group()
+    ob_resolution.add_argument(
+        "--confirm", metavar="ID", help="Approve a proposed obligation id (user-only)."
+    )
+    ob_resolution.add_argument(
+        "--reject", metavar="ID", help="Reject an obligation id (user-only)."
+    )
+    ob_resolution.add_argument(
+        "--list", action="store_true", help="List filed obligations (default)."
+    )
+    _plan_opt(pob)
+    pob.set_defaults(func=cmd_plan_oblige)
 
     pcv = psub.add_parser("converge", help="Check whether the plan can export.")
     _plan_opt(pcv)

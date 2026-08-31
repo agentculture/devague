@@ -58,6 +58,13 @@ MOVES = {
         "'--confirm/--reject <lN>' resolves a proposed one (user-only); "
         "'--list [--json]' shows every filed lapse."
     ),
+    "oblige": (
+        "File a behavioral obligation against a claim ('oblige <cN> --seam "
+        "<seam> --behavior <behavior>', --origin llm lands proposed); "
+        "'--confirm/--reject <oN>' resolves a proposed one (user-only); "
+        "'--list [--json]' shows every filed obligation, with a drift marker "
+        "when the claim's text changed since filing."
+    ),
 }
 
 FIRST_QUESTION = "What's the announcement?"

@@ -27,6 +27,7 @@ from devague.plan import (
     PLAN_SCHEMA_VERSION,
     CriterionObligation,
     Plan,
+    criterion_obligation_drift,
     from_dict,
     to_dict,
 )
@@ -236,6 +237,45 @@ def test_v4_plan_without_obligations_loads_clean_and_resaves_as_v5(tmp_path, mon
     reloaded_raw = json.loads(plan_store.path_for("demo").read_text(encoding="utf-8"))
     assert reloaded_raw["schema_version"] == PLAN_SCHEMA_VERSION == 5
     assert plan_store.load("demo").obligations == []
+
+
+# ── criterion_obligation_drift (bvts t4, plan-side twin of obligation_drift) ──
+
+
+def test_criterion_obligation_drift_none_when_criterion_text_unchanged() -> None:
+    p = _plan_with_task()
+    o = p.add_obligation("t1", 1, seam="cli", behavior="rejects bad input")
+    task = p.find_task("t1")
+    assert criterion_obligation_drift(o, task) is None
+
+
+def test_criterion_obligation_drift_reports_when_criterion_text_changed() -> None:
+    p = _plan_with_task()
+    o = p.add_obligation("t1", 1, seam="cli", behavior="rejects bad input")
+    task = p.find_task("t1")
+    task.acceptance_criteria[0] = "criterion one, revised"
+    drift = criterion_obligation_drift(o, task)
+    assert drift is not None
+    assert "o1" in drift and "t1" in drift
+
+
+def test_criterion_obligation_drift_reports_when_criterion_removed() -> None:
+    p = _plan_with_task()
+    o = p.add_obligation("t1", 2, seam="cli", behavior="rejects bad input")
+    task = p.find_task("t1")
+    del task.acceptance_criteria[1]  # the criterion the obligation named is gone
+    drift = criterion_obligation_drift(o, task)
+    assert drift is not None
+    assert "no longer exists" in drift
+
+
+def test_criterion_obligation_drift_rejects_mismatched_task() -> None:
+    p = _plan_with_task()
+    o = p.add_obligation("t1", 1, seam="cli", behavior="x")
+    other = p.add_task("second task")
+    p.add_acceptance(other, "criterion for the other task")
+    with pytest.raises(ValueError, match="not the source"):
+        criterion_obligation_drift(o, other)
 
 
 def test_legacy_dict_without_obligations_key_loads_empty_list() -> None:
