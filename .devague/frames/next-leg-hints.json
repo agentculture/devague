@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-08-31T19:20:42Z",
-  "updated": "2026-08-31T20:28:15Z",
+  "updated": "2026-08-31T22:06:42Z",
   "claims": [
     {
       "id": "c1",
@@ -400,8 +400,8 @@
       "text": "whether multi-mode verbs (deviate, evidence, delta: filing vs --list vs --confirm) need per-mode hint text rather than one per-verb line - not decidable until the table is designed",
       "kind": "unknown_nonblocking",
       "claim_id": null,
-      "resolved": false,
-      "resolution": "",
+      "resolved": true,
+      "resolution": "resolved by t1's table design: per-mode discrimination implemented via each command's own mode discriminator (args.what / args.obligation / args.kind); filing runs hint the next leg, list/adjudication runs hint status",
       "resolution_claim_id": null
     }
   ],
@@ -518,6 +518,46 @@
       "seeds": []
     }
   ],
-  "lapses": [],
-  "obligations": []
+  "lapses": [
+    {
+      "id": "l1",
+      "code": "assumption-for-measurement",
+      "what": "t3 wrote the literal next: prefix into learn.py MOVES text assuming stdout rendering would not collide with the hint-free-stdout contract, instead of checking how devague learn renders MOVES; caught by tests/test_cli_hints.py end-to-end failure, then reworded and re-verified by grep plus full suite",
+      "skipped_check": "grep of learn stdout for the next: substring before running the suite",
+      "refs": [
+        "t3"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    }
+  ],
+  "obligations": [
+    {
+      "id": "o1",
+      "claim_id": "c11",
+      "seam": "CLI dispatch hint emission",
+      "behavior": "after any successful non-exempt verb, exactly one next: line lands on stderr and stdout is untouched",
+      "source_text": "after any devague command succeeds, one stderr hint names the next move within its leg or the hand-off to the next leg - unless the user turned hints off or replaced the text",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o2",
+      "claim_id": "c6",
+      "seam": "hint override config",
+      "behavior": "DEVAGUE_HINTS=off or tool.devague hints=false silences every hint; a per-verb key under tool.devague.hints replaces that verb's text verbatim; env wins",
+      "source_text": "the hint is overrideable: a user can disable hints entirely or replace the instruction text; absent an override, the defaults teach the eight-leg flow",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o3",
+      "claim_id": "c13",
+      "seam": "hints-off stderr parity",
+      "behavior": "with hints disabled, stderr per verb is byte-identical to pre-feature output",
+      "source_text": "every verb except status emits a default hint (status is exempt as the existing next-move authority); 0 of the 14 exact-stdout and 17 exact-json equality tests change; with hints disabled, stderr is byte-identical to pre-feature output for every verb",
+      "origin": "llm",
+      "status": "approved"
+    }
+  ]
 }

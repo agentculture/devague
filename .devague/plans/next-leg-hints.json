@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-08-31T20:26:01Z",
-  "updated": "2026-08-31T20:30:25Z",
+  "updated": "2026-08-31T22:06:42Z",
   "targets": [
     {
       "id": "c1",
@@ -325,8 +325,8 @@
       "text": "multi-mode verbs (deviate, evidence, delta: filing vs --list vs --confirm) may need per-mode hint text rather than one per-verb line - decide during t1 table design, from the park v1 the challenge pass left",
       "kind": "unknown_nonblocking",
       "task_id": null,
-      "resolved": false,
-      "resolution": ""
+      "resolved": true,
+      "resolution": "t1 decided: only a successful filing run of deviate/evidence/delta is leg-ending; --list and --confirm/--reject fall through to the within-leg devague status hint - hinting the next leg on every poll or adjudication would be presumptuous and noisy"
     }
   ],
   "obligations": []

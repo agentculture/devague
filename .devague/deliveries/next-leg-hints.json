@@ -1,0 +1,162 @@
+{
+  "plan_slug": "next-leg-hints",
+  "schema_version": 2,
+  "created": "2026-08-31T21:32:17Z",
+  "updated": "2026-08-31T22:06:21Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "t1 absorbed t5's first line item: the three empty-stderr assertion updates (test_plan_cli_instructions, test_summary, test_cli_moves) were made in t1's commit because t1's hint wiring broke them immediately - t5 will verify rather than re-make them",
+      "task_ref": "t1",
+      "reason": "the hint emission t1 ships makes the three assertions fail at t1 time; deferring the updates to t5 would leave wave-1 merges red, violating the TDD gate",
+      "affects": [
+        "t5"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "t1 touched an out-of-plan file: .claude/skills/assign-to-workforce/scripts/assign-to-workforce.sh --write path captured plan show --json with stderr merged into stdout, which the new hint line corrupts - fixed to capture stderr separately, mirroring the plan waves --json pattern in the same script",
+      "task_ref": "t1",
+      "reason": "latent pre-existing bug exposed by the feature itself; without the fix split-plan --write breaks on any hinting devague",
+      "affects": [],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 2
+    },
+    {
+      "id": "d3",
+      "what": "t3 exceeded the docs sweep: learn.py's MOVES dict had no deviate or summary entries at all (devague explain deviate/summary failed with unknown move), so t3 added both as new entries with verbatim CLI syntax - required to satisfy its acceptance criterion that explain covers the leg-ending verbs",
+      "task_ref": "t3",
+      "reason": "acceptance criterion 2 requires devague explain to cover the override for the leg-ending verbs including deviate and summary; pre-existing coverage was absent, not merely stale",
+      "affects": [],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 3
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "obligation_ref": "o1",
+      "test_ref": "tests/test_cli_hints.py::test_behavioral_new_capture_interrogate_confirm_converge_export_via_hints_only",
+      "behavior_text": "drives new -> capture -> interrogate -> confirm -> converge -> export in a tmp repo choosing every move only from the emitted hints, terminating at export's leg-ending hint",
+      "contract_text": "after any devague command succeeds, one stderr hint names the next move within its leg or the hand-off to the next leg",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "pytest -m behavioral ran green at the named commit (1 selected, 1 passed)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-08-31T22:01:23",
+        "commit": "052af63"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 4
+    },
+    {
+      "id": "e2",
+      "obligation_ref": "o1",
+      "test_ref": "tests/test_cli_hints.py::test_end_to_end_every_verb_hints_exactly_once_on_success",
+      "behavior_text": "asserts exactly one next: stderr line per successful non-exempt verb across the full registered verb set, zero for status and plan status, stdout untouched with JSON payloads still parsing",
+      "contract_text": "every verb except status emits a default hint; stdout including --json is untouched",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "full suite ran green at the named commit (1629 passed)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-08-31T22:01:23",
+        "commit": "052af63"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 5
+    },
+    {
+      "id": "e3",
+      "obligation_ref": "o2",
+      "test_ref": "tests/test_hint_config.py (override + precedence tests)",
+      "behavior_text": "asserts DEVAGUE_HINTS off-values and tool.devague hints=false each silence all hints, env beats pyproject, per-verb text replaces verbatim, unknown keys ignored",
+      "contract_text": "the hint is overrideable: disable entirely or replace the instruction text",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "full suite ran green at the named commit (44/44 in test_hint_config.py)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-08-31T22:01:23",
+        "commit": "052af63"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 6
+    },
+    {
+      "id": "e4",
+      "obligation_ref": "o3",
+      "test_ref": "tests/test_hint_config.py (byte-identical strip-hint comparisons)",
+      "behavior_text": "captures stderr with DEVAGUE_HINTS=off and asserts equality with the hint-stripped stderr of a hints-on run across representative verbs",
+      "contract_text": "with hints disabled, stderr is byte-identical to pre-feature output for every verb",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "full suite ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-08-31T22:01:23",
+        "commit": "052af63"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 7
+    }
+  ],
+  "deltas": [
+    {
+      "id": "b1",
+      "kind": "added",
+      "behavior_text": "every successful non-exempt devague verb now emits one next: stderr progression hint, overrideable via tool.devague in pyproject.toml or DEVAGUE_HINTS",
+      "caused_by": [
+        "c11"
+      ],
+      "evidence_refs": [
+        "e1"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b2",
+      "kind": "amended",
+      "behavior_text": "assign-to-workforce split-plan --write now captures plan show --json stderr separately instead of merging it into the parsed stdout - previously silently safe only while stderr was empty",
+      "caused_by": [
+        "d2"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b3",
+      "kind": "added",
+      "behavior_text": "devague explain deviate and devague explain summary now succeed with real move documentation - both previously failed with unknown move",
+      "caused_by": [
+        "d3"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    }
+  ],
+  "supersessions": []
+}
