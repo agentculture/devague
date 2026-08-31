@@ -1,0 +1,523 @@
+{
+  "slug": "next-leg-hints",
+  "title": "next-leg hints",
+  "schema_version": 6,
+  "status": "exported",
+  "created": "2026-08-31T19:20:42Z",
+  "updated": "2026-08-31T20:28:15Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "Every devague command tells the agent how to progress - the next move in its leg and the hand-off to the next leg - via a hint the user can turn off or replace",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "every registered verb emits a default hint, and the off switch silences every one of them",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "after implementation, run any verb (e.g. devague capture) and confirm a next-move hint appears on stderr; set the off switch and confirm it disappears",
+      "revisions": []
+    },
+    {
+      "id": "c2",
+      "kind": "requirement",
+      "text": "hint emission hooks the single dispatch seam in devague/cli/__init__.py - _dispatch, after args.func succeeds - so every verb gains it in one place, with no per-module edits across the 24 command modules",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "the hint call site is _dispatch alone - no command module gains its own hint print",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "grep devague/cli/_commands for the hint helper: zero call sites; implementation lives in devague/cli/__init__.py after rc = args.func(args)",
+      "revisions": []
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "hints ride stderr through the existing emit_diagnostic primitive in devague/cli/_output.py - never stdout, never inside a --json payload - preserving the stdout-results / stderr-diagnostics invariant",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "no hint ever prints to stdout in any mode, --json included",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "grep the hint implementation for emit_result usage; assert via a capsys test that stdout is unchanged for a representative verb with hints on",
+      "revisions": []
+    },
+    {
+      "id": "c4",
+      "kind": "boundary",
+      "text": "existing pinned outputs stay intact: the 14 exact-stdout and 17 exact-json equality tests pass untouched because the hint never lands on stdout; the only permitted edits to existing tests are the three exact empty-stderr assertions (test_plan_cli_instructions.py:139, test_summary.py:674, test_cli_moves.py:558), updated to tolerate the hint line; docs/spec-contract.md gains one global hint clause, not per-move table rewrites",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "the full pre-existing test suite passes with zero modifications to existing test files",
+          "status": "rejected",
+          "instruction": ""
+        },
+        {
+          "id": "h15",
+          "text": "the full pre-existing test suite passes with edits confined to the three named empty-stderr assertions - no other existing test file changes",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q3",
+          "text": "three existing tests assert stderr == empty exactly (test_plan_cli_instructions.py:139, test_summary.py:674, test_cli_moves.py:558) - does c4's zero-test-edit boundary bend to allow amending those three, or do hints ship default-off in the test conftest?",
+          "resolved": true,
+          "blocking": false,
+          "resolution": "amend c4: the three empty-stderr assertions may be updated to tolerate the hint line; hints stay default-on everywhere including CI"
+        }
+      ],
+      "links": [],
+      "instruction": "run uv run pytest -n auto before adding any new test file; any edit to an existing test falsifies this boundary",
+      "revisions": [
+        {
+          "text": "existing pinned outputs stay intact: the 14 tests asserting exact single-line stdout equality and the 17 asserting exact --json dict equality keep passing untouched, because the hint never lands on stdout; docs/spec-contract.md gains one global hint clause, not per-move table rewrites",
+          "kind": "boundary",
+          "reason": "challenge pass q3: three exact empty-stderr assertions falsify the literal zero-edit boundary"
+        }
+      ]
+    },
+    {
+      "id": "c5",
+      "kind": "assumption",
+      "text": "a new static verb-to-next-move table drives the hints; _status.py's required_next_moves machinery is convergence-blocker-driven (suggest_move per unmet gap) and cannot be reused as-is, though its next-move rendering is the pattern to imitate",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "the hint is overrideable: a user can disable hints entirely or replace the instruction text; absent an override, the defaults teach the eight-leg flow",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "disabling hints requires no code change - a user-reachable switch (config or env) turns them off completely",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q1",
+          "text": "where does the override live - a committed .devague config file, a tool.devague table in pyproject.toml, or a DEVAGUE_HINTS env var - and is it committed team state or per-user gitignored state?",
+          "resolved": true,
+          "blocking": false,
+          "resolution": "the override lives in a tool.devague table in pyproject.toml (committed, team-visible, sibling precedent); a DEVAGUE_HINTS env var is the fallback for non-Python projects and per-user override"
+        },
+        {
+          "id": "q2",
+          "text": "override granularity: one global on/off plus a replacement template, or per-verb / per-leg replacement text?",
+          "resolved": true,
+          "blocking": false,
+          "resolution": "global on/off plus per-verb replacement text - one switch kills all hints, individual verbs' text replaceable by key"
+        }
+      ],
+      "links": [],
+      "instruction": "set the off switch, run a verb, assert no hint; set replacement text, assert it prints verbatim",
+      "revisions": []
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "leg-ending verbs point across the leg boundary - export to /challenge or /spec-to-plan, plan export and plan waves to /assign-to-workforce, deviate to resuming the fan-out, evidence and delta filings toward summary and /summarize-delivery, today closing the loop - while within-leg verbs point at status as the in-leg next-move authority",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "each leg-ending verb's default hint names the next leg's skill or verb, matching the eight-leg order devague learn teaches",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "review the hint table against the canonical order in learn.py; export, plan export, plan waves, deviate, evidence, delta, summary, today each cross a leg boundary",
+      "revisions": []
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "the eight SKILL.md hand-offs are reconciled to the same eight-leg order the hints teach: assign-to-workforce has no hand-off section at all, spec-to-plan and validate-delivery lack a dedicated After section, deviate's hand-off skips /validate-delivery, challenge's flow diagram omits validate-delivery, and summarize-delivery's provenance ordinal is stale",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "all eight SKILL.md files end with a hand-off consistent with the eight-leg order, assign-to-workforce included",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "sweep the eight hand-off sections (add the missing ones, fix deviate and challenge), then markdownlint-cli2 the skill files",
+      "revisions": []
+    },
+    {
+      "id": "c9",
+      "kind": "non_goal",
+      "text": "the CLI stays deterministic and non-orchestrating (issue 20) and the method stays no-wizard: a hint is one static instructional line on stderr - it never gates, never blocks, never reads cross-engine state to decide for the agent, and never replaces status as the gap-driven authority",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c10",
+      "kind": "audience",
+      "text": "operators - the agent driving the CLI move by move - first; secondarily the humans reading the same terminal transcript",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "every default hint is imperative and names one concrete command or skill - no vague guidance",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "check the hint text is written as an instruction to the agent (imperative, names the exact next command or skill), not prose for humans",
+      "revisions": []
+    },
+    {
+      "id": "c11",
+      "kind": "after_state",
+      "text": "after any devague command succeeds, one stderr hint names the next move within its leg or the hand-off to the next leg - unless the user turned hints off or replaced the text",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "a successful move prints exactly one hint line on stderr - never more",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "capsys test: run a mutating verb, assert stderr contains exactly one hint-prefixed line and stdout is unchanged",
+      "revisions": []
+    },
+    {
+      "id": "c12",
+      "kind": "why_it_matters",
+      "text": "an agent that stalls after a leg-ending verb drops the flow between legs; a per-command nudge keeps the eight-leg method self-driving without turning the CLI into a wizard",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "an agent can traverse scope to summarize-delivery in a sandbox repo guided only by the hints",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "manual spot-check during gate-3 review: follow only the stderr hints end to end once",
+      "revisions": []
+    },
+    {
+      "id": "c13",
+      "kind": "success_signal",
+      "text": "every verb except status emits a default hint (status is exempt as the existing next-move authority); 0 of the 14 exact-stdout and 17 exact-json equality tests change; with hints disabled, stderr is byte-identical to pre-feature output for every verb",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "the byte-identical-stderr claim is verified by a test capturing stderr per verb, not by eyeball",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q4",
+          "text": "is 100 percent of verbs literal - do read-only reporting verbs (status, show, list, learn, explain, converge) hint too, or would a hint after status (itself the next-move authority) be noise?",
+          "resolved": true,
+          "blocking": false,
+          "resolution": "all verbs hint except status, which already renders the recommended next move"
+        }
+      ],
+      "links": [],
+      "instruction": "run the full suite unmodified before adding any new tests; diff stderr of each verb with hints disabled against the previous release",
+      "revisions": [
+        {
+          "text": "100 percent of verbs emit a default hint; 0 of the 14 exact-stdout and 17 exact-json equality tests change; with hints disabled, stderr is byte-identical to pre-feature output for every verb",
+          "kind": "success_signal",
+          "reason": "challenge pass q4: status is exempt - it is already the next-move authority"
+        }
+      ]
+    },
+    {
+      "id": "c14",
+      "kind": "decision",
+      "text": "override home: tool.devague table in pyproject.toml, with a DEVAGUE_HINTS env var fallback for non-Python projects and per-user override; precedence env over pyproject",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c15",
+      "kind": "decision",
+      "text": "override granularity: one global on/off switch plus per-verb replacement text keyed by verb name",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c16",
+      "kind": "decision",
+      "text": "hints print on stderr in --json mode too - stderr is JSON-agnostic by the output contract; machine-mode silence is just the off switch",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c17",
+      "kind": "requirement",
+      "text": "the progression hint uses a distinct stderr prefix (e.g. next:) - never hint:, which the error path already owns for remediation lines in _output.py emit_error",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "no stderr line ever starts with hint: unless it is an error remediation - progression hints grep cleanly by their own prefix",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "grep tests and _output.py: the two prefixes must never collide; a parser filtering hint: lines must not swallow progression hints",
+      "revisions": []
+    },
+    {
+      "id": "c18",
+      "kind": "assumption",
+      "text": "the hint table key derives from argparse dest command plus the plan group's subcommand dest - a bare args.command says only plan for every nested plan verb",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c19",
+      "kind": "requirement",
+      "text": "config reading fails open: a missing, malformed, or unreadable pyproject.toml or env var never crashes a verb - hints just fall back to defaults (stdlib tomllib, parse errors swallowed to a diagnostic)",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "a verb run against a syntactically broken pyproject.toml exits zero with default hints - verified by a dedicated test",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "test: run a verb in a repo with a syntactically broken pyproject.toml - the verb succeeds and default hints print",
+      "revisions": []
+    },
+    {
+      "id": "c20",
+      "kind": "boundary",
+      "text": "the feature persists nothing: no frame, plan, or delivery store change, no SCHEMA_VERSION bump anywhere - hints are computed per invocation from the verb table plus config",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h14",
+          "text": "SCHEMA_VERSION, PLAN_SCHEMA_VERSION, and DELIVERY_SCHEMA_VERSION are unchanged from main on the feature branch",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "diff the three store modules and frame.py/plan.py/delivery.py against main: zero changes",
+      "revisions": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "whether multi-mode verbs (deviate, evidence, delta: filing vs --list vs --confirm) need per-mode hint text rather than one per-verb line - not decidable until the table is designed",
+      "kind": "unknown_nonblocking",
+      "claim_id": null,
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    }
+  ],
+  "scope_entries": [
+    {
+      "id": "s1",
+      "surface": "devague/cli/__init__.py (_dispatch)",
+      "finding": "every verb funnels through _dispatch (rc = args.func(args), line 149); it currently never touches output on success - the natural single seam for a post-command hint",
+      "seeds": [
+        "c2"
+      ]
+    },
+    {
+      "id": "s2",
+      "surface": "devague/cli/_output.py",
+      "finding": "emit_diagnostic (line 42) is the stated stderr informational-line convention and is currently unused by any verb - ready-made for hints; a stdout hint would corrupt --json output",
+      "seeds": [
+        "c3"
+      ]
+    },
+    {
+      "id": "s3",
+      "surface": "tests/ + docs/spec-contract.md",
+      "finding": "spec-contract.md pins a strict per-move stdout/stderr contract (lines 12-13, 397-420); exact-equality assertions concentrate in strip-equality single-echo moves and --json dict comparisons - stderr placement avoids the sweep",
+      "seeds": [
+        "c4"
+      ]
+    },
+    {
+      "id": "s4",
+      "surface": "devague/cli/_status.py + convergence engines",
+      "finding": "required_next_moves is populated per unmet convergence blocker (convergence.py:301, plan_convergence.py:353), keyed off artifact gaps, not off which verb just ran - per-command hints need their own table",
+      "seeds": [
+        "c5"
+      ]
+    },
+    {
+      "id": "s5",
+      "surface": "config surface (whole-package grep)",
+      "finding": "no configuration mechanism exists in devague today - no env vars, no config module, no tool.devague table; store.py ensure_ignored (lines 59-76) gives a clean committed-vs-ignored pattern, and siblings agentirc/auntiepypi already use per-tool pyproject tables",
+      "seeds": [
+        "c6",
+        "q1"
+      ]
+    },
+    {
+      "id": "s6",
+      "surface": "devague/cli/_commands (verb-to-leg survey)",
+      "finding": "no leg-ending verb prints any forward hint on success today: export.py:48, plan.py:976 and 1015, deviate.py:126, evidence.py:165, delta.py:162, summary.py:60, today.py:45 all end at a bare echo",
+      "seeds": [
+        "c7"
+      ]
+    },
+    {
+      "id": "s7",
+      "surface": ".claude/skills (eight SKILL.md hand-offs)",
+      "finding": "hand-off prose is inconsistent: challenge/SKILL.md:27 omits validate-delivery from its flow diagram, deviate/SKILL.md:157 hands directly to /summarize-delivery, assign-to-workforce/SKILL.md ends at Provenance with no next-leg pointer",
+      "seeds": [
+        "c8"
+      ]
+    },
+    {
+      "id": "s8",
+      "surface": "issue 20 + method non-goals",
+      "finding": "learn teaches position and role, never a you-just-ran-X-now-run-Y nudge; status is gap-driven; a static per-verb hint is additive, not duplicative - and must not become orchestration",
+      "seeds": [
+        "c9"
+      ]
+    },
+    {
+      "id": "s9",
+      "surface": "challenge pass / failure-mode lens: devague/cli/_output.py error path",
+      "finding": "emit_error already writes hint: prefixed remediation lines to stderr on failure (line 39); an identically prefixed progression hint would be indistinguishable to parsers",
+      "seeds": [
+        "c17"
+      ]
+    },
+    {
+      "id": "s10",
+      "surface": "challenge pass / adjacent-systems lens: devague/cli/__init__.py argparse wiring",
+      "finding": "sub = parser.add_subparsers(dest=command) at line 83; nested plan verbs need their own dest read at the dispatch seam or every plan move gets one generic hint",
+      "seeds": [
+        "c18"
+      ]
+    },
+    {
+      "id": "s11",
+      "surface": "challenge pass / counter-evidence lens: tests stderr assertions",
+      "finding": "the scope-leg survey checked stdout pinning only; a follow-up grep found 3 exact err-empty assertions and 184 readouterr().err sites - the byte-identical-stderr boundary c4 is falsifiable as stated",
+      "seeds": [
+        "q3"
+      ]
+    },
+    {
+      "id": "s12",
+      "surface": "challenge pass / operations lens: config read path",
+      "finding": "devague runs inside consuming repos - the tool.devague table read is of the CWD pyproject, an arbitrary user file; fail-open mirrors contested.py's load-safely convention",
+      "seeds": [
+        "c19"
+      ]
+    },
+    {
+      "id": "s13",
+      "surface": "challenge pass / migration lens: store schemas",
+      "finding": "clean pass - hint state lives nowhere in .devague, so no schema bump and no upgrade path; residual risk none identified",
+      "seeds": [
+        "c20"
+      ]
+    },
+    {
+      "id": "s14",
+      "surface": "challenge pass / reversibility + observability lenses: off switch, stderr visibility",
+      "finding": "clean pass - the off switch is the rollback, the hint is itself the observability; no containment surface found beyond fail-open config",
+      "seeds": []
+    }
+  ],
+  "lapses": [],
+  "obligations": []
+}

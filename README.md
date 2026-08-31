@@ -24,11 +24,20 @@ devague --version
   shipped"), capture and pressure-test claims, park open vagueness, and `export`
   a spec only once the frame *converges*. Flat verbs: `devague new` /
   `capture` / `amend` / `interrogate` / `confirm` / `park` / `scope` /
-  `lapse` / `converge` / `export` / …
+  `lapse` / `oblige` / `converge` / `export` / …
 - **Plan engine** (spec→plan) — seed a plan from a converged frame, cover every
   target with tasks that carry acceptance criteria and an acyclic dependency
   order, and `export` a plan only once it *converges*. Nested group:
   `devague plan new` / `task` / `cover` / `defer` / `converge` / `export` / …
+
+Alongside them sits the **delivery ledger** (plan→what actually shipped) —
+append-only records of how execution really went: `devague deviate` (mid-run
+departures from the confirmed plan), `oblige` (mark a claim's or acceptance
+criterion's behavioral obligation), `evidence` (a behavioral test met — or
+failed — an obligation, with the coverage/fidelity/execution/sensitivity
+strength ladder), `delta` (a behavior the run added, amended, or removed),
+`summary` (the render-only delivery summary), and `today` (project the
+behavior ledger into the committed, undated `docs/current-spec.md`).
 
 Nothing gets deleted to make a gate go green. A parked unknown, a blocking
 hard question, and a coverage target that belongs to a later milestone each
@@ -102,9 +111,12 @@ explicit human approval via `devague deviate`, and resume),
 behavioral tests agent-side once waves merge, and file evidence and
 behavioral deltas via the CLI; unmet is unmet), and
 **`/summarize-delivery`** (execution→a committed accountability artifact).
-`/challenge` and `/validate-delivery` are both method-only — no wrapper
-script, no new CLI verb; findings and filings route through moves the CLI
-already exposes. The CLI-driving pair — `/think` and `/spec-to-plan` — add a
+`/challenge` is method-only — no wrapper script, no new CLI verb; findings
+route through moves the CLI already exposes. `/validate-delivery` is
+method-only too (the CLI never runs a test itself), but its filings land
+through the record-only delivery verbs — `devague oblige` / `evidence` /
+`delta` — with `llm`-origin filings landing `proposed` for human
+adjudication, same anti-fabrication contract as everywhere else. The CLI-driving pair — `/think` and `/spec-to-plan` — add a
 portable wrapper and a `status` next-move helper over the convergence gate;
 the CLI is the deterministic affordance and the agent decides the next move.
 
