@@ -19,6 +19,7 @@ from devague.cli._output import emit_diagnostic
 from devague.cli._status import StatusLabels, emit_empty, emit_status
 from devague.contested import find_contested_markers, marker_to_dict, sorted_markers
 from devague.convergence import evaluate
+from devague.staleness import find_staleness, orphaned_evidence_to_dict, stale_deviation_to_dict
 
 _LABELS = StatusLabels(
     noun="frame",
@@ -49,6 +50,12 @@ def cmd_status(args: argparse.Namespace) -> int:
         for diag in diagnostics:
             emit_diagnostic(diag)
         contested = [marker_to_dict(m) for m in sorted_markers(markers)]
+        # Staleness derivation (#97/bvts t8): the second read-only join, same
+        # fail-open contract — a broken plan/delivery ledger anywhere degrades
+        # to "no findings from that source" plus a stderr diagnostic.
+        stale_devs, orphaned, staleness_diags = find_staleness(frame)
+        for diag in staleness_diags:
+            emit_diagnostic(diag)
         emit_status(
             _LABELS,
             selected=frame.slug,
@@ -56,6 +63,8 @@ def cmd_status(args: argparse.Namespace) -> int:
             result=result,
             json_mode=json_mode,
             contested=contested,
+            stale_deviations=[stale_deviation_to_dict(f) for f in stale_devs],
+            orphaned_evidence=[orphaned_evidence_to_dict(f) for f in orphaned],
         )
     return 0
 
