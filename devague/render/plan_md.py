@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Optional
 
 from devague.frame import Frame
-from devague.plan import Plan, Task
+from devague.plan import Plan, Task, criterion_obligation_drift
 from devague.render._md_safety import autolink_urls, heading_safe, md_safe_text
 
 
@@ -72,7 +72,26 @@ def _announcement(frame: Optional[Frame]) -> Optional[str]:
     return None
 
 
-def _task_lines(task: Task) -> list[str]:
+def _obligation_lines(task: Task, obligations) -> list[str]:
+    """Obligations filed against ``task`` (bvts t4), nested under it the same
+    way acceptance criteria already are: every obligation renders here
+    regardless of status, with a drift marker computed via the pure
+    :func:`devague.plan.criterion_obligation_drift` — never re-derived here —
+    when the task's live acceptance-criterion text no longer matches the
+    obligation's filed snapshot.
+    """
+    lines = []
+    for o in [ob for ob in obligations if ob.task_id == task.id]:
+        om = "" if o.status == "approved" else f" _({o.status})_"
+        drift = " — ⚠ drifted" if criterion_obligation_drift(o, task) else ""
+        lines.append(
+            f"- obligation: `{o.id}` (criterion {o.criterion_index}) "
+            f"[{_verbatim(o.seam)}] {_verbatim(o.behavior)}{om}{drift}"
+        )
+    return lines
+
+
+def _task_lines(task: Task, obligations=()) -> list[str]:
     mark = "" if task.status == "confirmed" else f" _({task.status})_"
     body: list[str] = []
     if task.instruction:
@@ -88,6 +107,7 @@ def _task_lines(task: Task) -> list[str]:
     if task.acceptance_criteria:
         body.append("- acceptance:")
         body.extend(f"  - {_verbatim(a)}" for a in task.acceptance_criteria)
+    body.extend(_obligation_lines(task, obligations))
     lines = [f"### {task.id} — {_verbatim_heading(task.summary)}{mark}"]
     if body:
         # Blank line between the heading and its list (MD022/MD032).
@@ -129,7 +149,7 @@ def render_plan(plan: Plan, frame: Optional[Frame]) -> str:
     if tasks:
         out += ["## Tasks", ""]
         for t in _topo_order(tasks):
-            out.extend(_task_lines(t))
+            out.extend(_task_lines(t, plan.obligations))
 
     out += _deferred_targets_lines(plan)
 

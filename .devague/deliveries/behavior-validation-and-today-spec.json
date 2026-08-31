@@ -1,0 +1,108 @@
+{
+  "plan_slug": "behavior-validation-and-today-spec",
+  "schema_version": 2,
+  "created": "2026-08-31T18:27:51Z",
+  "updated": "2026-08-31T18:41:30Z",
+  "deviations": [],
+  "evidence": [
+    {
+      "id": "e1",
+      "obligation_ref": "o1",
+      "test_ref": "tests/test_obligation_warnings.py",
+      "behavior_text": "asserts converge and plan converge emit a warning naming the obligation id and seam when no approved evidence exists, that proposed or superseded evidence does not discharge it, and that ready flags and lapse exclusions are untouched",
+      "contract_text": "an obligation with no approved evidence emits a visibly-untested warning naming the obligation and its seam, and ready_for_spec / ready_for_plan stay untouched",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "29-test behavioral file ran green at the named commit in the run just recorded; assertions read and matched against the obligation text",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-08-31T21:27:40+03:00",
+        "commit": "3945fb7"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "e2",
+      "obligation_ref": "o2",
+      "test_ref": "tests/test_today.py + tests/test_today_cli.py",
+      "behavior_text": "asserts the projection loads every frame, plan, and delivery fail-open with diagnostics, that devague today writes docs/current-spec.md and every other file hashes byte-identical before and after, and that the same stores project to the same bytes",
+      "contract_text": "the projection walks every frame, plan, and delivery fail-open, writes only docs/current-spec.md, and leaves every store file byte-identical",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "52 behavioral tests ran green at the named commit, including the hash-everything-before-and-after pin and two determinism pins",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-08-31T21:27:40+03:00",
+        "commit": "3945fb7"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "e3",
+      "obligation_ref": "o3",
+      "test_ref": "tests/test_summary_delivery_claims.py",
+      "behavior_text": "asserts one Delivery Claims row per obligation-bearing claim with ladder strength from best approved passing evidence, failing evidence rendered as FAILING, proposed as pending, and approved lapses capping rendered strength with most-restrictive-wins",
+      "contract_text": "one row per obligation-bearing claim renders ladder strength from approved passing evidence, with approved lapses capping renderable strength",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "25-test behavioral file ran green at the named commit; cap mapping and row-state assertions read directly",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-08-31T21:27:40+03:00",
+        "commit": "3945fb7"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    }
+  ],
+  "deltas": [
+    {
+      "id": "b1",
+      "kind": "added",
+      "behavior_text": "converge and plan converge warn on behavioral obligations with no approved evidence \u2014 visibly untested, never gating",
+      "caused_by": [
+        "c6"
+      ],
+      "evidence_refs": [
+        "e1"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b2",
+      "kind": "added",
+      "behavior_text": "devague today projects the behavior ledger across all frames, plans, and deliveries into the committed docs/current-spec.md, fail-open and read-only over stores",
+      "caused_by": [
+        "c7"
+      ],
+      "evidence_refs": [
+        "e2"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b3",
+      "kind": "added",
+      "behavior_text": "devague summary's Delivery Claims table renders per-claim evidence strength on the coverage/fidelity/execution/sensitivity ladder, capped by approved lapses",
+      "caused_by": [
+        "c20"
+      ],
+      "evidence_refs": [
+        "e3"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    }
+  ],
+  "supersessions": []
+}

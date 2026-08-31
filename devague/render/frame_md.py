@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from devague.frame import Frame, Vagueness
+from devague.frame import Frame, Vagueness, obligation_drift
 
 _SECTIONS = [
     ("announcement", "Announcement"),
@@ -28,7 +28,23 @@ def _instruction_lines(instruction: str, indent: str = "  ") -> list[str]:
     return [f"{indent}- instruction: {instruction}"] if instruction else []
 
 
-def _claim_lines(claim) -> list[str]:
+def _obligation_lines(claim, obligations) -> list[str]:
+    """Obligations filed against ``claim`` (bvts t4), nested under it the way
+    honesty conditions and hard questions already are: every obligation
+    renders here regardless of status, mirroring ``_lapse_lines``'s
+    working-state discipline, with a drift marker computed via the pure
+    :func:`devague.frame.obligation_drift` — never re-derived here — when the
+    claim's live text no longer matches the obligation's filed snapshot.
+    """
+    lines = []
+    for o in [ob for ob in obligations if ob.claim_id == claim.id]:
+        om = "" if o.status == "approved" else f" _({o.status})_"
+        drift = " — ⚠ drifted" if obligation_drift(o, claim) else ""
+        lines.append(f"  - obligation: `{o.id}` [{o.seam}] {o.behavior}{om}{drift}")
+    return lines
+
+
+def _claim_lines(claim, obligations=()) -> list[str]:
     mark = "" if claim.status == "confirmed" else f" _({claim.status})_"
     lines = [f"- {claim.text}{mark}"]
     lines += _instruction_lines(claim.instruction)
@@ -39,6 +55,7 @@ def _claim_lines(claim) -> list[str]:
     for q in claim.hard_questions:
         qm = "blocking" if q.blocking else "open"
         lines.append(f"  - Q ({qm}): {q.text}")
+    lines += _obligation_lines(claim, obligations)
     return lines
 
 
@@ -48,7 +65,7 @@ def _section_lines(frame: Frame, kind: str, heading: str) -> list[str]:
         return []
     lines = [f"## {heading}", ""]
     for c in claims:
-        lines.extend(_claim_lines(c))
+        lines.extend(_claim_lines(c, frame.obligations))
     lines.append("")
     return lines
 

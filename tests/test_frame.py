@@ -20,8 +20,10 @@ def test_add_claim_user_is_confirmed_llm_is_proposed() -> None:
     f = Frame(slug="s", title="t")
     a = f.add_claim("announcement", "we shipped X", origin="user")
     b = f.add_claim("audience", "devs", origin="llm")
-    assert a.id == "c1" and a.status == "confirmed"
-    assert b.id == "c2" and b.status == "proposed"
+    assert a.id == "c1"
+    assert a.status == "confirmed"
+    assert b.id == "c2"
+    assert b.status == "proposed"
 
 
 def test_add_honesty_and_hard_question_and_vagueness_ids() -> None:
@@ -30,17 +32,23 @@ def test_add_honesty_and_hard_question_and_vagueness_ids() -> None:
     h = f.add_honesty(c, "must be measurable", origin="llm")
     q = f.add_hard_question(c, "what if empty?", blocking=True)
     v = f.add_vagueness("unsure about scale", "unknown_blocking")
-    assert h.id == "h1" and h.status == "proposed"
-    assert q.id == "q1" and q.blocking is True and q.resolved is False
-    assert v.id == "v1" and v.kind == "unknown_blocking"
+    assert h.id == "h1"
+    assert h.status == "proposed"
+    assert q.id == "q1"
+    assert q.blocking is True
+    assert q.resolved is False
+    assert v.id == "v1"
+    assert v.kind == "unknown_blocking"
 
 
 def test_set_status_finds_claim_or_honesty() -> None:
     f = Frame(slug="s", title="t")
     c = f.add_claim("audience", "devs", origin="llm")
     h = f.add_honesty(c, "cond", origin="llm")
-    assert f.set_status("c1", "confirmed") is True and c.status == "confirmed"
-    assert f.set_status("h1", "confirmed") is True and h.status == "confirmed"
+    assert f.set_status("c1", "confirmed") is True
+    assert c.status == "confirmed"
+    assert f.set_status("h1", "confirmed") is True
+    assert h.status == "confirmed"
     assert f.set_status("nope", "confirmed") is False
 
 
@@ -125,13 +133,13 @@ def test_dataclasses_validate_enums() -> None:
 # --- resolve-parked-vagueness t1: Vagueness resolution state (schema v3) ------
 
 
-def test_schema_version_is_5() -> None:
+def test_schema_version_is_6() -> None:
     # v3 (resolve-parked-vagueness t1) added Vagueness.resolved/resolution; v4
     # (issue-backlog-sweep t2) reserved the next bump for t4's HardQuestion
     # resolution field — t2 itself only hardened load order/tolerance; v5
     # (issue #97 t1) adds Frame.lapses / LapseRecord, the Reasoning
-    # Degradation Ledger.
-    assert SCHEMA_VERSION == 5
+    # Degradation Ledger; v6 (bvts t1) adds Frame.obligations / Obligation.
+    assert SCHEMA_VERSION == 6
 
 
 def test_vagueness_gains_resolved_and_resolution_defaults() -> None:
@@ -379,7 +387,8 @@ def test_reject_claim_cascade_skips_already_rejected_honesty() -> None:
     h2 = f.add_honesty(c, "cond two", origin="llm")
     f.set_status(h1.id, "rejected")  # already decided independently
     cascaded = f.reject(c.id)
-    assert h1.status == "rejected" and h2.status == "rejected"
+    assert h1.status == "rejected"
+    assert h2.status == "rejected"
     assert cascaded == [h2.id]  # h1 wasn't newly cascaded — it was already rejected
 
 

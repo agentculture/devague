@@ -86,7 +86,9 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import capture as _capture_cmd
     from devague.cli._commands import confirm as _confirm_cmd
     from devague.cli._commands import converge as _converge_cmd
+    from devague.cli._commands import delta as _delta_cmd
     from devague.cli._commands import deviate as _deviate_cmd
+    from devague.cli._commands import evidence as _evidence_cmd
     from devague.cli._commands import explain as _explain_cmd
     from devague.cli._commands import export as _export_cmd
     from devague.cli._commands import interrogate as _interrogate_cmd
@@ -94,6 +96,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import learn as _learn_cmd
     from devague.cli._commands import list_frames as _list_cmd
     from devague.cli._commands import new as _new_cmd
+    from devague.cli._commands import oblige as _oblige_cmd
     from devague.cli._commands import park as _park_cmd
     from devague.cli._commands import plan as _plan_cmd
     from devague.cli._commands import question as _question_cmd
@@ -103,6 +106,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import show as _show_cmd
     from devague.cli._commands import status as _status_cmd
     from devague.cli._commands import summary as _summary_cmd
+    from devague.cli._commands import today as _today_cmd
 
     _learn_cmd.register(sub)
     _explain_cmd.register(sub)
@@ -120,9 +124,13 @@ def _build_parser() -> argparse.ArgumentParser:
     _export_cmd.register(sub)
     _plan_cmd.register(sub)
     _deviate_cmd.register(sub)
+    _evidence_cmd.register(sub)
+    _delta_cmd.register(sub)
     _lapse_cmd.register(sub)
+    _oblige_cmd.register(sub)
     _status_cmd.register(sub)
     _summary_cmd.register(sub)
+    _today_cmd.register(sub)
     _show_cmd.register(sub)
     _list_cmd.register(sub)
 

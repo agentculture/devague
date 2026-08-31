@@ -19,6 +19,8 @@ from devague.cli._output import emit_diagnostic
 from devague.cli._status import StatusLabels, emit_empty, emit_status
 from devague.contested import find_contested_markers, marker_to_dict, sorted_markers
 from devague.convergence import evaluate
+from devague.obligation_evidence import met_obligation_refs_for_frame
+from devague.staleness import find_staleness, orphaned_evidence_to_dict, stale_deviation_to_dict
 
 _LABELS = StatusLabels(
     noun="frame",
@@ -41,7 +43,13 @@ def cmd_status(args: argparse.Namespace) -> int:
     else:
         # A bad --frame raises here (before any stdout) so the error reaches stderr.
         frame = resolve(args.frame)
-        result = evaluate(frame)
+        # Unmet-obligation warnings (bvts t7): the evidence state is loaded here,
+        # at the edge, and handed to the pure gate — same fail-open terms as the
+        # contested derivation below.
+        met, met_diagnostics = met_obligation_refs_for_frame(frame.slug)
+        for diag in met_diagnostics:
+            emit_diagnostic(diag)
+        result = evaluate(frame, met_obligations=met)
         # Contested-by-deviation derivation (#92): read-only, fails open — a
         # broken plan/delivery ledger anywhere in the join degrades to "no
         # markers from that source" plus a stderr diagnostic, never a crash.
@@ -49,6 +57,12 @@ def cmd_status(args: argparse.Namespace) -> int:
         for diag in diagnostics:
             emit_diagnostic(diag)
         contested = [marker_to_dict(m) for m in sorted_markers(markers)]
+        # Staleness derivation (#97/bvts t8): the second read-only join, same
+        # fail-open contract — a broken plan/delivery ledger anywhere degrades
+        # to "no findings from that source" plus a stderr diagnostic.
+        stale_devs, orphaned, staleness_diags = find_staleness(frame)
+        for diag in staleness_diags:
+            emit_diagnostic(diag)
         emit_status(
             _LABELS,
             selected=frame.slug,
@@ -56,6 +70,8 @@ def cmd_status(args: argparse.Namespace) -> int:
             result=result,
             json_mode=json_mode,
             contested=contested,
+            stale_deviations=[stale_deviation_to_dict(f) for f in stale_devs],
+            orphaned_evidence=[orphaned_evidence_to_dict(f) for f in orphaned],
         )
     return 0
 

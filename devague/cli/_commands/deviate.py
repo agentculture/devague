@@ -31,20 +31,14 @@ is ever auto-corrected; an unresolvable ref is a fail-closed refusal.
 from __future__ import annotations
 
 import argparse
-import re
 
-from devague import delivery_store, store
+from devague import delivery_store
 from devague.cli._deliveries import resolve_delivery
 from devague.cli._errors import EXIT_USER_ERROR, DevagueError
 from devague.cli._output import emit_result
 from devague.cli._plans import resolve_plan
+from devague.cli._refs import load_source_frame, refuse_unless_known
 from devague.delivery import CLASSIFICATIONS, ORIGINS
-
-# An id-shaped ref: a single lowercase letter followed by digits — the shape
-# every devague-generated id uses (t3 tasks, c14 claims, h5 honesty
-# conditions, r1 plan risks, d1 deviations, v/q/s ids elsewhere). Anything
-# else is free-form prose and is never refused.
-_ID_SHAPED_RE = re.compile(r"^[a-z]\d+$")
 
 
 def _record_dict(rec) -> dict:
@@ -62,17 +56,6 @@ def _record_dict(rec) -> dict:
 
 def _plan_slug(args: argparse.Namespace) -> str:
     return resolve_plan(args.plan).slug
-
-
-def _load_source_frame(frame_slug: str):
-    """Best-effort load of the plan's source frame; ``None`` when it is gone
-    or corrupt (mirrors ``cmd_summary``'s graceful degradation in
-    :mod:`devague.cli._commands.summary`) — a missing frame narrows what a
-    ``--affects`` ref can validate against, it never crashes the move."""
-    try:
-        return store.load(frame_slug)
-    except (FileNotFoundError, ValueError):
-        return None
 
 
 def _known_ids(plan, frame) -> set[str]:
@@ -99,17 +82,17 @@ def _validate_refs(plan, args: argparse.Namespace) -> None:
     affects = args.affects or []
     if not affects:
         return
-    frame = _load_source_frame(plan.frame_slug)
+    frame = load_source_frame(plan.frame_slug)
     known = _known_ids(plan, frame)
     for ref in affects:
-        if _ID_SHAPED_RE.match(ref) and ref not in known:
-            raise DevagueError(
-                EXIT_USER_ERROR,
-                f"--affects {ref!r} does not resolve to a known plan task, "
-                "coverage target, or frame claim/honesty-condition id",
-                "run 'devague plan show' or 'devague show' to see valid ids "
-                "(free-form text that isn't shaped like an id is always allowed)",
-            )
+        refuse_unless_known(
+            ref,
+            known,
+            flag="--affects",
+            what="a known plan task, coverage target, or frame claim/honesty-condition id",
+            hint="run 'devague plan show' or 'devague show' to see valid ids "
+            "(free-form text that isn't shaped like an id is always allowed)",
+        )
 
 
 def _record(args: argparse.Namespace) -> int:

@@ -228,12 +228,14 @@ def test_plan_carries_schema_version() -> None:
     assert from_dict(to_dict(p)).schema_version == PLAN_SCHEMA_VERSION
 
 
-def test_plan_schema_version_bumped_to_4_for_defer_state() -> None:
+def test_plan_schema_version_bumped_to_5_for_obligations() -> None:
     # resolve-parked-vagueness t2 bumped to 3 for PlanRisk.resolved/resolution (the
-    # plan-side twin of frame.SCHEMA_VERSION 2 -> 3). issue-backlog-sweep t2 bumps
+    # plan-side twin of frame.SCHEMA_VERSION 2 -> 3). issue-backlog-sweep t2 bumped
     # again to 4, reserved for t9's per-target deferral state (the plan-side twin
     # of frame.SCHEMA_VERSION's v4 reservation for t4's HardQuestion resolution).
-    assert PLAN_SCHEMA_VERSION == 4
+    # issue #97 t2 bumps again to 5 for Plan.obligations/CriterionObligation (the
+    # plan-side twin of frame.SCHEMA_VERSION's v5 bump for Frame.lapses/LapseRecord).
+    assert PLAN_SCHEMA_VERSION == 5
 
 
 def test_legacy_plan_without_schema_version_loads() -> None:
@@ -357,8 +359,10 @@ def _seed_frame() -> Frame:
 def test_targets_from_frame_includes_only_confirmed_spec_elements() -> None:
     targets = targets_from_frame(_seed_frame())
     by_id = {t.id: t for t in targets}
-    assert "c1" in by_id and by_id["c1"].kind == "announcement"
-    assert "h1" in by_id and by_id["h1"].kind == "honesty"
+    assert "c1" in by_id
+    assert by_id["c1"].kind == "announcement"
+    assert "h1" in by_id
+    assert by_id["h1"].kind == "honesty"
     assert "c5" in by_id  # success_signal claim is confirmed -> a target
     # excluded: proposed claim (c2), rejected (c3), open_question (c4), proposed honesty (h2)
     assert "c2" not in by_id

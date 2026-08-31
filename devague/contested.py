@@ -53,6 +53,9 @@ __all__ = [
     "find_contested_markers",
     "sorted_markers",
     "marker_to_dict",
+    "load_plan_safely",
+    "load_delivery_safely",
+    "delivery_for_frame",
 ]
 
 
@@ -78,13 +81,21 @@ def _numeric_suffix(item_id: str) -> int:
     return int(digits) if digits else 0
 
 
-def _load_plan_safely(slug: str) -> tuple[Optional[Plan], Optional[str]]:
+def load_plan_safely(
+    slug: str, *, label: str = "contested"
+) -> tuple[Optional[Plan], Optional[str]]:
     """Best-effort plan load: ``(plan, diagnostic)``, never raises.
 
     ``diagnostic`` is ``None`` on success. A plan that disappeared between
     ``list_slugs()`` and this load (a narrow race, not a corruption shape) is
     treated the same as "not found" and silently skipped — it is not one of
     the three corruption shapes the fail-open contract is about.
+
+    ``label`` prefixes any diagnostic so a second caller of this same walk
+    (:mod:`devague.obligation_evidence`, bvts t7) says which derivation
+    degraded rather than mislabelling its own failure as ``contested:``. The
+    helper is public precisely so that caller can *reuse* this fail-open
+    contract instead of re-implementing it and drifting from it.
     """
     try:
         return plan_store.load(slug), None
@@ -93,13 +104,15 @@ def _load_plan_safely(slug: str) -> tuple[Optional[Plan], Optional[str]]:
     except plan_store.IncompatiblePlanSchemaError as exc:
         return (
             None,
-            f"contested: plan {slug!r} uses a schema this devague can't read, skipped ({exc})",
+            f"{label}: plan {slug!r} uses a schema this devague can't read, skipped ({exc})",
         )
     except (ValueError, KeyError, TypeError, OSError) as exc:
-        return None, f"contested: plan {slug!r} is unreadable, skipped ({exc})"
+        return None, f"{label}: plan {slug!r} is unreadable, skipped ({exc})"
 
 
-def _load_delivery_safely(slug: str) -> tuple[Optional[Delivery], Optional[str]]:
+def load_delivery_safely(
+    slug: str, *, label: str = "contested"
+) -> tuple[Optional[Delivery], Optional[str]]:
     """Best-effort delivery-ledger load: ``(delivery, diagnostic)``, never raises.
 
     A missing ledger (no deviation ever recorded against this plan) is the
@@ -107,6 +120,8 @@ def _load_delivery_safely(slug: str) -> tuple[Optional[Delivery], Optional[str]]
     own treatment of "no file yet". A truncated/malformed file or a
     newer-than-supported ``schema_version`` is a real corruption shape (claim
     c34): both degrade to "no markers from this ledger" plus a diagnostic.
+
+    ``label`` prefixes the diagnostic — see :func:`load_plan_safely`.
     """
     try:
         return delivery_store.load(slug), None
@@ -114,31 +129,33 @@ def _load_delivery_safely(slug: str) -> tuple[Optional[Delivery], Optional[str]]
         return None, None
     except delivery_store.IncompatibleDeliverySchemaError as exc:
         return None, (
-            f"contested: delivery ledger for plan {slug!r} uses a schema this "
+            f"{label}: delivery ledger for plan {slug!r} uses a schema this "
             f"devague can't read, skipped ({exc})"
         )
     except (ValueError, KeyError, TypeError, OSError) as exc:
-        return None, (
-            f"contested: delivery ledger for plan {slug!r} is unreadable, skipped ({exc})"
-        )
+        return None, (f"{label}: delivery ledger for plan {slug!r} is unreadable, skipped ({exc})")
 
 
-def _delivery_for_frame(slug: str, frame_slug: str):
+def delivery_for_frame(slug: str, frame_slug: str, *, label: str = "contested"):
     """Load ``slug``'s delivery ledger, but only if its plan targets ``frame_slug``.
 
     Returns ``(delivery_or_None, diagnostics)``. A plan seeded from a different
     frame, an unreadable plan, and a plan with no (or an unreadable) ledger all
     return ``None`` — the caller skips the slug either way; the diagnostics say
     which of those it was, when there is anything to say.
+
+    Public for the same reason as the two loaders above: the frame side of the
+    obligation/evidence join (bvts t7) needs *this* walk — a frame carries no
+    reverse pointer to the plans seeded from it — and must not fork it.
     """
     diagnostics: list[str] = []
-    plan, plan_diag = _load_plan_safely(slug)
+    plan, plan_diag = load_plan_safely(slug, label=label)
     if plan_diag:
         diagnostics.append(plan_diag)
     if plan is None or plan.frame_slug != frame_slug:
         return None, diagnostics
 
-    delivery, delivery_diag = _load_delivery_safely(slug)
+    delivery, delivery_diag = load_delivery_safely(slug, label=label)
     if delivery_diag:
         diagnostics.append(delivery_diag)
     return delivery, diagnostics
@@ -191,7 +208,7 @@ def find_contested_markers(
         return markers, diagnostics
 
     for slug in slugs:
-        delivery, slug_diags = _delivery_for_frame(slug, frame.slug)
+        delivery, slug_diags = delivery_for_frame(slug, frame.slug)
         diagnostics.extend(slug_diags)
         if delivery is None:
             continue

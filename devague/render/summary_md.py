@@ -21,18 +21,26 @@ as if it were an approved decision — it surfaces (if at all) under an explicit
 for a PR body: title, announcement, the wave/task map, approved deviations, and a
 pointer to the ``docs/deliveries/<date>-<slug>.md`` artifact this skeleton seeds.
 
-Pure functions of ``(Plan, Optional[Frame], Delivery)`` — no I/O, no mutation.
+Pure functions of ``(Plan, Optional[Frame], Delivery)`` — no I/O, no mutation. Two
+optional keyword-only parameters, ``stale_deviations``/``orphaned_evidence``
+(:func:`render_summary`/:func:`summary_data`/:func:`_delivery_claims_lines`),
+carry :mod:`devague.staleness` findings in from the edge (``cli/_commands/summary.py``,
+mirroring how ``cli/_commands/status.py`` loads the same join) — ``None``-safe so
+every existing caller (including every test that predates bvts t11) keeps working
+unchanged.
 """
 
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 from typing import Optional
 
-from devague.delivery import Delivery, DeviationRecord
-from devague.frame import Frame
+from devague.delivery import STRENGTH_LEVELS, Delivery, DeviationRecord, EvidenceRecord
+from devague.frame import Frame, LapseRecord
 from devague.plan import Plan, Task, dependency_waves
 from devague.render._md_safety import autolink_urls, heading_safe, md_safe_text
+from devague.staleness import OrphanedEvidenceFinding, StaleDeviationFinding, _resolve_obligation
 
 RUN_STATUS_PLACEHOLDER = "<complete | partial | failed>"
 
@@ -136,6 +144,302 @@ def _approved(delivery: Delivery) -> list[DeviationRecord]:
 
 def _pending(delivery: Delivery) -> list[DeviationRecord]:
     return [d for d in delivery.deviations if d.status == "proposed"]
+
+
+# ── Delivery Claims: confidence-ladder rows from real evidence state (bvts t11) ──
+#
+# One scale, not two (the v2 park resolution): the Delivery Claims confidence
+# column IS the strength ladder (:data:`devague.delivery.STRENGTH_LEVELS`) —
+# never a second, parallel vocabulary. An APPROVED reasoning-degradation lapse
+# (``Frame.lapses``, issue #97) whose ``refs`` name an obligation id, a claim
+# id, or an evidence id that resolves to a given claim caps that claim's
+# rendered strength regardless of the level the evidence was filed at. The
+# per-code cap below is a conservative, documented judgment call — not derived
+# — because the ledger's own vocabulary (:data:`devague.frame.LAPSE_CODES`) is
+# free text about what kind of check was skipped, not a formula for how much
+# confidence that costs:
+LAPSE_STRENGTH_CAPS: dict[str, str] = {
+    # An assumption stood in for an actual measurement: "it currently passes"
+    # cannot be asserted on that basis. Cap below `execution`.
+    "assumption-for-measurement": "fidelity",
+    # The pass/fail grader itself was never verified: the same reasoning as
+    # above applies to whatever it graded. Cap below `execution`.
+    "grader-unverified": "fidelity",
+    # No control/baseline: `execution` (it currently passes) can still stand,
+    # but "it would catch a regression" cannot be asserted without one. Cap
+    # below `sensitivity`.
+    "control-absent": "execution",
+    # Sample size too small to support the claim's asserted breadth: the
+    # claim is more general than the n backing it. Cap below `execution`.
+    "n-below-claim": "fidelity",
+    # The measurement instrument changed mid-series: the current run is not
+    # comparable to what came before it, so it cannot be trusted alone. Cap
+    # below `execution`.
+    "instrument-changed-mid-series": "fidelity",
+    # The evidence's own provenance cannot be verified at all — the most
+    # severe cap: not even "it asserts the promised behavior" can be trusted.
+    "provenance-missing": "coverage",
+}
+
+
+def _strength_index(level: str) -> int:
+    return STRENGTH_LEVELS.index(level)
+
+
+def _cap_strength(level: str, cap: str) -> str:
+    """The weaker of ``level``/``cap`` on the shared strength ladder."""
+    return STRENGTH_LEVELS[min(_strength_index(level), _strength_index(cap))]
+
+
+def _obligation_bearing_claims(frame: Optional[Frame], plan: Plan) -> list:
+    """Claims (in frame order) carrying at least one APPROVED obligation — a
+    frame-side ``Obligation`` naming the claim directly, or a plan-side
+    ``CriterionObligation`` whose task's ``covers`` names the claim id. A
+    still-``proposed`` obligation is not yet a real commitment (mirrors how
+    the rest of this module only counts approved deviation/lapse records as
+    real), so it does not seat a row.
+    """
+    if frame is None:
+        return []
+    bearing: set[str] = set()
+    for ob in frame.obligations:
+        if ob.status == "approved":
+            bearing.add(ob.claim_id)
+    for ob in plan.obligations:
+        if ob.status != "approved":
+            continue
+        task = plan.find_task(ob.task_id)
+        if task is not None:
+            bearing.update(task.covers)
+    return [c for c in frame.claims if c.id in bearing]
+
+
+def _evidence_for_claim(
+    claim_id: str, frame: Optional[Frame], plan: Plan, delivery: Delivery
+) -> list[EvidenceRecord]:
+    """Non-superseded evidence records whose obligation resolves (via the
+    shared :func:`devague.staleness._resolve_obligation` join) to ``claim_id``.
+    """
+    out = []
+    for ev in delivery.evidence:
+        if ev.superseded:
+            continue
+        claims, _status = _resolve_obligation(ev.obligation_ref, frame, plan)
+        if claim_id in claims:
+            out.append(ev)
+    return out
+
+
+def _best_evidence(
+    evidence_list: list[EvidenceRecord],
+) -> tuple[str, Optional[EvidenceRecord]]:
+    """Row semantics (t11 AC2/AC3): the best APPROVED, PASSING evidence sets the
+    pre-cap strength; failing APPROVED evidence renders visibly as an attempted
+    execution rather than being hidden; a still-``proposed`` record (no
+    approved evidence at all) renders as pending adjudication; no evidence at
+    all renders as untested. Rejected evidence never counts.
+    """
+    approved = [e for e in evidence_list if e.status == "approved"]
+    passing = [e for e in approved if e.outcome == "pass"]
+    failing = [e for e in approved if e.outcome == "fail"]
+    pending = [e for e in evidence_list if e.status == "proposed"]
+    if passing:
+        return "passing", max(passing, key=lambda e: _strength_index(e.strength))
+    if failing:
+        return "failing", max(failing, key=lambda e: _strength_index(e.strength))
+    if pending:
+        return "pending", pending[0]
+    return "untested", None
+
+
+def _applicable_cap(
+    claim_id: str, frame: Optional[Frame], plan: Plan, delivery: Delivery
+) -> Optional[str]:
+    """The most restrictive :data:`LAPSE_STRENGTH_CAPS` cap among APPROVED
+    lapses whose ``refs`` resolve to ``claim_id`` — directly (a claim id
+    ref), via an obligation id, or via an evidence id whose own obligation
+    resolves to ``claim_id``. A free-text ref that matches no id resolves to
+    nothing and simply does not cap (the ledger records testimony, not a
+    join) — this mirrors :mod:`devague.staleness`'s own resolution contract
+    exactly, deliberately reusing it rather than re-implementing a second,
+    subtly different id-matching rule.
+    """
+    if frame is None:
+        return None
+    cap_level: Optional[str] = None
+    for lapse in frame.lapses:
+        if lapse.status != "approved":
+            continue
+        code_cap = LAPSE_STRENGTH_CAPS.get(lapse.code)
+        if code_cap is None:
+            continue
+        if not _lapse_refs_claim(lapse, claim_id, frame, plan, delivery):
+            continue
+        if cap_level is None or _strength_index(code_cap) < _strength_index(cap_level):
+            cap_level = code_cap
+    return cap_level
+
+
+def _lapse_refs_claim(
+    lapse: LapseRecord, claim_id: str, frame: Frame, plan: Plan, delivery: Delivery
+) -> bool:
+    for ref in lapse.refs:
+        if ref == claim_id:
+            return True
+        claims, _status = _resolve_obligation(ref, frame, plan)
+        if claim_id in claims:
+            return True
+        ev = delivery.find_evidence(ref)
+        if ev is not None:
+            ev_claims, _s = _resolve_obligation(ev.obligation_ref, frame, plan)
+            if claim_id in ev_claims:
+                return True
+    return False
+
+
+def _evidence_pointer_cell(evidence: Optional[EvidenceRecord]) -> str:
+    if evidence is None:
+        return "(none filed)"
+    ref = _escape_table_cell(evidence.test_ref)
+    if evidence.run is not None:
+        return f"`{ref}` (run {evidence.run.timestamp[:10]})"
+    return f"`{ref}`"
+
+
+@dataclass
+class _ClaimEvidenceEntry:
+    """One computed Delivery Claims row's worth of state — the shared basis
+    for both the markdown table (:func:`_delivery_claim_rows`) and the
+    ``--json`` equivalent (:func:`_delivery_claims_data`), so the two never
+    drift out of sync with each other.
+    """
+
+    claim_id: str
+    claim_text: str
+    status: str  # passing | failing | pending | untested
+    evidence: Optional[EvidenceRecord]
+    strength: Optional[str]  # None unless status == "passing"
+    cap: Optional[str]
+    stale_notes: list[str]
+
+
+def _capped_strength(
+    status: str, evidence: Optional[EvidenceRecord], cap: Optional[str]
+) -> Optional[str]:
+    if status != "passing" or evidence is None:
+        return None
+    if cap is None:
+        return evidence.strength
+    return _cap_strength(evidence.strength, cap)
+
+
+def _stale_notes(
+    claim_id: str,
+    evidence: Optional[EvidenceRecord],
+    stale_deviations: list[StaleDeviationFinding],
+    orphaned_evidence: list[OrphanedEvidenceFinding],
+) -> list[str]:
+    notes = [
+        f"stale: deviation {f.deviation_id} never re-validated"
+        for f in stale_deviations
+        if claim_id in f.claim_ids
+    ]
+    if evidence is not None:
+        notes.extend(
+            f"stale: evidence {f.evidence_id} orphaned ({f.reason})"
+            for f in orphaned_evidence
+            if f.evidence_id == evidence.id
+        )
+    return notes
+
+
+def _delivery_claim_entries(
+    frame: Optional[Frame],
+    plan: Plan,
+    delivery: Delivery,
+    stale_deviations: list[StaleDeviationFinding],
+    orphaned_evidence: list[OrphanedEvidenceFinding],
+) -> list[_ClaimEvidenceEntry]:
+    entries = []
+    for claim in _obligation_bearing_claims(frame, plan):
+        evidence_list = _evidence_for_claim(claim.id, frame, plan, delivery)
+        status, evidence = _best_evidence(evidence_list)
+        cap = _applicable_cap(claim.id, frame, plan, delivery)
+        strength = _capped_strength(status, evidence, cap)
+        notes = _stale_notes(claim.id, evidence, stale_deviations, orphaned_evidence)
+        entries.append(
+            _ClaimEvidenceEntry(
+                claim_id=claim.id,
+                claim_text=claim.text,
+                status=status,
+                evidence=evidence,
+                strength=strength,
+                cap=cap,
+                stale_notes=notes,
+            )
+        )
+    return entries
+
+
+def _delivery_claim_rows(
+    frame: Optional[Frame],
+    plan: Plan,
+    delivery: Delivery,
+    stale_deviations: list[StaleDeviationFinding],
+    orphaned_evidence: list[OrphanedEvidenceFinding],
+) -> list[str]:
+    rows = []
+    entries = _delivery_claim_entries(frame, plan, delivery, stale_deviations, orphaned_evidence)
+    for entry in entries:
+        if entry.status == "passing":
+            confidence = f"`{entry.strength}`"
+        elif entry.status == "failing":
+            confidence = "`execution attempted` — **FAILING**"
+        elif entry.status == "pending":
+            confidence = "pending adjudication"
+        else:
+            confidence = "untested"
+        evidence_cell = _evidence_pointer_cell(entry.evidence)
+        if entry.stale_notes:
+            evidence_cell += " — ⚠ " + _escape_table_cell("; ".join(entry.stale_notes))
+        claim_cell = _escape_table_cell(_verbatim(entry.claim_text))
+        rows.append(f"| `{entry.claim_id}` — {claim_cell} | {confidence} | {evidence_cell} |")
+    return rows
+
+
+def _delivery_claims_data(
+    frame: Optional[Frame],
+    plan: Plan,
+    delivery: Delivery,
+    stale_deviations: list[StaleDeviationFinding],
+    orphaned_evidence: list[OrphanedEvidenceFinding],
+) -> object:
+    """The JSON equivalent of :func:`_delivery_claim_rows`: a list of row
+    dicts when there is real state to build them from, else the same
+    ``"<fill: delivery claims>"`` placeholder string the markdown table falls
+    back to — a JSON consumer gets no more certainty than a markdown reader.
+    """
+    entries = _delivery_claim_entries(frame, plan, delivery, stale_deviations, orphaned_evidence)
+    if not entries:
+        return "<fill: delivery claims>"
+    return [
+        {
+            "claim": e.claim_id,
+            "text": e.claim_text,
+            "status": e.status,
+            "confidence": e.strength if e.status == "passing" else None,
+            "cap": e.cap,
+            "evidence": e.evidence.id if e.evidence is not None else None,
+            "test_ref": e.evidence.test_ref if e.evidence is not None else None,
+            "run": (
+                {"timestamp": e.evidence.run.timestamp, "commit": e.evidence.run.commit}
+                if e.evidence is not None and e.evidence.run is not None
+                else None
+            ),
+            "stale_notes": e.stale_notes,
+        }
+        for e in entries
+    ]
 
 
 # ── markdown sections ────────────────────────────────────────────────────────
@@ -302,15 +606,34 @@ def _lapse_evidence_lines(frame: Optional[Frame]) -> list[str]:
     return lines
 
 
-def _delivery_claims_lines(frame: Optional[Frame]) -> list[str]:
+def _delivery_claims_lines(
+    frame: Optional[Frame],
+    plan: Plan,
+    delivery: Delivery,
+    stale_deviations: Optional[list[StaleDeviationFinding]] = None,
+    orphaned_evidence: Optional[list[OrphanedEvidenceFinding]] = None,
+) -> list[str]:
+    """The Delivery Claims table: one row per obligation-bearing claim built
+    from real evidence state (t11), or the original hardcoded placeholder row
+    when there is nothing to build one from (no frame, or a frame with no
+    approved obligations) — the exact same degrade-to-placeholder terms
+    :func:`_lapse_evidence_lines` already established for the lapse table
+    beneath it.
+    """
+    stale_deviations = stale_deviations or []
+    orphaned_evidence = orphaned_evidence or []
     lines = [
         "## Delivery Claims",
         "",
         "| Claim | Confidence | Evidence |",
         "|-------|------------|----------|",
-        "| `<fill: what was delivered>` | `<fill: confidence>` | `<fill: evidence>` |",
-        "",
     ]
+    rows = _delivery_claim_rows(frame, plan, delivery, stale_deviations, orphaned_evidence)
+    if rows:
+        lines += rows
+    else:
+        lines.append("| `<fill: what was delivered>` | `<fill: confidence>` | `<fill: evidence>` |")
+    lines.append("")
     lines += _lapse_evidence_lines(frame)
     return lines
 
@@ -324,11 +647,21 @@ def _remaining_work_lines() -> list[str]:
     ]
 
 
-def render_summary(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> str:
+def render_summary(
+    plan: Plan,
+    frame: Optional[Frame],
+    delivery: Delivery,
+    stale_deviations: Optional[list[StaleDeviationFinding]] = None,
+    orphaned_evidence: Optional[list[OrphanedEvidenceFinding]] = None,
+) -> str:
     """The eight-section delivery-summary skeleton, pre-filled from state alone.
 
     Deterministic and read-only: calling this twice on unchanged ``(plan, frame,
     delivery)`` produces byte-identical output, and nothing here writes to disk.
+    ``stale_deviations``/``orphaned_evidence`` (bvts t8's :mod:`devague.staleness`
+    findings) are optional and ``None``-safe — every caller that predates t11
+    keeps working unchanged; the CLI loads and passes them fail-open at the edge
+    (``cli/_commands/summary.py``, mirroring ``cli/_commands/status.py``).
     """
     date = _date_prefix(plan.created)
     out = [
@@ -344,17 +677,25 @@ def render_summary(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> st
     out += _mid_work_lines(delivery)
     out += _drift_lines(delivery)
     out += _evidence_lines()
-    out += _delivery_claims_lines(frame)
+    out += _delivery_claims_lines(frame, plan, delivery, stale_deviations, orphaned_evidence)
     out += _remaining_work_lines()
     return "\n".join(out).rstrip() + "\n"
 
 
-def summary_data(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> dict:
+def summary_data(
+    plan: Plan,
+    frame: Optional[Frame],
+    delivery: Delivery,
+    stale_deviations: Optional[list[StaleDeviationFinding]] = None,
+    orphaned_evidence: Optional[list[OrphanedEvidenceFinding]] = None,
+) -> dict:
     """The structured (``--json``) equivalent of :func:`render_summary`.
 
     Carries the same pre-filled data and the same explicit placeholder markers —
     a consumer parsing JSON gets no more certainty than a reader of the markdown.
     """
+    stale_deviations = stale_deviations or []
+    orphaned_evidence = orphaned_evidence or []
     approved = _approved(delivery)
     pending = _pending(delivery)
     confirmed = _confirmed_tasks(plan)
@@ -399,7 +740,9 @@ def summary_data(plan: Plan, frame: Optional[Frame], delivery: Delivery) -> dict
             ],
             "pending_deviations": [d.id for d in pending],
             "evidence": "<fill: evidence>",
-            "delivery_claims": "<fill: delivery claims>",
+            "delivery_claims": _delivery_claims_data(
+                frame, plan, delivery, stale_deviations, orphaned_evidence
+            ),
             # JSON parity for _lapse_evidence_lines: approved lapses carry
             # their full evidence triple, a pending one is only its id (the
             # "not yet evidence" marker, mirroring pending_deviations above);

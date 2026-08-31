@@ -58,6 +58,41 @@ MOVES = {
         "'--confirm/--reject <lN>' resolves a proposed one (user-only); "
         "'--list [--json]' shows every filed lapse."
     ),
+    "oblige": (
+        "File a behavioral obligation against a claim ('oblige <cN> --seam "
+        "<seam> --behavior <behavior>', --origin llm lands proposed); "
+        "'--confirm/--reject <oN>' resolves a proposed one (user-only); "
+        "'--list [--json]' shows every filed obligation, with a drift marker "
+        "when the claim's text changed since filing."
+    ),
+    "evidence": (
+        "File an evidence record against the current/named plan's delivery "
+        "ledger ('evidence --obligation <oN> --test <ref> --behavior <text> "
+        "--contract <text> --type <type> --strength <level> --basis <text> "
+        "--outcome pass|fail [--run-commit <sha> --run-timestamp <ts>]', "
+        "--origin llm lands proposed); a run reference is required at "
+        "execution/sensitivity strength; '--confirm/--reject <eN>' resolves a "
+        "proposed one (user-only); '--list [--json]' shows every filed record."
+    ),
+    "delta": (
+        "File, list, supersede, retract, or adjudicate a behavioral delta "
+        "against the current/named plan's delivery ledger ('delta --kind "
+        "added|amended|removed --behavior <text> --caused-by <ref> "
+        "[--caused-by <ref> ...] [--evidence <ref> ...]', --origin llm lands "
+        "proposed); --caused-by refs are validated by shape (claim ids "
+        "against the live frame, deviation ids against approved deviations, "
+        "delta ids against existing deltas — free-form text always passes); "
+        "'--supersede <ref> [--replacement <ref>]' and '--retract <ref>' "
+        "append supersession events without ever editing a record's content; "
+        "'--confirm/--reject <bN>' resolves a proposed delta (user-only); "
+        "'--list [--json]' shows every filed delta plus the trailing "
+        "supersession-event log."
+    ),
+    "today": (
+        "Project the current behavior of the app from the delivery ledger and "
+        "write docs/current-spec.md (read-only over every store; '--json' "
+        "emits the structured projection instead of the write confirmation)."
+    ),
 }
 
 FIRST_QUESTION = "What's the announcement?"
@@ -137,6 +172,332 @@ ASSIGN_TO_WORKFORCE_GUIDANCE = {
     ),
 }
 
+# The progressive evidence strength ladder (weakest first), structurally
+# identical to devague.delivery.STRENGTH_LEVELS — kept as a local literal
+# rather than an import so `learn` never depends on the delivery module (the
+# same reason MOVES/STAGES above are hand-authored rather than introspected).
+# The agent assesses which rung a check actually reached; the CLI only
+# records what it's told — it never upgrades a rung on its own.
+STRENGTH_LADDER = (
+    ("coverage", "a test exists that exercises the obligated behavior (no run required)"),
+    (
+        "fidelity",
+        "the test asserts the promised behavior itself, not just that it runs (no run required)",
+    ),
+    (
+        "execution",
+        "the test currently passes — requires a run reference (--run-commit/--run-timestamp)",
+    ),
+    (
+        "sensitivity",
+        "the test would likely fail if the behavior broke — requires a run reference",
+    ),
+)
+
+# Behavioral validation: obligations, evidence, deltas, and the today
+# projection (bvts). This is the loop that plants a checkable promise on the
+# think/plan legs, checks it agent-side once a wave merges (the
+# validate-delivery leg — the seventh leg, between deviate and
+# summarize-delivery), files what was found with verbatim outcomes, and lets
+# the user adjudicate before the current-behavior projection is rendered.
+BEHAVIORAL_VALIDATION_GUIDANCE = {
+    "title": "Behavioral validation: obligations, evidence, deltas, and today",
+    "plant_obligations": (
+        "Plant obligations early, while you still remember why they matter — "
+        "'oblige <cN> --seam <seam> --behavior <behavior>' ties a claim to a "
+        "checkable seam on the think leg; 'plan oblige <tN> --criterion N "
+        "--seam <seam> --behavior <behavior>' does the same for a task's "
+        "acceptance criterion on the plan leg. Both land 'proposed' under "
+        "--origin llm and need an explicit user '--confirm', same as every "
+        "other LLM proposal."
+    ),
+    "run_tests": (
+        "Once a wave's worktrees merge (the validate-delivery leg — after "
+        "assign-to-workforce, before summarize-delivery), run the confirmed "
+        "plan's behavioral tests agent-side. devague itself never runs a test "
+        "(#20) — this is read-only against the codebase, and it never edits "
+        "code to make a test pass."
+    ),
+    "file_evidence": (
+        "File one evidence record per obligation checked: 'evidence "
+        "--obligation <oN> --test <ref> --behavior <text> --contract <text> "
+        "--type <type> --strength <level> --basis <text> --outcome pass|fail "
+        "[--run-commit <sha> --run-timestamp <ts>]'. A failing outcome is "
+        "filed exactly like a passing one — never smoothed, reworded, or "
+        "omitted."
+    ),
+    "file_deltas": (
+        "When the merged behavior added, amended, or removed something "
+        "relative to the plan, file a delta with provenance: 'delta --kind "
+        "added|amended|removed --behavior <text> --caused-by <ref> "
+        "[--caused-by <ref> ...] [--evidence <ref> ...]'. --caused-by points "
+        "back to the claim, approved deviation, or prior delta that actually "
+        "motivated it — never a bare assertion with nothing behind it."
+    ),
+    "adjudicate": (
+        "Obligations, evidence, and deltas all stay 'proposed' under --origin "
+        "llm until the user runs '--confirm' or '--reject' on them — the same "
+        "anti-fabrication rule as claims and tasks, now applied to what "
+        "actually ran, not just what was planned."
+    ),
+    "render_today": (
+        "'devague today' projects the live delivery ledger into "
+        "docs/current-spec.md — what the app actually does right now, "
+        "read-only over every store. Render it after adjudication so the "
+        "projection reflects confirmed evidence and deltas, not proposals "
+        "still awaiting a decision."
+    ),
+    "strength_ladder": STRENGTH_LADDER,
+}
+
+# --- `devague learn review` — the reviewer seam (bvts t14) -------------------
+#
+# Written the same way the `skills` topic is (0.12.0): instructions the
+# *reviewing agent* follows. devague itself never reviews anything — it has no
+# opinion about a diff, files no finding of its own, and adjudicates nothing
+# (#20). Everything below is method the reviewer executes, routed back through
+# the same deterministic moves everyone else uses.
+#
+# Self-containment is a hard requirement, not a nicety: a gate-3 reviewer may
+# arrive with no prior devague context at all, so every command the method
+# leans on is enumerated in REVIEW_COMMANDS with the exact syntax read off the
+# real parsers, and pinned by a test that runs each one's `--help`.
+
+# The reasoning-degradation lapse codes, quoted for the reviewer. Kept as a
+# local literal for the same reason STRENGTH_LADDER above is — `learn` never
+# imports a domain module — and pinned equal to `devague.frame.LAPSE_CODES` by
+# a test, so the two cannot drift silently.
+LAPSE_CODES_FOR_REVIEW = (
+    "assumption-for-measurement",
+    "grader-unverified",
+    "control-absent",
+    "n-below-claim",
+    "instrument-changed-mid-series",
+    "provenance-missing",
+)
+
+# Every devague command the review method relies on: (argv path, what it is
+# for). The argv path is the command only — flags live in the purpose text, so
+# the pin can run `<path> --help` verbatim.
+REVIEW_COMMANDS: tuple[tuple[tuple[str, ...], str], ...] = (
+    (
+        ("oblige",),
+        "'devague oblige --list [--json]' — the frame-side obligations filed "
+        "against claims: seam, owed behavior, status, and a 'drifted' marker "
+        "when the claim's text changed after the obligation was filed. This "
+        "list is the audit checklist.",
+    ),
+    (
+        ("plan", "oblige"),
+        "'devague plan oblige --list [--json]' — the plan-side twin: "
+        "obligations filed against a task's acceptance criterion. Audit both "
+        "lists; a behavior can be obligated on either leg.",
+    ),
+    (
+        ("converge",),
+        "'devague converge [--json]' — re-run the frame gate to read its "
+        "warnings. An obligation with no approved evidence is reported as "
+        "untested, in as many words. Warnings never gate, so the run may have "
+        "shipped with them standing: unmet obligations arrive precomputed for "
+        "you.",
+    ),
+    (
+        ("plan", "converge"),
+        "'devague plan converge [--json]' — the plan-side twin of the same "
+        "untested-obligation warning, evaluated against the live frame.",
+    ),
+    (
+        ("evidence",),
+        "'devague evidence --list [--json]' — every filed evidence record: "
+        "obligation ref, test ref, the recorded behavior text, the contract "
+        "text, type, strength, basis, outcome, and the run reference "
+        "(--run-commit / --run-timestamp) when one was required.",
+    ),
+    (
+        ("delta",),
+        "'devague delta --list [--json]' — every filed behavioral delta "
+        "(added / amended / removed) with its --caused-by provenance and any "
+        "--evidence refs, plus the trailing supersession-event log written by "
+        "'--supersede <ref> [--replacement <ref>]' and '--retract <ref>'.",
+    ),
+    (
+        ("deviate",),
+        "'devague deviate --list [--json]' — the approved mid-run departures "
+        "from the confirmed plan. A deviation's --affects names the claims "
+        "whose earlier evidence may no longer describe what shipped.",
+    ),
+    (
+        ("summary",),
+        "'devague summary [--pr] [--json]' — the delivery summary whose "
+        "Delivery Claims section renders each claim's confidence as its "
+        "strength level, already reduced by any approved lapse that caps it. "
+        "Read it as the claim being made, and audit the records behind it.",
+    ),
+    (
+        ("status",),
+        "'devague status [--json]' — the frame's standing plus the read-only "
+        "staleness findings: deviations whose covered evidence was never "
+        "re-validated, and evidence whose obligation no longer resolves.",
+    ),
+    (
+        ("show",),
+        "'devague show [--json]' — the frame itself: claims, honesty "
+        "conditions, hard questions, parked vagueness, every filed lapse in "
+        "any status, and contested-by markers.",
+    ),
+    (
+        ("today",),
+        "'devague today [--json]' — the projection of what the app actually "
+        "does now, built from the delivery ledger. If it reads better than the "
+        "records support, the records are what you audit.",
+    ),
+    (
+        ("lapse",),
+        '\'devague lapse "<what>" --code <code> [--ref <ref> ...] --origin '
+        "llm' — file a finding as a proposed reasoning-degradation lapse. "
+        "Codes: " + ", ".join(LAPSE_CODES_FOR_REVIEW) + ". It lands 'proposed' "
+        "and stays there until the human runs '--confirm <lN>' or "
+        "'--reject <lN>'.",
+    ),
+)
+
+REVIEW_GUIDANCE = {
+    "title": "Review as audit: verifying that the filed evidence is honest",
+    "premise": (
+        "Gate 3 is a code review with a ledger attached. The run has already "
+        "filed obligations, evidence, deltas, and lapses; your job is not to "
+        "re-derive what should have been tested but to verify that what was "
+        "filed is honest. These are instructions for you, the reviewing agent "
+        "— the CLI reviews nothing, files no finding of its own, and "
+        "adjudicates nothing."
+    ),
+    "checklist": (
+        "Start from the obligations: they are the ready-made checklist. Every "
+        "obligation names a seam and the behavior owed at it, so the set of "
+        "things this run promised to behave a certain way is already "
+        "enumerated for you — on the frame side and on the plan side both. "
+        "The unmet ones arrive precomputed: an obligation with no approved "
+        "evidence surfaces as a convergence warning that says untested in as "
+        "many words, on the frame gate and the plan gate alike. Those "
+        "warnings never gate anything, so they can and do survive into a "
+        "merged run; reading them is the cheapest part of the audit. That "
+        "narrows your job to the expensive part: for the obligations that DO "
+        "carry evidence, is the evidence honest? The enumerated records are a "
+        "floor, not a ceiling — a behavior nobody obligated, an evidence "
+        "record nobody filed, a risk nobody named is still a finding, and you "
+        "raise it exactly like the rest."
+    ),
+    "fidelity_audit": (
+        "The heart of the audit is the three-way comparison, run once per "
+        "evidence record. Open the test the record names. Behavioral tests are "
+        "found by the repo's convention — a pytest marker such as "
+        "@pytest.mark.behavioral (run with 'pytest -m behavioral'), or a "
+        "dedicated folder such as tests/behavioral/ — and if neither exists "
+        "the test ref itself is the locator. Then compare three texts: (1) the "
+        "claim text the obligation hangs off, (2) the recorded behavior text "
+        "on the evidence record, and (3) what the test source actually "
+        "asserts. All three must say the same thing. Recorded behavior text "
+        "the test does not support means the record is wrong, whatever its "
+        "outcome says — a test that merely imports the module and exits, or "
+        "asserts a return code while the record claims a rendered value, is a "
+        "coverage-grade test wearing a fidelity-grade description. Read the "
+        "test source as it stands in this PR, never the recorded text alone: "
+        "the recorded text is the thing under audit, so accepting it as its "
+        "own proof is the one move that guarantees you find nothing."
+    ),
+    "strength_verification": (
+        "Check each claimed rung against the basis recorded beside it, one "
+        "record at a time: coverage (a test exercising the behavior exists), "
+        "fidelity (it asserts the promised behavior itself), execution (it "
+        "currently passes), sensitivity (it would fail if the behavior broke). "
+        "A level is never accepted above its basis — 'the test exists' does "
+        "not earn fidelity, and a passing run does not earn sensitivity "
+        "without something showing the test can fail. Re-run what claims "
+        "execution rather than trusting the record, and check the run "
+        "reference (--run-commit / --run-timestamp) against the PR head: a run "
+        "reference behind the PR head for behavior this PR touched demotes the "
+        "execution claim, because passing long ago is not passing now. A "
+        "failing outcome that was filed as a fail is the ledger working, not a "
+        "finding; a failing behavior with a passing record is the finding."
+    ),
+    "delta_completeness": (
+        "Audit deltas in both directions, against the diff and the ledger you "
+        "actually read — not against memory of what the plan said. Forward: a "
+        "behavioral code change in the diff with no filed delta is an "
+        "undeclared behavioral change. Backward: a filed delta with no "
+        "corresponding code change in the diff is a fabricated delivery. Both "
+        "are findings and both are common — the first from a task that grew in "
+        "flight, the second from a record written from intent rather than from "
+        "the merge. Check each delta's --caused-by provenance resolves to "
+        "something real, and read the supersession-event log: a record marked "
+        "superseded still counts, and its replacement is what you audit."
+    ),
+    "propose_never_confirm": (
+        "You propose; the human at gate 3 adjudicates. A finding lands as a PR "
+        "comment, as a proposed lapse (--origin llm — 'grader-unverified' when "
+        "the pass/fail judgment itself was never verified, "
+        "'provenance-missing' when a record's own provenance cannot be "
+        "checked), or as a superseding evidence record filed at the strength "
+        "you can actually defend. Never confirm your own finding, exactly as "
+        "no agent confirms its own claim: an approved reviewer-filed lapse "
+        "mechanically caps the affected claim's renderable strength wherever "
+        "it is rendered, which is real consequence and therefore a human "
+        "decision. Reviewer findings enter the same append-only discipline as "
+        "everything else in the ledger — a finding you retract under pushback "
+        "is retracted on the record, not deleted, so the retraction is as "
+        "readable later as the finding was."
+    ),
+}
+
+
+def _review_text() -> str:
+    """Render the reviewer-seam topic. Self-contained by contract: it names
+    every command it relies on, with the syntax pinned against the real CLI.
+    """
+    parts = [
+        REVIEW_GUIDANCE["title"],
+        "=" * len(REVIEW_GUIDANCE["title"]),
+        "",
+        REVIEW_GUIDANCE["premise"],
+        "",
+        "1. The checklist is already written (obligations)",
+        REVIEW_GUIDANCE["checklist"],
+        "",
+        "2. The fidelity audit — the three-way comparison",
+        REVIEW_GUIDANCE["fidelity_audit"],
+        "",
+        "3. Strength verification",
+        REVIEW_GUIDANCE["strength_verification"],
+        "",
+        "4. Delta completeness, both directions",
+        REVIEW_GUIDANCE["delta_completeness"],
+        "",
+        "5. Propose, never confirm",
+        REVIEW_GUIDANCE["propose_never_confirm"],
+        "",
+        "Commands this audit uses (every one of them, with its syntax):",
+    ]
+    for command, purpose in REVIEW_COMMANDS:
+        parts.append(f"  {' '.join(command)}")
+        parts.append(f"    {purpose}")
+    parts += [
+        "",
+        f"Full portable guidance for any assisting model:\n  {GUIDANCE_DOC_URL}",
+    ]
+    return "\n".join(parts)
+
+
+def _review_payload() -> dict[str, object]:
+    """Structured reviewer-seam payload for `--json`."""
+    return {
+        **dict(REVIEW_GUIDANCE),
+        "commands": [
+            {"command": list(command), "purpose": purpose} for command, purpose in REVIEW_COMMANDS
+        ],
+        "summary": _review_text(),
+    }
+
+
 # The anti-fabrication rules. Agent-agnostic: repo-specific agreements live in
 # your agent's main instruction file (AGENTS.md, CLAUDE.md, a system prompt, …),
 # not here.
@@ -158,6 +519,21 @@ OPERATING_RULES = (
     "listed gap instead of declaring readiness on a hunch.",
     "Order is adaptive — the ten stages are an artifact shape, not a mandatory "
     "conversation order; capture what the user gives you and circle back.",
+    "Obligations and evidence follow claims and honesty conditions into the "
+    "same proposed/confirmed lifecycle — 'oblige' and 'evidence' under "
+    "--origin llm land 'proposed' and need an explicit user '--confirm'; never "
+    "self-confirm an obligation or evidence record you filed.",
+    "Evidence outcomes are recorded verbatim — a failing test is filed as "
+    "'--outcome fail', exactly as filed, never smoothed into a pass, reworded "
+    "softer, or left out of the run's evidence entirely. Strength (coverage / "
+    "fidelity / execution / sensitivity) is what you actually assessed and the "
+    "CLI records beside it — never claim a higher rung than the check you ran, "
+    "and never skip the run reference execution/sensitivity require.",
+    "Unmet is unmet, and warnings never gate — an obligation with no approved "
+    "evidence surfaces as a convergence warning on the frame or plan, never a "
+    "blocker; it does not stop 'export', 'plan converge', or 'plan export'. "
+    "The fix is filing real evidence, never silencing or rationalizing away "
+    "the warning.",
 )
 
 # The canonical guided sequence (devague#4). The engine is move-driven, not a
@@ -234,6 +610,9 @@ _TEXT = (
     "The arc emerges from the moves; it is not a fixed wizard. You (the agent)\n"
     "choose the next move; devague tracks state. LLM-proposed claims and honesty\n"
     "conditions stay 'proposed' until the user confirms them.\n\n"
+    "This serves two audiences: the operator (you) driving devague move by move,\n"
+    "and the human who owns every confirm/reject decision — on claims, on\n"
+    "obligations, on evidence outcomes, on deltas — and the go/no-go at each gate.\n\n"
     "Optional lead-in — scope exploration (recommended when the idea touches an\n"
     "existing codebase; skip freely for small ideas — not a mandatory first stage):\n"
     f"  {SCOPE_STAGE['prompt']}  [devague {SCOPE_STAGE['move']}]\n"
@@ -262,7 +641,22 @@ _TEXT = (
     f"  Main agent: {ASSIGN_TO_WORKFORCE_GUIDANCE['main_agent_merge_gate']}\n"
     f"  TDD: {ASSIGN_TO_WORKFORCE_GUIDANCE['tdd_acceptance_criteria']}\n"
     f"  Scope: {ASSIGN_TO_WORKFORCE_GUIDANCE['not_orchestration']}\n"
-    + "\n\nFull portable guidance for any assisting model:\n"
+    + "\n\n"
+    + f"{BEHAVIORAL_VALIDATION_GUIDANCE['title']}\n"
+    f"  Plant obligations: {BEHAVIORAL_VALIDATION_GUIDANCE['plant_obligations']}\n"
+    f"  Run tests: {BEHAVIORAL_VALIDATION_GUIDANCE['run_tests']}\n"
+    f"  File evidence: {BEHAVIORAL_VALIDATION_GUIDANCE['file_evidence']}\n"
+    f"  File deltas: {BEHAVIORAL_VALIDATION_GUIDANCE['file_deltas']}\n"
+    f"  Adjudicate: {BEHAVIORAL_VALIDATION_GUIDANCE['adjudicate']}\n"
+    f"  Render today: {BEHAVIORAL_VALIDATION_GUIDANCE['render_today']}\n"
+    "  Strength ladder (weakest first — assessed by you, recorded verbatim, "
+    "never inflated):\n"
+    + "\n".join(f"    - {level}: {desc}" for level, desc in STRENGTH_LADDER)
+    + "\n\nReviewing a run (gate 3): 'devague learn review' emits the audit method —\n"
+    "obligations as the checklist, the three-way fidelity comparison, strength\n"
+    "verification against recorded bases and the PR head, delta completeness in\n"
+    "both directions, and how a reviewer files findings without confirming them.\n"
+    + "\nFull portable guidance for any assisting model:\n"
     f"  {GUIDANCE_DOC_URL}\n"
     f"  (in the devague repo: {GUIDANCE_DOC_REPO_PATH})\n"
     "Agent-agnostic; your repo-specific agreements live in your agent's main\n"
@@ -270,7 +664,7 @@ _TEXT = (
 )
 
 
-# --- Authoring the seven operator skills (devague#34, extended #53 esd, #73) -
+# --- Authoring the eight operator skills (devague#34, #53 esd, #73, bvts t14) -
 #
 # `devague learn` knows the operator skills exist but never taught an agent how
 # to *author* them. This section closes that gap: it is written as instructions
@@ -305,12 +699,13 @@ SKILL_AUTHORING = {
         "  CLI-driving (think, spec-to-plan, assign-to-workforce):\n"
         "    <skills>/<name>/SKILL.md           frontmatter + the operating doc\n"
         "    <skills>/<name>/scripts/<name>.sh  portable CLI resolver (executable)\n"
-        "  Method-only (scope, challenge, deviate, summarize-delivery):\n"
+        "  Method-only (scope, challenge, deviate, validate-delivery,\n"
+        "  summarize-delivery):\n"
         "    <skills>/<name>/SKILL.md           frontmatter + the operating doc — "
         "no scripts/ directory; the skill invokes the devague CLI directly."
     ),
     "frontmatter": (
-        "SKILL.md opens with YAML frontmatter (all seven skills):\n"
+        "SKILL.md opens with YAML frontmatter (all eight skills):\n"
         "  name: <name>\n"
         "  description: >\n"
         "    one paragraph — what it does, when to use it, and that it is\n"
@@ -326,7 +721,8 @@ SKILL_AUTHORING = {
         "  2. else 'uv run devague' when inside a devague checkout;\n"
         "  3. else print the hint 'uv tool install devague' and exit non-zero.\n"
         "Copy the exact script from the per-skill source below — don't hand-write it.\n"
-        "The method-only skills (scope, challenge, deviate, summarize-delivery) have "
+        "The method-only skills (scope, challenge, deviate, validate-delivery, "
+        "summarize-delivery) have "
         "no scripts/ resolver at all — SKILL.md invokes the devague CLI directly."
     ),
     "contract": (
@@ -338,11 +734,12 @@ SKILL_AUTHORING = {
     ),
 }
 
-# The seven operator skills, in seven-leg workflow order (devague#73):
+# The eight operator skills, in eight-leg workflow order (devague#73, bvts t14):
 #   scope -> think -> challenge -> spec-to-plan -> assign-to-workforce -> deviate
-#   -> summarize-delivery
-# `method_only` marks the four that ship a SKILL.md and NO scripts/<name>.sh
-# resolver (scope, challenge, deviate, summarize-delivery) — they invoke the
+#   -> validate-delivery -> summarize-delivery
+# `method_only` marks the five that ship a SKILL.md and NO scripts/<name>.sh
+# resolver (scope, challenge, deviate, validate-delivery, summarize-delivery) —
+# they invoke the
 # devague CLI directly rather than going through the portable resolver script.
 OPERATOR_SKILLS = (
     {
@@ -414,6 +811,20 @@ OPERATOR_SKILLS = (
         "method_only": True,
     },
     {
+        "name": "validate-delivery",
+        "leg": "execution -> evidence (run the plan's behavioral tests, file what was found)",
+        "role": (
+            "Runs the confirmed plan's behavioral tests agent-side once "
+            "assign-to-workforce merges its waves and before summarize-delivery "
+            "closes the loop, then files what was found: evidence records for what "
+            "was checked (verbatim pass/fail outcomes, a strength level no higher "
+            "than the check actually reached) and behavioral deltas for what the "
+            "run added, amended, or removed. The CLI never runs a test (#20), and "
+            "a failing or partial outcome is filed exactly as it happened."
+        ),
+        "method_only": True,
+    },
+    {
         "name": "summarize-delivery",
         "leg": "execution -> committed accountability artifact (the closure leg)",
         "role": (
@@ -433,7 +844,8 @@ _SKILL_NAMES = tuple(s["name"] for s in OPERATOR_SKILLS)
 def _skill_source(name: str, *, method_only: bool = False) -> dict[str, str]:
     """Canonical, always-resolvable source locations for one skill's files.
 
-    Method-only skills (scope, deviate, summarize-delivery) ship no
+    Method-only skills (scope, challenge, deviate, validate-delivery,
+    summarize-delivery) ship no
     scripts/<name>.sh — omit 'script_raw' rather than emit a URL that 404s.
     """
     src = {
@@ -467,8 +879,8 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         "Authoring your operator skills (create them with user consent)",
         "=============================================================",
         "",
-        "devague is driven by seven operator skills — three CLI-driving (a "
-        "scripts/<name>.sh resolver) and four method-only (SKILL.md only, no "
+        "devague is driven by eight operator skills — three CLI-driving (a "
+        "scripts/<name>.sh resolver) and five method-only (SKILL.md only, no "
         "resolver script). Recreate them in your own runtime so you can drive "
         "devague the same way everywhere.",
         "",
@@ -486,7 +898,7 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         "",
         SKILL_AUTHORING["contract"],
         "",
-        "The seven skills (seven-leg workflow order):",
+        "The eight skills (eight-leg workflow order):",
     ]
     for s in OPERATOR_SKILLS:
         if s["name"] not in names:
@@ -509,7 +921,7 @@ def _skills_text(names: tuple[str, ...], *, full: bool) -> str:
         parts.append("")
     if not full:
         parts.append(
-            "Run 'devague learn skills:all' for the source URLs of all seven, or "
+            "Run 'devague learn skills:all' for the source URLs of all eight, or "
             "'devague learn skills:<name>' for one."
         )
         parts.append("")
@@ -524,6 +936,8 @@ def _resolve_topic(topic: str | None) -> tuple[str, tuple[str, ...]]:
     """Map a learn topic to (mode, skill-names). Raises on an unknown topic."""
     if topic is None:
         return "bare", _SKILL_NAMES
+    if topic == "review":
+        return "review", _SKILL_NAMES
     if topic == "skills":
         return "skills", _SKILL_NAMES
     if topic.startswith("skills:"):
@@ -540,7 +954,7 @@ def _resolve_topic(topic: str | None) -> tuple[str, tuple[str, ...]]:
     raise DevagueError(
         EXIT_USER_ERROR,
         f"unknown learn topic: {topic}",
-        "topics: skills, skills:all, skills:<name>",
+        "topics: review, skills, skills:all, skills:<name>",
     )
 
 
@@ -568,6 +982,10 @@ def cmd_learn(args: argparse.Namespace) -> int:
                     "guidance_doc": GUIDANCE_DOC_URL,
                     "guidance_doc_repo_path": GUIDANCE_DOC_REPO_PATH,
                     "assign_to_workforce": ASSIGN_TO_WORKFORCE_GUIDANCE,
+                    "behavioral_validation": BEHAVIORAL_VALIDATION_GUIDANCE,
+                    "strength_ladder": [
+                        {"level": level, "description": desc} for level, desc in STRENGTH_LADDER
+                    ],
                     "skills": _skills_payload(names),
                     "summary": _TEXT,
                 },
@@ -575,6 +993,22 @@ def cmd_learn(args: argparse.Namespace) -> int:
             )
         else:
             emit_result(_TEXT + "\n\n" + _skills_text(names, full=False), json_mode=False)
+    elif mode == "review":
+        # The reviewer seam (bvts t14): a self-contained gate-3 audit topic,
+        # emitted on its own — a reviewer arriving cold needs the audit method,
+        # not the authoring method.
+        if json_mode:
+            emit_result(
+                {
+                    "tool": "devague",
+                    "version": __version__,
+                    "topic": "review",
+                    "review": _review_payload(),
+                },
+                json_mode=True,
+            )
+        else:
+            emit_result(_review_text(), json_mode=False)
     else:
         # A skills topic: emit just the authoring section. The JSON envelope
         # carries the same tool/version identity as the bare payload so the
@@ -601,7 +1035,10 @@ def register(sub: argparse._SubParsersAction) -> None:
         "topic",
         nargs="?",
         default=None,
-        help="Optional: 'skills', 'skills:all', or 'skills:<name>' to teach skill authoring.",
+        help=(
+            "Optional: 'review' for the gate-3 audit method, or 'skills' / "
+            "'skills:all' / 'skills:<name>' to teach skill authoring."
+        ),
     )
     p.add_argument("--json", action="store_true", help="Emit structured JSON.")
     p.set_defaults(func=cmd_learn)

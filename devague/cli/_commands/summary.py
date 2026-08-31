@@ -17,11 +17,12 @@ import argparse
 
 from devague import store
 from devague.cli._deliveries import resolve_delivery
-from devague.cli._output import emit_result
+from devague.cli._output import emit_diagnostic, emit_result
 from devague.cli._plans import resolve_plan
 from devague.frame import Frame
 from devague.plan import Plan
 from devague.render import summary_md
+from devague.staleness import find_staleness
 
 
 def _load_source_frame(frame_slug: str) -> Frame | None:
@@ -39,6 +40,18 @@ def cmd_summary(args: argparse.Namespace) -> int:
     delivery = resolve_delivery(plan.slug)
     json_mode = getattr(args, "json", False)
 
+    # Staleness derivation (#97/bvts t8), loaded at the edge exactly like
+    # ``cli/_commands/status.py`` loads it: fails open, so a broken plan or
+    # delivery ledger anywhere in the join degrades to "no findings from that
+    # source" plus a stderr diagnostic, never a crash — and it needs a real
+    # frame to join against (no frame, no staleness to derive).
+    stale_devs: list = []
+    orphaned: list = []
+    if frame is not None:
+        stale_devs, orphaned, staleness_diags = find_staleness(frame)
+        for diag in staleness_diags:
+            emit_diagnostic(diag)
+
     # A single return path (SonarCloud python:S3516 — a function with several
     # `return 0` branches always returning the same literal value): select
     # which payload to emit, then emit and return once. `_dispatch` treats a
@@ -49,9 +62,13 @@ def cmd_summary(args: argparse.Namespace) -> int:
     elif args.pr:
         emit_result(summary_md.render_pr_summary(plan, frame, delivery), json_mode=False)
     elif json_mode:
-        emit_result(summary_md.summary_data(plan, frame, delivery), json_mode=True)
+        emit_result(
+            summary_md.summary_data(plan, frame, delivery, stale_devs, orphaned), json_mode=True
+        )
     else:
-        emit_result(summary_md.render_summary(plan, frame, delivery), json_mode=False)
+        emit_result(
+            summary_md.render_summary(plan, frame, delivery, stale_devs, orphaned), json_mode=False
+        )
     return 0
 
 

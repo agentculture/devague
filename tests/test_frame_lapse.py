@@ -194,11 +194,13 @@ def test_retired_code_still_loads_via_store_roundtrip(tmp_path, monkeypatch) -> 
     assert loaded.lapses[0].code == "n-below-claim"
 
 
-# ── AC3: SCHEMA_VERSION == 5, fail-closed on 6, v4 frames load + re-save as v5 ─
+# ── AC3: SCHEMA_VERSION >= 5 (lapses landed at v5; a later bump, e.g. bvts
+# t1's Frame.obligations at v6, only ever moves it forward), fail-closed on
+# newer-than-supported, v4 frames load + re-save at the current version ─────
 
 
-def test_schema_version_is_5() -> None:
-    assert SCHEMA_VERSION == 5
+def test_schema_version_is_at_least_5() -> None:
+    assert SCHEMA_VERSION >= 5
 
 
 def test_load_rejects_newer_schema_version_before_parsing_malformed_lapses(
@@ -224,7 +226,9 @@ def test_load_rejects_newer_schema_version_before_parsing_malformed_lapses(
         store.load("demo")
 
 
-def test_v4_frame_without_lapses_loads_clean_and_resaves_as_v5(tmp_path, monkeypatch) -> None:
+def test_v4_frame_without_lapses_loads_clean_and_resaves_at_current_version(
+    tmp_path, monkeypatch
+) -> None:
     monkeypatch.chdir(tmp_path)
     store.FRAMES_DIR.mkdir(parents=True, exist_ok=True)
     legacy_v4 = {
@@ -242,7 +246,7 @@ def test_v4_frame_without_lapses_loads_clean_and_resaves_as_v5(tmp_path, monkeyp
 
     store.save(loaded)
     reloaded_raw = json.loads(store.path_for("demo").read_text(encoding="utf-8"))
-    assert reloaded_raw["schema_version"] == SCHEMA_VERSION == 5
+    assert reloaded_raw["schema_version"] == SCHEMA_VERSION
     assert store.load("demo").lapses == []
 
 

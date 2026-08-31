@@ -702,3 +702,64 @@ def test_plan_convergence_output_stays_lapse_free_on_unconverged_plan(origin, fi
     assert lapse.code not in haystack
     assert _LAPSE_SENTINEL_WHAT not in haystack
     assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
+
+
+# --- Unmet-obligation warnings (bvts t7): warning-only, and lapse-free --------
+#
+# The plan-side twin of test_convergence.py's section of the same name: a
+# criterion obligation with no approved evidence warns and does nothing else,
+# and no warning text is ever derived from the source frame's lapse ledger.
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_plan_unmet_obligation_warning_never_gates(origin, final_status) -> None:
+    """``ready_for_plan``, blockers, parked_items and required_next_moves are
+    identical to the obligation-free baseline; only ``warnings`` grows."""
+    frame = _frame_with_confirmed_requirement()
+    targets = targets_from_frame(frame)
+    baseline = evaluate(_plan_from_targets(targets, frame.slug))
+
+    plan = _plan_from_targets(targets, frame.slug)
+    ob = plan.add_obligation("t1", 1, "store round-trip", "the ledger reloads", origin=origin)
+    if final_status == "rejected":
+        plan.set_obligation_status(ob.id, "rejected")
+    res = evaluate(plan, met_obligations=set())
+
+    assert res.ready is baseline.ready is True
+    assert res.blockers == baseline.blockers
+    assert res.parked_items == baseline.parked_items
+    assert res.required_next_moves == baseline.required_next_moves
+    expected = 0 if final_status == "rejected" else 1
+    assert len([w for w in res.warnings if ob.id in w]) == expected
+
+
+def test_plan_obligation_warnings_never_derive_from_lapses() -> None:
+    """With a lapse on the source frame AND an unmet criterion obligation on
+    the plan, the obligation warning appears and nothing names the lapse."""
+    frame = _frame_with_confirmed_requirement()
+    lapse = _file_lapse(frame, "user", "approved")
+    plan = _plan_from_targets(targets_from_frame(frame), frame.slug)
+    ob = plan.add_obligation("t1", 1, "store round-trip", "the ledger reloads")
+
+    res = evaluate(plan, met_obligations=set())
+    haystack = " ".join(res.blockers + res.warnings + res.parked_items + res.required_next_moves)
+    assert any(ob.id in w and "untested" in w for w in res.warnings)
+    assert lapse.id not in haystack
+    assert lapse.code not in haystack
+    assert _LAPSE_SENTINEL_WHAT not in haystack
+    assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
+
+
+def test_plan_obligation_warning_clears_when_evidence_is_met() -> None:
+    frame = _frame_with_confirmed_requirement()
+    plan = _plan_from_targets(targets_from_frame(frame), frame.slug)
+    ob = plan.add_obligation("t1", 1, "store round-trip", "the ledger reloads")
+    baseline = evaluate(_plan_from_targets(targets_from_frame(frame), frame.slug))
+    assert evaluate(plan, met_obligations={ob.id}) == baseline
