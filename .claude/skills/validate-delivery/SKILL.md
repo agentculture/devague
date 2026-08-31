@@ -94,9 +94,9 @@ against `devague explain <move>` once that task merges.
 
 | Move | What it records |
 |------|------------------|
-| `devague oblige "<what>" --claim <cN>` | Marks a claim (or approved deviation) as carrying a behavioral obligation this leg is responsible for checking. |
-| `devague evidence "<obligation ref>" --test <node-id> --outcome pass\|fail` | Files an evidence record: obligation met by this test, asserting this behavior, outcome pass or fail. `llm`-origin filings land `proposed`; the human adjudicates. |
-| `devague delta "<what changed>" --kind added\|amended\|removed --claim <cN> --evidence <eN>` | Files a behavioral delta: provenance back to the claim/deviation it diverges from, forward to the evidence that backs it. |
+| `devague oblige <cN> --seam "<seam>" --behavior "<behavior>"` | Files a behavioral obligation against a claim, naming the seam to test and the behavior to assert (snapshots the claim text at filing). |
+| `devague evidence --obligation <oN> --test "<ref>" --behavior "<asserted>" --contract "<claim text>" --type <type> --strength <level> --basis "<basis>" --outcome pass\|fail [--run-commit <sha> --run-timestamp <ts>]` | Files an evidence record: obligation met by this test, asserting this behavior, outcome pass or fail (a run reference is required at execution strength and above). `llm`-origin filings land `proposed`; the human adjudicates. |
+| `devague delta --kind added\|amended\|removed --behavior "<what changed>" --caused-by <cN\|dN> [--evidence <eN> ...]` | Files a behavioral delta: provenance back to the claim/deviation it diverges from (`--caused-by`), forward to the evidence that backs it. |
 | `devague summary [--pr] [--json]` | Reads the filed evidence and deltas back into the Delivery Claims table (`/summarize-delivery`'s starting point). |
 
 `--origin llm` on `oblige` / `evidence` / `delta` lands the record `proposed`
