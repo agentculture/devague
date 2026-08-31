@@ -4,6 +4,40 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**The validate-delivery skill lands — seventh in flow order, eighth origin
+skill (issue #97, #107).** New skill **`/validate-delivery`**
+(`.claude/skills/validate-delivery/SKILL.md`) — the execution-to-evidence leg
+between `/assign-to-workforce`'s (and `/deviate`'s) fan-out and
+`/summarize-delivery`'s closeout. Method-only, same shape as `/deviate`: the
+agent runs the plan's behavioral tests agent-side after waves merge, then
+files what it found via record-only devague moves — `devague oblige` (mark a
+claim's behavioral obligation), `devague evidence` (obligation met by this
+test, asserting this behavior, outcome pass or fail), and `devague delta`
+(a behavioral added/amended/removed record with provenance back to the claim
+or approved deviation and forward to its evidence). The CLI never runs a
+test itself (issue #20); `llm`-origin filings land `proposed` for human
+adjudication, same anti-fabrication contract as `deviate` and `lapse`. A
+failing or unchecked outcome is filed and reported exactly as such — unmet
+is unmet, never rounded up — feeding `devague summary`'s Delivery Claims
+table, where evidence strength (coverage/fidelity/execution/sensitivity) is
+the confidence vocabulary and approved lapses still cap it. Motivating
+record, cited verbatim from issue `agentculture/devague#97`: "Four graders
+failed in that cycle... Every one was found by reading data afterwards; none
+by a test failing." The design traces to issue `agentculture/devague#107`,
+"Suggestion: behavioral validation and a derived current spec," which
+proposed behavior as the primary contract, four evidence types, the
+strength ladder, and the current spec as a projection of a behavior ledger.
+The behavioral-test convention for consuming repos is either a pytest
+marker (e.g. `@pytest.mark.behavioral`) or a dedicated folder (e.g.
+`tests/behavioral/` or `behavioral-tests/`) — both defined in the skill. The
+exact `oblige` / `evidence` / `delta` CLI surface ships separately; this
+leg's docs are written against those verb names with minimal command
+examples so reconciliation stays cheap. `README.md`, this file,
+`docs/skills.md`, `docs/skill-sources.md`, and `docs/spec-contract.md` are
+swept to the **eight-leg flow** — `scope` → `think` → `challenge` →
+`spec-to-plan` → `assign-to-workforce` → `deviate` → `validate-delivery` →
+`summarize-delivery`.
+
 **The Reasoning Degradation Ledger lands (0.22.0, issue #97).** A new flat
 verb, **`devague lapse "<what>" --code <code> [--skipped "<check>"] [--ref
 REF ...] [--origin user|llm] [--json]`** (plus `--list [--json]` and
@@ -98,9 +132,9 @@ human to adjudicate, and a reopened frame reconverges and re-exports before
 the plan leg proceeds. A clean pass records the examined surfaces and
 residual uncertainty via existing moves (`devague scope` entries, `park`,
 `plan risk`) — never a claim that there are no unknown unknowns.
-`devague learn skills` now teaches all **seven** operator skills in seven-leg
-order; `README.md`, this file, `docs/skills.md`, and `docs/skill-sources.md`
-are swept to the seven-leg flow — `scope` → `think` → `challenge` →
+`devague learn skills` now teaches all **seven** operator skills then extant,
+in flow order; `README.md`, this file, `docs/skills.md`, and
+`docs/skill-sources.md` are swept to the then-current flow — `scope` → `think` → `challenge` →
 `spec-to-plan` → `assign-to-workforce` → `deviate` → `summarize-delivery`.
 
 **The execution seam and deviate (0.18.0, #53 esd t1–t11).** The flow gains a
@@ -128,8 +162,8 @@ verbatim (#69, #70); `summarize-delivery` now starts from the `devague summary`
 skeleton and quotes approved deviations by `dN` id instead of reconstructing
 drift from memory. `culture.yaml` reverts `backend` to `claude`, the mesh
 standard, now that `agex-cli#46` is closed (#66). Docs (this file, `README.md`,
-`docs/skills.md`) now name the **seven-leg flow** — `scope` → `think` →
-`challenge` → `spec-to-plan` → `assign-to-workforce` → `deviate` →
+`docs/skills.md`) now name the then-current six-leg flow — `scope` → `think` →
+`spec-to-plan` → `assign-to-workforce` → `deviate` →
 `summarize-delivery` — and the two audiences it serves: operators (the main
 agent driving the CLI) and the humans who own the go/no-go and final-PR
 gates.
@@ -428,14 +462,17 @@ and hard questions, parking unresolved uncertainty as first-class "open
 vagueness," and only exporting a buildable spec once the frame *converges*. The
 plan method: seed a plan from that converged frame and converge it on coverage,
 acceptance criteria, and an acyclic dependency order before exporting a plan.
-The operator skills cover the **seven legs** in flow order: **`/scope`**
+The operator skills cover the **eight legs** in flow order: **`/scope`**
 (idea→explored scope, the optional opening leg), **`/think`** (idea→spec),
 **`/challenge`** (a risk-scaled blind-spot discovery pass between /think and
 /spec-to-plan, adjudicated inside the existing spec gate), **`/spec-to-plan`**
 (spec→plan), **`/assign-to-workforce`** (plan→parallel implementation),
 **`/deviate`** (the execution-time leg — stop an in-flight fan-out the moment
 it must diverge from the confirmed plan, get explicit human approval, and
-record the divergence before resuming), and **`/summarize-delivery`**
+record the divergence before resuming), **`/validate-delivery`** (the
+execution-to-evidence leg — run the plan's behavioral tests agent-side once
+waves merge, and file evidence and behavioral deltas via the CLI; unmet is
+unmet), and **`/summarize-delivery`**
 (execution→a committed accountability artifact, the delivery-side closure
 leg); the product/CLI they drive is **`devague`**. The skills are written for
 two audiences: **operators** — the main agent driving the deterministic CLI
@@ -468,8 +505,8 @@ broadcasts). Vendored skills are cited, not imported (cite-don't-import): copy
 from `../guildmaster/.claude/skills/<name>/` and track provenance in
 `docs/skill-sources.md`. The exception is devague's own `scope` / `think` /
 `challenge` / `spec-to-plan` / `assign-to-workforce` / `deviate` /
-`summarize-delivery` — devague is their origin, so guildmaster re-broadcasts
-them *from* here; never re-vendor them back.
+`validate-delivery` / `summarize-delivery` — devague is their origin, so
+guildmaster re-broadcasts them *from* here; never re-vendor them back.
 
 ## Stack expectations (when code lands)
 

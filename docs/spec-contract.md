@@ -645,6 +645,16 @@ across the frame and plan persistence twins.
 
 ## The delivery peer
 
+The delivery ledger and the plan it companions sit inside the eight-leg
+operator flow — `scope` → `think` → `challenge` → `spec-to-plan` →
+`assign-to-workforce` → `deviate` → `validate-delivery` →
+`summarize-delivery` (see `docs/skills.md`). `devague deviate` backs the
+sixth leg; the seventh, `/validate-delivery`, runs after a plan's waves
+merge and files record-only evidence (`devague oblige` / `devague evidence`
+/ `devague delta`) that `devague summary`'s Delivery Claims table draws
+confidence from — its entity model ships in a parallel task and is not yet
+part of this contract.
+
 The delivery ledger (`devague deviate` / `devague summary`) is the plan's
 **execution-side companion**, the smallest deterministic slice of a parked
 delivery engine (#53-esd t3): where a Plan is the contract the user confirmed, a

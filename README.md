@@ -91,21 +91,24 @@ committed.
 ## Driving it from an agent
 
 Inside AgentCulture, an assistant drives this CLI through a family of operator
-skills that cover the **seven-leg flow** end to end, in order: **`/scope`**
+skills that cover the **eight-leg flow** end to end, in order: **`/scope`**
 (idea→explored scope, the optional opening leg), **`/think`** (idea→spec),
 **`/challenge`** (a risk-scaled blind-spot discovery pass between /think and
 /spec-to-plan), **`/spec-to-plan`** (spec→plan), **`/assign-to-workforce`**
 (plan→parallel implementation), **`/deviate`** (the execution-time leg — stop
 an in-flight fan-out the moment it must diverge from the confirmed plan, get
-explicit human approval via `devague deviate`, and resume), and
+explicit human approval via `devague deviate`, and resume),
+**`/validate-delivery`** (the execution-to-evidence leg — run the plan's
+behavioral tests agent-side once waves merge, and file evidence and
+behavioral deltas via the CLI; unmet is unmet), and
 **`/summarize-delivery`** (execution→a committed accountability artifact).
-`/challenge` is method-only — no wrapper script, no new CLI verb; findings
-route through the same moves `/think` already uses. The CLI-driving pair —
-`/think` and `/spec-to-plan` — add a portable wrapper and a `status`
-next-move helper over the convergence gate; the CLI is the deterministic
-affordance and the agent decides the next move.
+`/challenge` and `/validate-delivery` are both method-only — no wrapper
+script, no new CLI verb; findings and filings route through moves the CLI
+already exposes. The CLI-driving pair — `/think` and `/spec-to-plan` — add a
+portable wrapper and a `status` next-move helper over the convergence gate;
+the CLI is the deterministic affordance and the agent decides the next move.
 
-Cutting across all seven legs is `devague lapse` (issue #97) — file a
+Cutting across all eight legs is `devague lapse` (issue #97) — file a
 reasoning-degradation lapse (an assumption silently substituted for a check)
 the moment it happens, instead of reconstructing a corrections record from
 memory once the run ends. It is never a gate: filing is friction-free
@@ -115,7 +118,7 @@ cited as confidence evidence in `/summarize-delivery`'s Delivery Claims
 section.
 
 These skills serve two audiences: **operators** — the main agent that drives
-the deterministic CLI move by move across all seven legs — and the **humans**
+the deterministic CLI move by move across all eight legs — and the **humans**
 who own the three standing gates: the exported spec, the go/no-go on the
 implementation split plan (including any mid-run deviation approved against
 it via `/deviate`), and the final PR review. See `CLAUDE.md` for that workflow
