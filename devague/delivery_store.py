@@ -15,6 +15,7 @@ import time
 from pathlib import Path
 
 from devague.delivery import DELIVERY_SCHEMA_VERSION, Delivery, from_dict, to_dict
+from devague.frame import parse_schema_version
 from devague.store import validate_slug
 
 DELIVERIES_DIR = Path(".devague/deliveries")
@@ -52,7 +53,20 @@ def load(slug: str) -> Delivery:
     p = path_for(slug)
     if not p.exists():
         raise FileNotFoundError(slug)
-    delivery = from_dict(json.loads(p.read_text(encoding="utf-8")))
+    raw = json.loads(p.read_text(encoding="utf-8"))
+    # Check the declared schema_version against the RAW dict before constructing
+    # the domain object: a genuinely newer-schema delivery must fail closed with
+    # IncompatibleDeliverySchemaError, not an opaque KeyError/TypeError from
+    # from_dict trying to build a record family it doesn't recognise yet (bvts
+    # t3, the delivery-side twin of store.load / plan_store.load's hardening —
+    # newly load-bearing now that v2 carries evidence and delta records).
+    version = parse_schema_version(raw, DELIVERY_SCHEMA_VERSION)
+    if version > DELIVERY_SCHEMA_VERSION:
+        raise IncompatibleDeliverySchemaError(
+            f"delivery {slug!r} uses schema_version {version}, but this "
+            f"devague supports up to {DELIVERY_SCHEMA_VERSION}; upgrade devague to read it"
+        )
+    delivery = from_dict(raw)
     validate_slug(delivery.plan_slug)  # reject a tampered file whose internal slug escapes
     if delivery.plan_slug != slug:
         # The embedded plan_slug drives save(); a file whose internal slug disagrees
@@ -61,11 +75,6 @@ def load(slug: str) -> Delivery:
         raise ValueError(
             f"delivery plan slug mismatch: file {slug!r} declares plan_slug "
             f"{delivery.plan_slug!r}"
-        )
-    if delivery.schema_version > DELIVERY_SCHEMA_VERSION:
-        raise IncompatibleDeliverySchemaError(
-            f"delivery {slug!r} uses schema_version {delivery.schema_version}, but this "
-            f"devague supports up to {DELIVERY_SCHEMA_VERSION}; upgrade devague to read it"
         )
     return delivery
 
