@@ -74,6 +74,11 @@ MOVES = {
         "execution/sensitivity strength; '--confirm/--reject <eN>' resolves a "
         "proposed one (user-only); '--list [--json]' shows every filed record."
     ),
+    "today": (
+        "Project the current behavior of the app from the delivery ledger and "
+        "write docs/current-spec.md (read-only over every store; '--json' "
+        "emits the structured projection instead of the write confirmation)."
+    ),
 }
 
 FIRST_QUESTION = "What's the announcement?"
