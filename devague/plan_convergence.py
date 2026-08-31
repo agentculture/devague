@@ -7,12 +7,22 @@ is sound (no dangling refs, no cycles), nothing is left proposed, and no blockin
 risk remains. Reuses :class:`devague.convergence.ConvergenceResult` so both
 engines report the same structured ``{ready, blockers, warnings, parked_items,
 required_next_moves}`` shape (the CLI serializes ``ready`` as ``ready_for_plan``).
+
+Like its frame-side peer it also emits **warning-only** signals that never move
+``ready_for_plan``: the three TDD-fitness heuristics
+(:func:`_tdd_fitness_warnings`) and, since bvts t7, one unmet-obligation
+warning per criterion obligation with no approved evidence
+(:func:`_unmet_obligation_warnings` — the plan-side twin of
+:mod:`devague.convergence`'s S3). No warning here is ever derived from
+``Frame.lapses``: the Reasoning Degradation Ledger stays gate-inert *and*
+warning-inert on both engines (issue #97), and ``Plan`` carries no lapses at
+all.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Optional
+from typing import Iterable, Optional
 
 from devague.convergence import ConvergenceResult
 from devague.plan import CoverageTarget, Plan, Task, dependency_waves
@@ -285,14 +295,48 @@ def _tdd_fitness_warnings(plan: Plan) -> list[str]:
     return warnings
 
 
-def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> ConvergenceResult:
+def _unmet_obligation_warnings(plan: Plan, met: set[str]) -> list[str]:
+    """One warning per non-rejected criterion obligation with no approved
+    evidence (bvts t7) — the plan-side twin of :mod:`devague.convergence`'s S3.
+
+    Pure: ``met`` is the set of obligation refs the caller already determined
+    are discharged (:func:`devague.obligation_evidence.met_obligation_refs_for_plan`
+    loads it fail-open at the CLI edge, from *this* plan's own delivery ledger).
+    A rejected obligation is withdrawn and stays silent; a proposed one is
+    unadjudicated but equally undischarged, so it warns.
+
+    The text names the obligation, the task and criterion it obligates, and its
+    seam, and says **untested** in as many words — a confirmed acceptance
+    criterion whose behavior nothing verifies is exactly the gap this warning
+    exists to make visible. Never blocking, on the same soft-rollout terms as
+    the TDD-fitness heuristics above.
+    """
+    return [
+        f"obligation {o.id} on task {o.task_id} criterion {o.criterion_index} is "
+        f"untested — seam '{o.seam}' has no approved evidence for: {o.behavior}"
+        for o in plan.obligations
+        if o.status != "rejected" and o.id not in met
+    ]
+
+
+def evaluate(
+    plan: Plan,
+    targets: Optional[list[CoverageTarget]] = None,
+    met_obligations: Optional[Iterable[str]] = None,
+) -> ConvergenceResult:
     """Evaluate the plan gate against ``targets`` (defaults to the plan's snapshot).
 
     The CLI passes *live* targets re-derived from the current source frame so frame
     drift is caught; unit tests may omit ``targets`` to gate against the stored
     snapshot.
+
+    ``met_obligations`` follows the same injected-state convention: the CLI
+    loads it fail-open from the plan's delivery ledger and passes it in, so this
+    function stays pure and filesystem-free. Omitting it means "no evidence
+    state was loaded" and can only add warnings, never a blocker.
     """
     tgs = plan.targets if targets is None else targets
+    met = set() if met_obligations is None else set(met_obligations)
     blockers = (
         _missing_tasks(plan)
         + _missing_coverage(plan, tgs)
@@ -304,7 +348,7 @@ def evaluate(plan: Plan, targets: Optional[list[CoverageTarget]] = None) -> Conv
     return ConvergenceResult(
         ready=not blockers,
         blockers=blockers,
-        warnings=_tdd_fitness_warnings(plan),
+        warnings=_tdd_fitness_warnings(plan) + _unmet_obligation_warnings(plan, met),
         parked_items=_parked_items(plan, tgs),
         required_next_moves=[suggest_move(b) for b in blockers],
     )

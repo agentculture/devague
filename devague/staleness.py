@@ -56,7 +56,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from devague import plan_store
-from devague.contested import _load_delivery_safely, _load_plan_safely, _numeric_suffix
+from devague.contested import _numeric_suffix, load_delivery_safely, load_plan_safely
 from devague.delivery import Delivery
 from devague.frame import Frame
 from devague.plan import Plan
@@ -243,13 +243,13 @@ def find_staleness(
         return stale_deviations, orphaned_evidence, diagnostics
 
     for slug in slugs:
-        plan, plan_diag = _load_plan_safely(slug)
+        plan, plan_diag = load_plan_safely(slug, label="staleness")
         if plan_diag:
             diagnostics.append(plan_diag)
         if plan is None or plan.frame_slug != frame.slug:
             continue
 
-        delivery, delivery_diag = _load_delivery_safely(slug)
+        delivery, delivery_diag = load_delivery_safely(slug, label="staleness")
         if delivery_diag:
             diagnostics.append(delivery_diag)
         if delivery is None:

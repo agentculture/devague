@@ -334,3 +334,66 @@ def test_converge_output_stays_lapse_free_on_unconverged_frame(origin, final_sta
     assert lapse.code not in haystack
     assert _LAPSE_SENTINEL_WHAT not in haystack
     assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
+
+
+# --- Unmet-obligation warnings (bvts t7): warning-only, and lapse-free --------
+#
+# The obligation warnings are the first new signal added beside the lapse pins
+# above, and they are the one most likely to be confused with the ledger: both
+# are append-only records about honesty. These pins keep the two separated —
+# an obligation warning never gates, and no warning text ever derives from a
+# lapse, even when a frame carries both at once.
+
+
+@pytest.mark.parametrize(
+    "origin,final_status",
+    [
+        ("llm", "proposed"),
+        ("user", "approved"),
+        ("user", "rejected"),
+    ],
+)
+def test_unmet_obligation_warning_never_gates(origin, final_status) -> None:
+    """The gate half of AC2: filing an obligation with no evidence adds a
+    warning and changes nothing else — ready, blockers, parked_items and
+    required_next_moves are identical to the obligation-free baseline."""
+    baseline = evaluate(_full_frame())
+    f = _full_frame()
+    ob = f.add_obligation("c1", "cli", "the seam behaves", origin=origin)
+    if final_status == "rejected":
+        f.set_obligation_status(ob.id, "rejected")
+    res = evaluate(f, met_obligations=set())
+
+    assert res.ready is baseline.ready is True
+    assert res.blockers == baseline.blockers
+    assert res.parked_items == baseline.parked_items
+    assert res.required_next_moves == baseline.required_next_moves
+    # A rejected obligation is withdrawn — no warning at all; the other two warn.
+    expected = 0 if final_status == "rejected" else 1
+    assert len([w for w in res.warnings if ob.id in w]) == expected
+
+
+def test_obligation_warnings_never_derive_from_lapses() -> None:
+    """The lapse half of AC2: with a lapse AND an unmet obligation filed on the
+    same frame, the obligation warning appears and NOTHING in the result names
+    the lapse."""
+    f = _full_frame()
+    lapse = _file_lapse(f, "user", "approved")
+    ob = f.add_obligation("c1", "cli", "the seam behaves")
+    res = evaluate(f, met_obligations=set())
+    haystack = " ".join(res.blockers + res.warnings + res.parked_items + res.required_next_moves)
+
+    assert any(ob.id in w and "untested" in w for w in res.warnings)
+    assert lapse.id not in haystack
+    assert lapse.code not in haystack
+    assert _LAPSE_SENTINEL_WHAT not in haystack
+    assert _LAPSE_SENTINEL_SKIPPED_CHECK not in haystack
+
+
+def test_lapse_only_frame_gains_no_obligation_warning() -> None:
+    """A lapse is not an obligation: filing one must not conjure an unmet
+    obligation warning out of the ledger."""
+    f = _full_frame()
+    baseline = evaluate(f, met_obligations=set())
+    _file_lapse(f, "user", "approved")
+    assert evaluate(f, met_obligations=set()) == baseline

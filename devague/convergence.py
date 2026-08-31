@@ -28,12 +28,30 @@ enumerated here with its exact predicate and its known false-positive mode:
   spec shows scope provenance") trips the warning even though it is verifiable —
   the operator can ignore it or add a count. It never *misses* a woolly numeric
   claim; it only over-fires on numeral-free-but-checkable prose.
+
+- **S3 — obligation without approved evidence** (bvts t7). For every filed
+  obligation that has not been *rejected*, warn if no approved, non-superseded
+  evidence record names it. Predicate: ``status != "rejected" and id not in
+  met_obligations`` — pure set membership over state the caller loaded, never a
+  judgment about the behavior text. Same soft-rollout terms as S1/S2: it never
+  moves ``ready_for_spec``, and a warning is the whole of its effect. Known
+  false negative: the ref namespace is shared between frame and plan
+  obligations (see :mod:`devague.obligation_evidence`), so a same-numbered
+  obligation elsewhere can silence this warning — the imprecision runs toward
+  *under*-warning, never toward a spurious blocker.
+
+Nothing in this module ever reads ``Frame.lapses``. The Reasoning Degradation
+Ledger is deliberately gate-inert (issue #97) and warning-inert with it: no
+blocker, warning, parked item, or next move here derives from a lapse, in any
+status. An obligation is a forward commitment; a lapse is a record of a past
+reasoning substitution. The two must not be conflated.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import Iterable, Optional
 
 from devague.frame import SPEC_AFFECTING_KINDS, Frame
 
@@ -170,6 +188,27 @@ def _sharpness_warnings(frame: Frame, confirmed: list) -> list[str]:
     return warnings
 
 
+def _unmet_obligation_warnings(frame: Frame, met: set[str]) -> list[str]:
+    """S3: every non-rejected obligation with no approved evidence (bvts t7).
+
+    Pure: ``met`` is the set of obligation refs the caller already determined
+    are discharged (:func:`devague.obligation_evidence.met_obligation_refs_for_frame`
+    loads it fail-open at the CLI edge). A rejected obligation is a withdrawn
+    commitment — nothing owes it evidence, so it is silent; a *proposed* one is
+    unadjudicated but equally undischarged, so it warns like an approved one.
+
+    The text names the obligation, its seam, and its source claim, and says
+    **untested** in as many words: an obligation whose behavior nothing
+    verifies is the exact shape of a delivery claim that outruns its evidence.
+    """
+    return [
+        f"obligation {o.id} on claim {o.claim_id} is untested — seam '{o.seam}' "
+        f"has no approved evidence for: {o.behavior}"
+        for o in frame.obligations
+        if o.status != "rejected" and o.id not in met
+    ]
+
+
 def _parked_items(frame: Frame) -> list[str]:
     """Tracked, non-blocking open vagueness (everything but unknown_blocking).
 
@@ -230,7 +269,19 @@ def suggest_move(blocker: str) -> str:
     return "devague show     # inspect and decide"
 
 
-def evaluate(frame: Frame) -> ConvergenceResult:
+def evaluate(frame: Frame, met_obligations: Optional[Iterable[str]] = None) -> ConvergenceResult:
+    """Evaluate the frame gate.
+
+    ``met_obligations`` is the set of obligation ids already discharged by
+    approved evidence — loaded fail-open at the CLI edge by
+    :func:`devague.obligation_evidence.met_obligation_refs_for_frame` and passed
+    in, so this function stays pure and filesystem-free (the same shape
+    :func:`devague.plan_convergence.evaluate`'s ``targets`` parameter uses).
+    Omitting it means "no evidence state was loaded", which is reported
+    honestly as untested rather than silently assumed discharged — it can only
+    add warnings, never a blocker.
+    """
+    met = set() if met_obligations is None else set(met_obligations)
     confirmed = [c for c in frame.claims if c.status == "confirmed"]
     confirmed_kinds = {c.kind for c in confirmed}
     blockers = (
@@ -241,7 +292,11 @@ def evaluate(frame: Frame) -> ConvergenceResult:
     return ConvergenceResult(
         ready=not blockers,
         blockers=blockers,
-        warnings=_assumption_warnings(frame) + _sharpness_warnings(frame, confirmed),
+        warnings=(
+            _assumption_warnings(frame)
+            + _sharpness_warnings(frame, confirmed)
+            + _unmet_obligation_warnings(frame, met)
+        ),
         parked_items=_parked_items(frame),
         required_next_moves=[suggest_move(b) for b in blockers],
     )

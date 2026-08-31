@@ -24,6 +24,7 @@ from devague.cli._plans import resolve_plan
 from devague.cli._status import StatusLabels, emit_empty, emit_status
 from devague.convergence import evaluate as evaluate_frame
 from devague.frame import Frame
+from devague.obligation_evidence import met_obligation_refs_for_plan
 from devague.plan import (
     RISK_KINDS,
     Plan,
@@ -742,7 +743,13 @@ def cmd_plan_converge(args: argparse.Namespace) -> int:
     plan = resolve_plan(args.plan)
     _frame, targets = _live(plan)
     plan.targets = targets  # refresh the snapshot from the live frame
-    result = evaluate_plan(plan, targets=targets)
+    # Which criterion obligations already carry approved evidence (bvts t7):
+    # loaded fail-open from this plan's own delivery ledger, so an unreadable
+    # ledger is a stderr diagnostic and never a blocker.
+    met, diagnostics = met_obligation_refs_for_plan(plan.slug)
+    for diag in diagnostics:
+        emit_diagnostic(diag)
+    result = evaluate_plan(plan, targets=targets, met_obligations=met)
     if result.ready and plan.status == "drafting":
         plan.status = "converged"
     elif not result.ready and plan.status == "converged":
@@ -914,7 +921,10 @@ def cmd_plan_status(args: argparse.Namespace) -> int:
         plan = resolve_plan(args.plan)
         _frame, targets = _live(plan)
         plan.targets = targets  # in-memory refresh only; status does not save
-        result = evaluate_plan(plan, targets=targets)
+        met, diagnostics = met_obligation_refs_for_plan(plan.slug)  # bvts t7, fail-open
+        for diag in diagnostics:
+            emit_diagnostic(diag)
+        result = evaluate_plan(plan, targets=targets, met_obligations=met)
         emit_status(
             _STATUS_LABELS, selected=plan.slug, total=len(slugs), result=result, json_mode=json_mode
         )
