@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-09-01
+
+### Added
+
+- Per-verb progression hints: every successful, non-exempt verb prints one `next: <recommended move>` line to stderr — leg-ending verbs (export, plan export, plan waves, deviate/evidence/delta filings, summary, today) name the next leg of the eight-leg flow, everything else points at status; status and plan status are exempt as the existing next-move authority (devague/cli/_hints.py, emitted once from dispatch; nlh t1)
+- Hint override config: `[tool.devague] hints = false` or a per-verb `[tool.devague.hints]` replacement text in the consuming repo's pyproject.toml, plus the `DEVAGUE_HINTS` env var (off/0/false; env wins) — stdlib tomllib, fail-open on a missing or broken pyproject (devague/cli/_hint_config.py; nlh t2)
+- Hint test contract: 105 tests across tests/test_cli_hints.py and tests/test_hint_config.py, including a `@pytest.mark.behavioral` end-to-end walk that drives new -> capture -> interrogate -> confirm -> converge -> export choosing every move only from the emitted hints; pytest markers registered (nlh t5)
+- `devague explain deviate` and `devague explain summary` now work — both MOVES entries were missing entirely (approved deviation d3; nlh t3)
+
+### Changed
+
+- Eight SKILL.md hand-offs reconciled to the eight-leg order: think routes through /challenge, challenge's flow diagram includes validate-delivery, deviate routes through /validate-delivery, assign-to-workforce gains a hand-offs section, spec-to-plan and validate-delivery gain dedicated After sections (nlh t4)
+- docs/spec-contract.md gains one global clause for the `next:` stderr hint beside the stdout/stderr split statement; README and CLAUDE.md document the hint and its override; `devague learn` operating rules mention the contract (nlh t3)
+- README documents the delivery-ledger verbs (deviate, oblige, evidence, delta, summary, today) and corrects the validate-delivery method-only wording
+
+### Fixed
+
+- assign-to-workforce split-plan --write no longer merges stderr into the `plan show --json` output it parses — latent bug exposed by the hint line (approved deviation d2; nlh t1)
+
 ## [0.23.0] - 2026-08-31
 
 ### Added
