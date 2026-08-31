@@ -154,15 +154,17 @@ record would land `proposed` and need an explicit
 `devague deviate --confirm d1` from the user before `/summarize-delivery`
 could cite it as approved.
 
-## After recording — resume, then hand off to /summarize-delivery
+## After recording — resume, then hand off through /validate-delivery to /summarize-delivery
 
 Once the affected task briefs are adjusted and the fan-out resumes, nothing
 further is needed from this skill — the record already lives in the delivery
-store. When the run reaches `/summarize-delivery`, that skill's Drift From
-Plan and Mid-work Decisions sections quote these records by their `dN` id
-instead of reconstructing drift from memory, so the connective tissue between
-the confirmed plan and the delivery summary is the ledger this skill wrote,
-not anyone's recollection of the run.
+store. When the waves finish merging, the run continues through
+`/validate-delivery` (running the plan's behavioral tests and filing evidence
+and behavioral deltas) before it reaches `/summarize-delivery`. That skill's
+Drift From Plan and Mid-work Decisions sections quote these deviation records
+by their `dN` id instead of reconstructing drift from memory, so the
+connective tissue between the confirmed plan and the delivery summary is the
+ledger this skill wrote, not anyone's recollection of the run.
 
 ## Provenance
 
