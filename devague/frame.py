@@ -26,6 +26,14 @@ from typing import Optional
 # so an older v4-labeled binary reading a v5 frame and re-saving it would
 # silently drop every filed lapse (the scope_entries v2 precedent, c17/h12).
 SCHEMA_VERSION = 5
+# v6 (bvts t1) adds Frame.obligations / Obligation. Same rationale as the
+# v4->v5 bump above, argued from the identical data-loss test: save()
+# re-stamps schema_version and to_dict only serializes known dataclass
+# fields, so an older v5-labeled binary that loads a v6 frame and re-saves
+# it would silently drop every filed obligation -- the failure the
+# fail-closed check in store.load (raw-dict version compare, before
+# from_dict ever touches the payload) exists to prevent.
+SCHEMA_VERSION = 6
 
 CLAIM_KINDS = (
     "announcement",
@@ -81,6 +89,10 @@ LAPSE_CODES = (
     "provenance-missing",
 )
 LAPSE_STATUSES = ("proposed", "approved", "rejected")
+
+# Obligation adjudication mirrors LapseRecord exactly (bvts t1): origin-driven
+# initial status, confirm/reject via set_obligation_status.
+OBLIGATION_STATUSES = ("proposed", "approved", "rejected")
 
 
 @dataclass
@@ -233,6 +245,66 @@ class LapseRecord:
 
 
 @dataclass
+class Obligation:
+    """A filed obligation (bvts t1) — a behavioral commitment attached to a
+    claim: the ``seam`` it applies to, the ``behavior`` text describing what
+    is owed, and a verbatim ``source_text`` snapshot of the claim's text at
+    filing time (so later drift between the claim and what the obligation
+    was filed against is detectable — see :func:`obligation_drift`).
+
+    The record shape mirrors ``LapseRecord`` (issue #97 t1): prefix-generic
+    id minting via ``Frame._next``, origin-driven initial status, append-only
+    with no amend/delete path (``set_obligation_status`` is the only
+    mutator). Unlike ``LapseRecord``, there is no enum-like field here that
+    can retire over time (``seam``/``behavior``/``source_text`` are free
+    text, exactly like ``ScopeEntry.surface``/``finding``) — the field that
+    *does* need validation, ``claim_id``, can only be checked against the
+    live frame, so it is validated at the filing path
+    (:meth:`Frame.add_obligation`), never here in ``__post_init__``, which
+    has no access to ``Frame.claims`` at all. ``origin``/``status`` still
+    validate here — they never retire, same as every other chassis field in
+    this module.
+    """
+
+    id: str
+    claim_id: str
+    seam: str
+    behavior: str
+    source_text: str
+    origin: str = "user"  # user | llm
+    status: str = "approved"  # proposed | approved | rejected
+
+    def __post_init__(self) -> None:
+        if self.origin not in ORIGINS:
+            raise ValueError(f"unknown obligation origin: {self.origin!r}")
+        if self.status not in OBLIGATION_STATUSES:
+            raise ValueError(f"unknown obligation status: {self.status!r}")
+
+
+def obligation_drift(obligation: Obligation, claim: Claim) -> Optional[str]:
+    """Report drift between an obligation's snapshot and the live claim text.
+
+    Pure and read-only: takes the two records directly rather than a frame,
+    so it never has a chance to mutate either. Returns ``None`` when
+    ``claim.text`` still matches ``obligation.source_text`` (no drift), else
+    a human-readable message naming both. Raises ``ValueError`` if ``claim``
+    is not the obligation's own source claim (``claim.id != obligation.claim_id``)
+    — a caller mismatch, not drift.
+    """
+    if claim.id != obligation.claim_id:
+        raise ValueError(
+            f"claim {claim.id!r} is not the source of obligation {obligation.id!r} "
+            f"(expected claim {obligation.claim_id!r})"
+        )
+    if claim.text == obligation.source_text:
+        return None
+    return (
+        f"obligation {obligation.id} drifted: claim {claim.id} text changed since "
+        f"filing (snapshot={obligation.source_text!r}, current={claim.text!r})"
+    )
+
+
+@dataclass
 class Frame:
     slug: str
     title: str
@@ -246,6 +318,9 @@ class Frame:
     # The Reasoning Degradation Ledger (issue #97 t1, schema v5). Append-only:
     # no amend, no delete — the only post-filing mutation is set_lapse_status.
     lapses: list[LapseRecord] = field(default_factory=list)
+    # Obligation records (bvts t1, schema v6). Append-only: no amend, no
+    # delete — the only post-filing mutation is set_obligation_status.
+    obligations: list[Obligation] = field(default_factory=list)
 
     @staticmethod
     def _next(items: list, prefix: str) -> str:
@@ -556,6 +631,72 @@ class Frame:
             return True
         return False
 
+    def add_obligation(
+        self,
+        claim_id: str,
+        seam: str,
+        behavior: str,
+        origin: str = "user",
+    ) -> Obligation:
+        """File an obligation attached to ``claim_id`` (bvts t1).
+
+        ``claim_id`` is validated here — the filing path — against the live
+        frame, fail-closed with a clear error naming the unknown claim.
+        Exactly like :meth:`add_lapse`'s ``code`` check and
+        :meth:`add_scope_entry`'s seed-id check, this validation cannot live
+        in ``Obligation.__post_init__``: that constructor has no access to
+        ``Frame.claims`` at all.
+
+        ``source_text`` is snapshotted from the claim's *current* text at
+        filing time — it is never re-read later, which is exactly what makes
+        drift against it detectable (:func:`obligation_drift`).
+
+        Filing an obligation never touches the claim's own ``status`` — a
+        deliberate asymmetry with ``interrogate --instruction`` and
+        ``amend_claim``, both of which flip a CONFIRMED claim back to
+        ``proposed`` because they edit the claim itself. An obligation is a
+        new record that snapshots the claim; it is not an edit to it, so
+        planting one on a confirmed claim leaves that claim confirmed.
+
+        ``origin`` drives the initial ``status`` exactly like
+        :meth:`add_lapse`: ``llm`` lands ``proposed`` (needs a human
+        :meth:`set_obligation_status` to approve), ``user`` auto-approves.
+        """
+        claim = self.find_claim(claim_id)
+        if claim is None:
+            raise ValueError(f"unknown claim id: {claim_id!r}")
+        status = "proposed" if origin == "llm" else "approved"
+        ob = Obligation(
+            id=self._next(self.obligations, "o"),
+            claim_id=claim_id,
+            seam=seam,
+            behavior=behavior,
+            source_text=claim.text,
+            origin=origin,
+            status=status,
+        )
+        self.obligations.append(ob)
+        return ob
+
+    def find_obligation(self, oid: str) -> Optional[Obligation]:
+        return next((o for o in self.obligations if o.id == oid), None)
+
+    def set_obligation_status(self, oid: str, status: str) -> bool:
+        """Set an obligation's status, failing closed on a typo'd/unknown value.
+
+        The only mutator a filed obligation ever gets — there is no amend or
+        delete API, mirroring :meth:`set_lapse_status`: validates ``status``
+        against :data:`OBLIGATION_STATUSES` *before* touching the record, so
+        an invalid string never mutates anything.
+        """
+        if status not in OBLIGATION_STATUSES:
+            raise ValueError(f"unknown obligation status: {status!r}")
+        ob = self.find_obligation(oid)
+        if ob is not None:
+            ob.status = status
+            return True
+        return False
+
     def set_status(self, item_id: str, status: str) -> bool:
         claim = self.find_claim(item_id)
         if claim is not None:
@@ -730,6 +871,20 @@ def from_dict(d: dict) -> Frame:
         # retired code must still load (see LapseRecord's docstring).
         for r in d.get("lapses", [])
     ]
+    obligations = [
+        Obligation(
+            id=o["id"],
+            claim_id=o["claim_id"],
+            seam=o["seam"],
+            behavior=o["behavior"],
+            source_text=o["source_text"],
+            origin=o.get("origin", "user"),
+            status=o.get("status", "approved"),
+        )
+        # Pre-v6 frames predate this field entirely (bvts t1); default to
+        # an empty obligations list.
+        for o in d.get("obligations", [])
+    ]
     return Frame(
         slug=d["slug"],
         title=d["title"],
@@ -744,4 +899,6 @@ def from_dict(d: dict) -> Frame:
         scope_entries=scope_entries,
         # v5 frames only (issue #97 t1); default to no lapses.
         lapses=lapses,
+        # v6 frames only (bvts t1); default to no obligations.
+        obligations=obligations,
     )
