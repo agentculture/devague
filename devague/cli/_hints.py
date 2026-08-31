@@ -49,14 +49,20 @@ filing apart from listing/adjudicating (``args.what`` for ``deviate``,
 ``args.obligation`` for ``evidence``, ``args.kind`` for ``delta`` — see
 :func:`_filed`).
 
-Config is out of scope here — t2 adds an opt-out; this module hardcodes
-default-on (every successful, non-exempt verb hints).
+Config lives in :mod:`devague.cli._hint_config` (t2): a global on/off
+(``DEVAGUE_HINTS`` env, or ``[tool.devague] hints = false`` in the consuming
+repo's ``pyproject.toml``) and per-verb replacement text
+(``[tool.devague.hints]``). That module is consulted only from
+:func:`emit_next_hint` below, at emission-decision time — the pure
+:func:`hint_for` table lookup above is unaffected by config, so its existing
+exhaustive parametrized tests keep pinning the *default* text unconditionally.
 """
 
 from __future__ import annotations
 
 import argparse
 
+from devague.cli import _hint_config
 from devague.cli._output import emit_diagnostic
 
 _NEXT_PREFIX = "next: "
@@ -142,12 +148,39 @@ def hint_for(args: argparse.Namespace) -> str | None:
     return _FLAT_DEFAULT
 
 
+def _key_for(args: argparse.Namespace) -> str | None:
+    """The same key shape :data:`_FLAT_LEG_END` / :data:`_PLAN_LEG_END` (and
+    :mod:`devague.cli._hint_config`'s per-verb override table) address —
+    ``None`` when there is nothing to key an override lookup on.
+    """
+    command = getattr(args, "command", None)
+    if command is None:
+        return None
+    if command == "plan":
+        plan_command = getattr(args, "plan_command", None)
+        return f"plan:{plan_command}" if plan_command is not None else None
+    return command
+
+
 def emit_next_hint(args: argparse.Namespace) -> None:
     """Emit the one-line ``next: ...`` stderr hint for a successful dispatch.
 
     Called exactly once, from :func:`devague.cli._dispatch` — never from a
-    command module (t1 acceptance criterion 2). A no-op for an exempt verb.
+    command module (t1 acceptance criterion 2). A no-op for an exempt verb
+    or when hints are disabled via :mod:`devague.cli._hint_config`
+    (``DEVAGUE_HINTS`` or ``[tool.devague] hints = false``, t2). A per-verb
+    override under ``[tool.devague.hints]`` replaces the default text
+    verbatim; an exempt verb has no hint to override in the first place, so
+    the config lookups below only run once there is text to act on.
     """
     text = hint_for(args)
-    if text is not None:
-        emit_diagnostic(f"{_NEXT_PREFIX}{text}")
+    if text is None:
+        return
+    if not _hint_config.hints_enabled():
+        return
+    key = _key_for(args)
+    if key is not None:
+        override = _hint_config.override_text(key)
+        if override is not None:
+            text = override
+    emit_diagnostic(f"{_NEXT_PREFIX}{text}")
