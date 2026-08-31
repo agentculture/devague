@@ -87,6 +87,7 @@ def _build_parser() -> argparse.ArgumentParser:
     from devague.cli._commands import confirm as _confirm_cmd
     from devague.cli._commands import converge as _converge_cmd
     from devague.cli._commands import deviate as _deviate_cmd
+    from devague.cli._commands import evidence as _evidence_cmd
     from devague.cli._commands import explain as _explain_cmd
     from devague.cli._commands import export as _export_cmd
     from devague.cli._commands import interrogate as _interrogate_cmd
@@ -121,6 +122,7 @@ def _build_parser() -> argparse.ArgumentParser:
     _export_cmd.register(sub)
     _plan_cmd.register(sub)
     _deviate_cmd.register(sub)
+    _evidence_cmd.register(sub)
     _lapse_cmd.register(sub)
     _oblige_cmd.register(sub)
     _status_cmd.register(sub)
