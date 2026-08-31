@@ -228,12 +228,14 @@ def test_plan_carries_schema_version() -> None:
     assert from_dict(to_dict(p)).schema_version == PLAN_SCHEMA_VERSION
 
 
-def test_plan_schema_version_bumped_to_4_for_defer_state() -> None:
+def test_plan_schema_version_bumped_to_5_for_obligations() -> None:
     # resolve-parked-vagueness t2 bumped to 3 for PlanRisk.resolved/resolution (the
-    # plan-side twin of frame.SCHEMA_VERSION 2 -> 3). issue-backlog-sweep t2 bumps
+    # plan-side twin of frame.SCHEMA_VERSION 2 -> 3). issue-backlog-sweep t2 bumped
     # again to 4, reserved for t9's per-target deferral state (the plan-side twin
     # of frame.SCHEMA_VERSION's v4 reservation for t4's HardQuestion resolution).
-    assert PLAN_SCHEMA_VERSION == 4
+    # issue #97 t2 bumps again to 5 for Plan.obligations/CriterionObligation (the
+    # plan-side twin of frame.SCHEMA_VERSION's v5 bump for Frame.lapses/LapseRecord).
+    assert PLAN_SCHEMA_VERSION == 5
 
 
 def test_legacy_plan_without_schema_version_loads() -> None:
