@@ -305,6 +305,16 @@ The exported plan-md is a buildable artifact: topologically ordered tasks, each
 with acceptance criteria and the spec targets it covers. It feeds directly into
 implementation (or `superpowers:writing-plans`).
 
+## After the plan converges — hand off to /assign-to-workforce
+
+Once `converge` passes and `export` writes the plan-md, this leg is done.
+`devague plan waves --json` emits the dependency-graph plus the per-task brief
+(see above) as scheduling metadata — the single source the `/assign-to-workforce`
+skill needs to fan the plan's waves out to parallel subagents, get the human's
+go/no-go on the implementation split plan, and TDD-gate each merge. Continue
+with `/assign-to-workforce` next; if a fan-out mid-run needs to diverge from
+this plan, that is `/deviate`'s job, not a silent edit here.
+
 ## Provenance
 
 This is a **first-party** skill — its origin is `agentculture/devague`, where the

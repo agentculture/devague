@@ -24,7 +24,7 @@ the devague method — the *seventh* origin skill, sitting *third* in flow
 order, between the spec leg and the plan leg:
 
 ```text
-scope -> think -> challenge -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
+scope -> think -> challenge -> spec-to-plan -> assign-to-workforce -> deviate -> validate-delivery -> summarize-delivery
 ```
 
 Before this leg existed, a frame could converge on precisely stated claims

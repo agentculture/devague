@@ -136,7 +136,9 @@ def test_instruct_on_proposed_task_no_flip_note(tmp_path, monkeypatch, capsys) -
     rc = main(["plan", "instruct", "t1", "how to verify"])
     assert rc == 0
     out = capsys.readouterr()
-    assert out.err == ""  # no flip note; status was already proposed
+    # No flip note (it was already proposed); the next-leg-hints stderr line
+    # is expected on every successful non-exempt call (issue next-leg-hints t1).
+    assert out.err == "next: run devague plan status\n"
     assert plan_store.load(slug).find_task("t1").status == "proposed"
 
 

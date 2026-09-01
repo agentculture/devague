@@ -14,6 +14,17 @@ CLI tracks state. Every move accepts and emits JSON (`--json`), with a strict
 without guessing internal state. All operations run fully offline against local
 `.devague/` state.
 
+Every successful, non-exempt move also prints a one-line `next: ...` stderr
+hint naming the recommended next move — always stderr, never stdout, never
+inside a `--json` payload, so a harness parsing structured output on stdout
+never has to filter it out. `status` and `plan status` are exempt, since
+reporting the next move is already their whole purpose. The default hint text
+per verb is overrideable: `[tool.devague]` in `pyproject.toml` sets `hints =
+false` to turn hints off globally, or `[tool.devague.hints]` to replace one
+verb's text; the `DEVAGUE_HINTS` environment variable (`off` / `0` / `false`)
+disables hints per invocation and takes precedence over `pyproject.toml` when
+both are set.
+
 For the portable, runtime-agnostic contract on *how* an assisting model should
 operate Devague — the move-driven mental model and the anti-fabrication rules —
 see [`llm-guidance.md`](llm-guidance.md) (also surfaced in `devague learn`).

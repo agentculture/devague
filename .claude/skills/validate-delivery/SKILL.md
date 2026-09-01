@@ -179,6 +179,18 @@ devague delta --kind amended \
 cites evidence `e1` at `high` confidence (a passing behavioral test); `c11`'s
 row is `unverified` or explicitly failing, never rounded up.
 
+## After validating — hand off to /summarize-delivery
+
+Once every obligation in scope has an evidence record (or is reported as not
+yet checkable) and any behavioral deltas are filed, this leg is done — there
+is nothing separate to export, the filed records already live in devague
+state. Continue with the sibling **`/summarize-delivery`** skill: its
+Delivery Claims table reads the evidence and deltas filed here directly
+(`devague summary`), so the confidence a claim carries in the final delivery
+artifact traces back to a test that actually ran, not to memory. Don't stop
+at "tests ran" — the standing flow is **file the evidence, then
+`/summarize-delivery`**.
+
 ## The motivating record
 
 The Reasoning Degradation Ledger (`devague lapse`, issue

@@ -282,28 +282,47 @@ Once all waves are merged and the full test suite passes, the main agent opens
 a PR via the `cicd` skill (`agex pr open`). The human reviews and merges. This
 is the last and only remaining human gate.
 
-## After the final PR — summarize the delivery
+## Hand-offs: mid-run and after the final PR
 
-Once the final PR is **merged**, close the execution loop cleanly instead of
-stopping at a green merge:
+Two hand-offs bracket execution — one that can fire mid-run, one that always
+fires after the final PR merges:
 
-1. **Summarize the delivery.** Run the sibling **`/summarize-delivery`** skill —
-   the delivery-side closure leg. It turns the run into a committed
-   accountability artifact (`docs/deliveries/<created-date>-<slug>.md`) that
-   records planned-versus-actual delivery, the mid-work decisions the workforce
-   made, where execution drifted from the plan, evidence-backed delivery claims
-   (a claim without evidence stays `unverified`, never asserted as done), and
-   any remaining work. The `devague plan waves --json` payload you fanned out is
-   the planned-work baseline it compares actuals against.
-2. **It closes partial and failed runs too.** `/summarize-delivery` does not
-   require every wave to have merged — a run that shipped only some tasks, or
-   none, still produces a truthful artifact: the failure lands under drift and
-   remaining work, and no claim says done without evidence.
+1. **Mid-run — hand off to `/deviate`.** If a task agent (or the main agent)
+   discovers the confirmed plan no longer matches reality partway through a
+   wave, that is not a silent edit to this run — stop, get explicit human
+   approval for the divergence, and record it via the sibling **`/deviate`**
+   skill (`devague deviate`) before resuming the fan-out. This is not a fourth
+   standing gate; it is the human owner of gate 2 approving an amendment to it
+   in-flight.
+2. **Post-merge — hand off to `/validate-delivery`, then `/summarize-delivery`.**
+   Once the final PR is **merged**, close the execution loop cleanly instead of
+   stopping at a green merge:
+   a. **Validate delivery.** Run the sibling **`/validate-delivery`** skill —
+      the execution-to-evidence leg. It runs the plan's behavioral tests
+      agent-side and files what it found (obligations met, evidence, and any
+      behavioral deltas) via the devague CLI; a failing or unchecked outcome is
+      filed and reported exactly as such, never rounded up.
+   b. **Summarize the delivery.** Run the sibling **`/summarize-delivery`**
+      skill — the delivery-side closure leg. It turns the run into a committed
+      accountability artifact (`docs/deliveries/<created-date>-<slug>.md`) that
+      records planned-versus-actual delivery, the mid-work decisions the
+      workforce made, where execution drifted from the plan, evidence-backed
+      delivery claims (a claim without evidence stays `unverified`, never
+      asserted as done — the strength ladder now draws on what
+      `/validate-delivery` filed), and any remaining work. The `devague plan
+      waves --json` payload you fanned out is the planned-work baseline it
+      compares actuals against.
+   c. **Both close partial and failed runs too.** Neither skill requires every
+      wave to have merged — a run that shipped only some tasks, or none, still
+      produces a truthful record: the failure lands under drift and remaining
+      work, and no claim says done without evidence.
 
 This is the accountability wrap-up after the three gates, not a fourth gate —
-`/summarize-delivery` is method-only and read-only (#20): it summarizes the run,
-it does not orchestrate, gate merges, or mutate devague state. Don't stop at
-"PR merged" — the standing flow is **merge, then `/summarize-delivery`**.
+`/deviate`, `/validate-delivery`, and `/summarize-delivery` are all method-only
+and record- or read-only (#20): none of them orchestrate, gate merges, or
+mutate devague state beyond their own append-only records. Don't stop at "PR
+merged" — the standing flow is **merge, then `/validate-delivery`, then
+`/summarize-delivery`**.
 
 ## Hard rules (do not violate)
 

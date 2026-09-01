@@ -4,6 +4,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Status
 
+**Every verb gains a next-move stderr hint (next-leg-hints).** After each
+successful, non-exempt move, the CLI now prints one line to stderr —
+`next: <recommended move>` — naming what to run next (a leg-ending verb like
+`export` or `summary` names the next skill/command; everything else falls
+through to `devague status` / `devague plan status`). `status` and `plan
+status` are exempt, since reporting the next move is already their whole
+purpose. Emission is centralized in `devague/cli/_hints.py`, called exactly
+once from dispatch — no command module emits it itself — so stdout (including
+every `--json` payload) is untouched. The default per-verb text is
+overrideable via `[tool.devague]` in `pyproject.toml` (`hints = false` turns
+hints off globally; `[tool.devague.hints]` replaces one verb's text) or the
+`DEVAGUE_HINTS` environment variable (`off` / `0` / `false`; the environment
+wins over `pyproject.toml`). `devague explain <move>` documents the override
+for the leg-ending verbs (`export`, `deviate`, `evidence`, `delta`, `summary`,
+`today`), and `devague learn`'s operating rules mention it.
+
 **The validate-delivery skill lands — seventh in flow order, eighth origin
 skill (issue #97, #107).** New skill **`/validate-delivery`**
 (`.claude/skills/validate-delivery/SKILL.md`) — the execution-to-evidence leg
@@ -520,8 +536,10 @@ that unless the user asks otherwise. The established sibling shape is:
   (so `python -m devague` works).
 - An argparse **CLI chassis** under `devague/cli/`: `__init__.py` with `main()`
   (exposed as the `devague` console script), plus `_errors.py` (a
-  `DevagueError` + exit-code policy) and `_output.py` (strict stdout/stderr
-  split, `--json` support).
+  `DevagueError` + exit-code policy), `_output.py` (strict stdout/stderr
+  split, `--json` support), and `_hints.py` + `_hint_config.py` (the
+  per-verb `next: ...` stderr hint emitted once from dispatch, and its
+  `[tool.devague]` / `DEVAGUE_HINTS` override, respectively).
 - `devague/cli/_commands/` — one module per verb, each exposing `register()`.
   Frame verbs: `new`, `capture`, `amend`, `interrogate`, `confirm`, `reject`,
   `review`, `question`, `park`, `scope`, `lapse` (`--list`, `--confirm`,
