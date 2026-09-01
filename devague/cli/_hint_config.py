@@ -64,14 +64,18 @@ def _load_devague_table() -> dict:
     ``pyproject.toml``. Returns ``{}`` on any missing/unreadable/unparsable
     file, or when the table simply isn't there — never raises.
     """
-    path = Path.cwd() / "pyproject.toml"
     try:
-        raw = path.read_bytes()
+        # Path.cwd() itself raises OSError when the working directory has been
+        # deleted or unmounted, so it lives inside the guard too — emit_next_hint
+        # runs *after* the dispatch guard, and a raise here would turn an
+        # otherwise successful command into a traceback (PR #110 review).
+        raw = (Path.cwd() / "pyproject.toml").read_bytes()
     except OSError:
         return {}
     try:
+        # TOMLDecodeError and UnicodeDecodeError are both ValueError subclasses.
         parsed = tomllib.loads(raw.decode("utf-8"))
-    except (tomllib.TOMLDecodeError, ValueError):
+    except ValueError:
         return {}
     tool = parsed.get("tool")
     if not isinstance(tool, dict):
@@ -98,13 +102,25 @@ def hints_enabled() -> bool:
 
 def override_text(key: str) -> str | None:
     """The verbatim replacement hint text for ``key`` under
-    ``[tool.devague.hints]``, or ``None`` if there is no string override for
-    it (missing table, missing key, or a non-string value — all ignored
-    rather than erroring).
+    ``[tool.devague.hints]``, or ``None`` if there is no usable string
+    override for it (missing table, missing key, a non-string value, or a
+    value that would break the one-line hint contract — all ignored rather
+    than erroring).
+
+    A hint is documented as exactly one ``next: ...`` stderr line, so an
+    override carrying an embedded newline (a TOML multi-line string, or an
+    escaped ``\\n``) is discarded and the default text applies — a
+    continuation line would carry no ``next:`` prefix and be unattributable
+    to hint output by any line-oriented consumer (PR #110 review). Ignoring
+    it is the same fail-open treatment a non-string value already gets.
     """
     table = _load_devague_table()
     hints = table.get("hints")
     if not isinstance(hints, dict):
         return None
     text = hints.get(key)
-    return text if isinstance(text, str) else None
+    if not isinstance(text, str):
+        return None
+    if "\n" in text or "\r" in text:
+        return None
+    return text

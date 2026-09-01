@@ -680,3 +680,36 @@ def test_behavioral_new_capture_interrogate_confirm_converge_export_via_hints_on
     assert rc == 0
     assert "exported spec to" in out
     assert "next: run /challenge or /spec-to-plan" in err
+
+
+# ── PR #110 review: an `--origin llm` filing lands proposed ────────────────
+
+_EXPECTED_PROPOSED = {
+    "deviate": "get the user's devague deviate --confirm, then resume the fan-out",
+    "evidence": "get the user's devague evidence --confirm, then run devague summary",
+    "delta": "get the user's devague delta --confirm, then run devague summary",
+}
+
+
+@pytest.mark.parametrize(("command", "filing_kwargs"), sorted(_FILING_ATTRS.items()))
+def test_llm_origin_filing_hints_confirmation_not_the_next_leg(command, filing_kwargs) -> None:
+    # `--origin llm` records land `proposed`, and both /deviate and
+    # /validate-delivery require the human --confirm before the leg advances;
+    # the hint must not nudge past that gate.
+    assert hint_for(_ns(command, origin="llm", **filing_kwargs)) == _EXPECTED_PROPOSED[command]
+
+
+@pytest.mark.parametrize(("command", "filing_kwargs"), sorted(_FILING_ATTRS.items()))
+def test_user_origin_filing_still_hints_the_next_leg(command, filing_kwargs) -> None:
+    # A user-origin filing auto-approves, so the leg really is done.
+    assert hint_for(_ns(command, origin="user", **filing_kwargs)) == _EXPECTED_LEG_END[command]
+
+
+@pytest.mark.parametrize("command", sorted(_FILING_ATTRS))
+def test_llm_origin_adjudication_still_falls_through_to_the_default(command) -> None:
+    # r1 is unchanged: only a *filing* run is ever leg-ending, whatever
+    # --origin says.
+    listing_kwargs = {attr: None for attr in _FILING_ATTRS[command]}
+    assert hint_for(_ns(command, origin="llm", list=True, **listing_kwargs)) == (
+        "run devague status"
+    )

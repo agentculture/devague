@@ -23,6 +23,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 - assign-to-workforce split-plan --write no longer merges stderr into the `plan show --json` output it parses — latent bug exposed by the hint line (approved deviation d2; nlh t1)
+- An `--origin llm` deviate/evidence/delta filing lands `proposed`, so its hint now names the user's `--confirm` instead of the next leg — the old text nudged the operator past the human gate that /deviate and /validate-delivery both require (PR #110 review)
+- Hint config is fail-open against an unavailable working directory: `Path.cwd()` moved inside the guard, so a deleted CWD can no longer turn a successful command into a traceback from post-dispatch hint emission (PR #110 review)
+- A multiline `[tool.devague.hints]` override is ignored in favour of the default text — a continuation line would carry no `next:` prefix, breaking the one-line hint contract for line-oriented consumers (PR #110 review)
+- assign-to-workforce split-plan --write cleans up its `plan show --json` stderr temp file on any exit path, matching the trap discipline of the `plan waves --json` capture above it (PR #110 review)
+- Redundant `tomllib.TOMLDecodeError` in a `except (…, ValueError)` tuple removed (SonarCloud python:S5713); `devague explain delta` / `explain today` no longer render `'[tool.devague]'/ '[tool.devague.hints]'` with a stray space (PR #110 review)
 
 ## [0.23.0] - 2026-08-31
 

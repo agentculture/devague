@@ -292,19 +292,26 @@ PY
     # extra read-only call (for the plan's `created`/`title`, to match the
     # date-prefixed filename convention `devague plan export` already uses).
     if [ "$write_mode" -eq 1 ]; then
-        local show_json show_rc show_err show_tmp_err
+        local show_json show_rc show_err show_tmp_err show_old_exit_trap
         # A successful `devague plan show --json` now also emits a one-line
         # `next: ...` stderr hint (next-leg-hints t1) — stderr must stay OFF
         # the captured JSON string (a plain `2>&1` merge would corrupt it), so
         # it is captured separately and only surfaced on a real failure,
-        # mirroring the `plan waves --json` capture above.
+        # mirroring the `plan waves --json` capture above — including that
+        # capture's trap discipline: prior EXIT trap saved before mktemp,
+        # cleanup installed on the line after it, prior trap restored once the
+        # file is gone (PR #110 review).
+        show_old_exit_trap="$(trap -p EXIT)"
         show_tmp_err="$(mktemp)"
+        trap 'rm -f "$show_tmp_err"' EXIT
         set +e
         show_json="$("${DEVAGUE[@]}" plan show --json "${extra_args[@]}" 2>"$show_tmp_err")"
         show_rc=$?
         set -e
         show_err="$(cat "$show_tmp_err")"
         rm -f "$show_tmp_err"
+        trap - EXIT
+        eval "${show_old_exit_trap}"  # empty string is a no-op; re-installs a prior trap if any
         if [ "$show_rc" -ne 0 ]; then
             printf '%s\n' "$show_err" >&2
             return "$show_rc"

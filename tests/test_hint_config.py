@@ -342,3 +342,56 @@ def test_key_for_command_none_is_none() -> None:
 def test_hint_config_module_importable_as_expected_name() -> None:
     # Sanity: the brief names this module `_hint_config.py`.
     assert _hint_config.__name__ == "devague.cli._hint_config"
+
+
+# ── PR #110 review: one-line contract + CWD fail-open ──────────────────────
+
+
+@pytest.mark.parametrize(
+    "toml_body",
+    [
+        # An escaped newline inside a basic string.
+        '[tool.devague.hints]\nexport = "line one\\nline two"\n',
+        # A TOML multi-line literal string.
+        '[tool.devague.hints]\nexport = """line one\nline two"""\n',
+        # A lone trailing newline still breaks the single-line contract.
+        '[tool.devague.hints]\nexport = "trailing\\n"\n',
+        # Carriage returns count too.
+        '[tool.devague.hints]\nexport = "cr\\rsplit"\n',
+    ],
+)
+def test_override_text_multiline_value_is_ignored(tmp_path, monkeypatch, toml_body) -> None:
+    # A hint is exactly one `next: ...` stderr line; a continuation line would
+    # carry no prefix, so a multiline override is discarded like any other
+    # unusable value and the default text applies.
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text(toml_body)
+    assert override_text("export") is None
+
+
+def test_multiline_override_falls_back_to_default_end_to_end(tmp_path, monkeypatch, capsys) -> None:
+    _no_env(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "pyproject.toml").write_text('[tool.devague.hints]\ncapture = "first\\nsecond"\n')
+    main(["new", "--title", "hint fallback", "we shipped a thing"])
+    capsys.readouterr()
+
+    rc = main(["capture", "--kind", "requirement", "a requirement", "--origin", "user"])
+    err = capsys.readouterr().err
+
+    assert rc == 0
+    assert err.rstrip("\n").splitlines()[-1] == "next: run devague status"
+
+
+def test_fail_open_when_cwd_is_unavailable(tmp_path, monkeypatch) -> None:
+    # `Path.cwd()` itself raises when the working directory has been deleted;
+    # the hint config must degrade to "no config" rather than let that escape
+    # into an otherwise-successful command's post-dispatch hint emission.
+    _no_env(monkeypatch)
+
+    def _boom():
+        raise FileNotFoundError("cwd is gone")
+
+    monkeypatch.setattr(_hint_config.Path, "cwd", staticmethod(_boom))
+    assert hints_enabled() is True
+    assert override_text("export") is None

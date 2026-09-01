@@ -49,6 +49,12 @@ filing apart from listing/adjudicating (``args.what`` for ``deviate``,
 ``args.obligation`` for ``evidence``, ``args.kind`` for ``delta`` — see
 :func:`_filed`).
 
+One refinement on that (PR #110 review): an ``--origin llm`` filing lands
+``proposed``, and both the ``/deviate`` and ``/validate-delivery`` skills
+require the human ``--confirm`` *before* the leg advances. Such a run
+therefore hints that adjudication rather than the next leg — recording is
+not approval, and the hint must not nudge past a human gate.
+
 Config lives in :mod:`devague.cli._hint_config` (t2): a global on/off
 (``DEVAGUE_HINTS`` env, or ``[tool.devague] hints = false`` in the consuming
 repo's ``pyproject.toml``) and per-verb replacement text
@@ -84,6 +90,18 @@ _MULTI_MODE_LEG_END: dict[str, str] = {
 }
 
 # `devague plan <subverb>` keys, namespaced "plan:<subverb>" per the brief.
+# The same three verbs when the filing run was `--origin llm`: the record lands
+# `proposed`, not approved, so the next move is the human adjudication the
+# `/deviate` and `/validate-delivery` skills both require before the leg
+# advances — hinting the next leg here would nudge past that gate (PR #110
+# review). Adjudicating (`--confirm`/`--reject`) is still not itself leg-ending;
+# it falls through to the within-leg default, per r1.
+_MULTI_MODE_PROPOSED: dict[str, str] = {
+    "deviate": "get the user's devague deviate --confirm, then resume the fan-out",
+    "evidence": "get the user's devague evidence --confirm, then run devague summary",
+    "delta": "get the user's devague delta --confirm, then run devague summary",
+}
+
 _PLAN_LEG_END: dict[str, str] = {
     "plan:export": "run /assign-to-workforce",
     "plan:waves": "run /assign-to-workforce",
@@ -142,7 +160,8 @@ def hint_for(args: argparse.Namespace) -> str | None:
     if command in _EXEMPT_FLAT:
         return None
     if command in _MULTI_MODE_LEG_END and _filed(command, args):
-        return _MULTI_MODE_LEG_END[command]
+        proposed = getattr(args, "origin", None) == "llm"
+        return (_MULTI_MODE_PROPOSED if proposed else _MULTI_MODE_LEG_END)[command]
     if command in _FLAT_LEG_END:
         return _FLAT_LEG_END[command]
     return _FLAT_DEFAULT

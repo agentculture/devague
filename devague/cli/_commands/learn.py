@@ -81,8 +81,9 @@ MOVES = {
         "A successful filing run prints a next-move stderr hint pointing at "
         "'run devague summary and /summarize-delivery' (override via "
         "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml or the "
-        "DEVAGUE_HINTS env var); '--list'/'--confirm'/'--reject' hint the "
-        "within-leg default instead."
+        "DEVAGUE_HINTS env var); an --origin llm filing hints the user's "
+        "'--confirm' first, since the record lands proposed; "
+        "'--list'/'--confirm'/'--reject' hint the within-leg default instead."
     ),
     "delta": (
         "File, list, supersede, retract, or adjudicate a behavioral delta "
@@ -98,18 +99,20 @@ MOVES = {
         "'--list [--json]' shows every filed delta plus the trailing "
         "supersession-event log. A successful filing run prints a next-move "
         "stderr hint pointing at 'run devague summary and "
-        "/summarize-delivery' (override via '[tool.devague]'/ "
-        "'[tool.devague.hints]' in pyproject.toml or the DEVAGUE_HINTS env "
-        "var); '--list'/'--confirm'/'--reject' hint the within-leg default "
-        "instead."
+        "/summarize-delivery' (override via "
+        "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml or the "
+        "DEVAGUE_HINTS env var); an --origin llm filing hints the user's "
+        "'--confirm' first, since the record lands proposed; "
+        "'--list'/'--confirm'/'--reject' hint the within-leg default instead."
     ),
     "today": (
         "Project the current behavior of the app from the delivery ledger and "
         "write docs/current-spec.md (read-only over every store; '--json' "
         "emits the structured projection instead of the write confirmation). "
         "On success prints a next-move stderr hint pointing at 'commit "
-        "docs/current-spec.md' (override via '[tool.devague]'/ "
-        "'[tool.devague.hints]' in pyproject.toml or the DEVAGUE_HINTS env "
+        "docs/current-spec.md' (override via "
+        "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml or the "
+        "DEVAGUE_HINTS env "
         "var)."
     ),
     "deviate": (
@@ -120,8 +123,9 @@ MOVES = {
         "filed deviation. A successful filing run prints a next-move stderr "
         "hint pointing at 'resume the fan-out' (override via "
         "'[tool.devague]'/'[tool.devague.hints]' in pyproject.toml or the "
-        "DEVAGUE_HINTS env var); '--list'/'--confirm'/'--reject' hint the "
-        "within-leg default instead."
+        "DEVAGUE_HINTS env var); an --origin llm filing hints the user's "
+        "'--confirm' first, since the record lands proposed; "
+        "'--list'/'--confirm'/'--reject' hint the within-leg default instead."
     ),
     "summary": (
         "Render the read-only delivery summary from state alone ('summary "
