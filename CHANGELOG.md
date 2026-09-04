@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.1] - 2026-09-04
+
+### Changed
+
+- README rewritten around what / why it works / how to use / impact, with an
+  eight-leg mermaid diagram, a numbered walkthrough, and version-stamped
+  captures, replacing the old three-stage arrow:
+
+  ```text
+  vague idea ──▶ buildable spec ──▶ buildable plan ──▶ build
+  ```
+
+- All eight origin skills (`scope`, `think`, `challenge`, `spec-to-plan`,
+  `assign-to-workforce`, `deviate`, `validate-delivery`,
+  `summarize-delivery`) gain a shared hand-off section and freshness rule
+  sourced from `docs/skills.md`
+- `deviate` and `summarize-delivery` flow diagrams redrawn to the eight-leg
+  order, replacing the old six-leg diagram:
+
+  ```text
+  scope -> think -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
+  ```
+
+- `think`'s after-export paths fixed to route through `/challenge` before
+  `/spec-to-plan`
+- `CLAUDE.md`'s Status section trimmed to the current release
+- `docs/spec-contract.md` gains Obligation / Evidence / Delta sections,
+  replacing the old placeholder sentence:
+
+  ```text
+  exact `oblige` / `evidence` / `delta` CLI surface ships separately; this
+  ```
+
+### Added
+
+- A README-pinning test that guards the rewritten README against silent
+  drift
+
+### Fixed
+
+- Closes #100 and #47
+
+No CLI behavior changed in this release — release hygiene and documentation
+only.
+
+#### Why more than the README
+
+- `CLAUDE.md` had two statements false against the code
+- `docs/spec-contract.md` was incomplete (no Obligation / Evidence / Delta
+  sections), not stale
+- `docs/skills.md` is the single source the skills copy their shared wording
+  from
+
 ## [0.24.0] - 2026-09-01
 
 ### Added
