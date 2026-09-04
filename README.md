@@ -15,17 +15,16 @@ devague --version
 
 Tell your agent:
 
-> Run `devague learn skills` and create the eight devague operator skills.
+> Run `devague learn` and learn the eight devague skills.
 
 ```bash
-devague learn skills         # what the agent reads: file layout, frontmatter, the rules
+devague learn                # what the agent reads: the method, then how to create the skills
 ```
 
-- The recipe is printed by the CLI; the agent writes the skill files, with
-  your consent, into its own skills folder (Claude Code: `.claude/skills/`).
+- The agent writes the eight skill files, with your consent, into its own
+  skills folder (Claude Code: `.claude/skills/`).
 - It never overwrites a skill that already exists.
-- `devague learn` alone teaches the method; `devague learn review` teaches
-  the final-PR review.
+- `devague learn review` teaches the final-PR review.
 
 ## Work with your agent
 
