@@ -1,7 +1,8 @@
 # devague
 
-**Turn a vague idea into a spec, a plan, and an accounted-for delivery.**
-Your AI agent drives devague. You hold the three gates.
+Devague is a CLI that helps you turn a vague idea into a spec, a plan, and
+an accounted-for delivery. Your AI agent drives devague. You hold the three
+gates.
 
 ## Install
 
