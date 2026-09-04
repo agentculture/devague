@@ -32,12 +32,22 @@ devague learn skills         # what the agent reads: file layout, frontmatter, t
 From here on you talk to the agent, one skill at a time, in this order:
 
 ```mermaid
-flowchart LR
-  S[1 scope] --> T[2 think] --> C[3 challenge]
-  C --> G1{{Gate 1 — you approve the spec}}
-  G1 --> P[4 spec-to-plan] --> G2{{Gate 2 — you approve the split plan}}
-  G2 --> A[5 assign-to-workforce] --> D[6 deviate] --> V[7 validate-delivery]
-  V --> Z[8 summarize-delivery] --> G3{{Gate 3 — you review the PR}}
+flowchart TB
+  subgraph spec [spec]
+    direction LR
+    S[1 scope] --> T[2 think] --> C[3 challenge]
+  end
+  subgraph plan [plan]
+    direction LR
+    P[4 spec-to-plan] --> A[5 assign-to-workforce]
+  end
+  subgraph delivery [delivery]
+    direction LR
+    D[6 deviate] --> V[7 validate-delivery] --> Z[8 summarize-delivery]
+  end
+  C --> G1{{Gate 1 — you approve the spec}} --> P
+  A --> G2{{Gate 2 — you approve the split plan}} --> D
+  Z --> G3{{Gate 3 — you review the PR}}
 ```
 
 1. **`/scope`** — the agent surveys what the idea touches and records each
