@@ -78,8 +78,10 @@ the agent's, and all of it is written down.
   until you confirm it.
 - **Nothing is deleted to go green.** Unknowns are parked, questions are
   resolved, out-of-milestone targets are deferred, all on the record.
-- **Ledgers are append-only and filed on the spot.** Deviations, evidence,
-  behavior deltas and reasoning lapses are recorded the moment they happen.
+- **Ledgers are append-only and filed on the spot.** The agent documents a
+  claim right as it happens, reducing the chance of mis-documentation due to
+  attention drift. Deviations, evidence, behavior deltas and reasoning lapses
+  are recorded the moment they happen, never reconstructed at the end.
 
 What devague never does:
 
