@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-09-04T13:20:49Z",
-  "updated": "2026-09-04T13:36:45Z",
+  "updated": "2026-09-04T13:43:22Z",
   "claims": [
     {
       "id": "c1",
@@ -491,6 +491,18 @@
       "hard_questions": [],
       "links": [],
       "instruction": "Four top-level sections in that order; the impact section is a table of every artifact path the CLI writes, with the verb that writes it and whether it is committed",
+      "revisions": []
+    },
+    {
+      "id": "c28",
+      "kind": "decision",
+      "text": "Scope is wider than the README the user asked for, deliberately, and for three different reasons: CLAUDE.md is covered because two of its statements are false against the code (lines 49-50 say the oblige/evidence/delta verbs ship separately; lines 199-202 say devague scope is still unimplemented), a verified staleness finding; docs/spec-contract.md is covered for completeness, not staleness (it documents lapses and deviations but not obligations, evidence or deltas), so a reader of the README's impact section can follow every ledger to its contract; docs/skills.md is covered only as a consequence of the skill edits (t5, t6): it is the single source the eight skills copy the shared hand-off section and freshness rule from, and it would contradict them otherwise. Nothing else outside README.md and the eight skills is touched",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "The PR description carries this paragraph under a heading 'Why more than the README'; a reviewer who wants README-only can drop t2 and t3 without breaking t4-t9",
       "revisions": []
     }
   ],

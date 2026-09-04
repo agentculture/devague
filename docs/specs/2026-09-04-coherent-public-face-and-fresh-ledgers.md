@@ -131,6 +131,8 @@
   - instruction: The first paragraph of README.md names the agent as the operator and the human as the gate owner; no wording implies a human types the moves by hand
 - README.md is organised around the four things a reader cares about, in this order: what devague is doing, why it works (the method and the gates), how to use it (install, the moves, the skills), and impact — what lands in .devague/ (frames, plans, deliveries) and in docs/ (specs, plans, deliveries, current-spec.md)
   - instruction: Four top-level sections in that order; the impact section is a table of every artifact path the CLI writes, with the verb that writes it and whether it is committed
+- Scope is wider than the README the user asked for, deliberately, and for three different reasons: CLAUDE.md is covered because two of its statements are false against the code (lines 49-50 say the oblige/evidence/delta verbs ship separately; lines 199-202 say devague scope is still unimplemented), a verified staleness finding; docs/spec-contract.md is covered for completeness, not staleness (it documents lapses and deviations but not obligations, evidence or deltas), so a reader of the README's impact section can follow every ledger to its contract; docs/skills.md is covered only as a consequence of the skill edits (t5, t6): it is the single source the eight skills copy the shared hand-off section and freshness rule from, and it would contradict them otherwise. Nothing else outside README.md and the eight skills is touched
+  - instruction: The PR description carries this paragraph under a heading 'Why more than the README'; a reviewer who wants README-only can drop t2 and t3 without breaking t4-t9
 
 ## Hard questions
 
