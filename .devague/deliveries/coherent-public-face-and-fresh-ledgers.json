@@ -2,7 +2,7 @@
   "plan_slug": "coherent-public-face-and-fresh-ledgers",
   "schema_version": 2,
   "created": "2026-09-04T13:58:44Z",
-  "updated": "2026-09-04T14:45:33Z",
+  "updated": "2026-09-04T14:49:42Z",
   "deviations": [
     {
       "id": "d1",
@@ -279,7 +279,7 @@
         "commit": "8b6abf4"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 15
     }
