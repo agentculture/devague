@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-09-04T13:20:49Z",
-  "updated": "2026-09-04T13:43:22Z",
+  "updated": "2026-09-04T14:08:43Z",
   "claims": [
     {
       "id": "c1",
@@ -732,6 +732,152 @@
       "seeds": []
     }
   ],
-  "lapses": [],
-  "obligations": []
+  "lapses": [
+    {
+      "id": "l1",
+      "code": "provenance-missing",
+      "what": "t4 README agent shortened a captured 'devague plan task' line (dropped --instruction and two --covers flags) while claiming captures were verbatim; caught before commit, exact recorded line restored and a byte-identity differ added",
+      "skipped_check": "verifying each capture block against its recorded run file before writing it into README.md",
+      "refs": [
+        "t4",
+        "c3"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l2",
+      "code": "provenance-missing",
+      "what": "t8 CHANGELOG entry misdescribed think's fix (said 'route through /challenge'; the fix was the .devague/frames and .devague/reviews paths, #47) and attributed the 'ships separately' sentence to docs/spec-contract.md when git show main proves it was in CLAUDE.md",
+      "skipped_check": "re-reading the merged diffs of t5 and t2 before summarising them in CHANGELOG.md",
+      "refs": [
+        "t8",
+        "c25"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "l3",
+      "code": "grader-unverified",
+      "what": "t9's first acceptance criterion, which I authored, graded 'git status --short empty' in ../org and a path allow-list without .devague/; both conflated pre-existing untracked files and intended frame/plan state with violations, so the grader reported two false failures",
+      "skipped_check": "dry-running the t9 criteria against the tree before confirming the plan",
+      "refs": [
+        "t9",
+        "c4"
+      ],
+      "origin": "llm",
+      "status": "approved"
+    }
+  ],
+  "obligations": [
+    {
+      "id": "o1",
+      "claim_id": "c2",
+      "seam": "README.md structure",
+      "behavior": "exactly one mermaid fence; an eight-item numbered list directly after it; four H2s in the spec's order",
+      "source_text": "README.md replaces its stale three-stage arrow (README.md lines 10-12: idea, spec, plan, build) with an eight-leg pipeline diagram as a mermaid fence, and adds a numbered move walkthrough (01 scope ... 08 summarize-delivery) modeled on the site page's pipeline stages and method sections",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o2",
+      "claim_id": "c3",
+      "seam": "README.md command blocks vs the argparse parser",
+      "behavior": "every devague line inside a bash fence parses against devague.cli._build_parser; every console capture opens with a devague version comment",
+      "source_text": "README.md gains real, verified code examples: every command block is checked against the shipped 'devague --help' / 'devague plan --help' output, and one short verbatim terminal capture per engine (frame, plan, delivery ledger) shows actual output including the 'next:' stderr hint",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o3",
+      "claim_id": "c6",
+      "seam": "eight SKILL.md flow text",
+      "behavior": "no six-leg or seven-leg text anywhere; deviate, summarize-delivery and validate-delivery diagrams byte-identical; think cites .devague/frames and .devague/reviews",
+      "source_text": "The deviate and summarize-delivery skills redraw their literal flow diagrams (deviate/SKILL.md lines 20-25, summarize-delivery/SKILL.md lines 22-27) as the eight-leg flow, and think/SKILL.md's after-export step (lines 275-277) cites .devague/frames/ and .devague/reviews/ instead of .devague/ and docs/reviews/ (closes issues 100 and 47)",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o4",
+      "claim_id": "c7",
+      "seam": "eight SKILL.md hard rules",
+      "behavior": "the freshness sentence appears verbatim in all eight files",
+      "source_text": "Every skill that files a ledger record carries one explicit freshness rule in its hard rules: file the record at the moment the thing happens, never at closeout; today only challenge (line 178), deviate (lines 4-5, 44, 109) and summarize-delivery (lines 33, 308) say so, while scope, spec-to-plan, assign-to-workforce and validate-delivery do not",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o5",
+      "claim_id": "c8",
+      "seam": "eight SKILL.md hand-off convention",
+      "behavior": "a '## Before and after this leg' section and a next: hint mention in all eight; devague today in validate-delivery and summarize-delivery",
+      "source_text": "The eight skills share one hand-off convention: each SKILL.md states the leg before it and after it in a same-named section, mentions devague today where the leg produces or consumes it (validate-delivery, summarize-delivery), and mentions the 'next:' stderr hint as the CLI's own next-move signal (issue 40 item 14 flags spec-to-plan's missing hand-off section)",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o6",
+      "claim_id": "c24",
+      "seam": "pytest suite",
+      "behavior": "uv run pytest -n auto exits 0 with no test removed",
+      "source_text": "The full pytest suite stays green after the skill edits: tests/test_spec_to_plan_skill.py (t19) pins spec-to-plan's moves table to the live CLI, tests/test_teaching_surface_sweep.py section 9 pins learn output against scope/SKILL.md, tests/test_cli_learn.py pins the SKILL.md paths, and tests/test_summary.py pins the delivery summary's eight sections to summarize-delivery/SKILL.md order",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o7",
+      "claim_id": "c23",
+      "seam": "PyPI rendering of README.md",
+      "behavior": "readme_renderer emits a pre block for the mermaid fence and keeps the eight-item list",
+      "source_text": "The numbered eight-leg walkthrough in README.md stands alone as the text fallback for the diagram: pyproject.toml line 6 makes README.md the PyPI long description, and a scratch probe with readme_renderer rendered a mermaid fence as a plain pre block (lang mermaid), so PyPI readers never see the diagram",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o8",
+      "claim_id": "c4",
+      "seam": "org repo working tree",
+      "behavior": "no tracked file under ../org is modified by this work",
+      "source_text": "README.md does not copy the site page's leg count: agentculture.org/agents/devague still presents seven legs and seven operator skills (no validate-delivery, no lapse, no oblige/evidence/delta, no today); the README stays ahead and the site is updated separately in the org repo",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o9",
+      "claim_id": "c15",
+      "seam": "CLAUDE.md Status and docs/spec-contract.md",
+      "behavior": "Status is one paragraph plus a CHANGELOG pointer; six entity sections exist for obligations, evidence and deltas",
+      "source_text": "CLAUDE.md's Status section shrinks to the current release plus a pointer to CHANGELOG.md, and its two false statements are removed (lines 49-50: 'the exact oblige / evidence / delta CLI surface ships separately'; lines 199-202: 'devague scope ... still unimplemented'); docs/spec-contract.md gains entity sections for Obligation, EvidenceRecord and DeltaRecord documenting the fields that exist today",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o10",
+      "claim_id": "c25",
+      "seam": "release hygiene",
+      "behavior": "devague --version prints 0.24.1; CHANGELOG.md carries a matching top entry",
+      "source_text": "The PR bumps the version (patch, 0.24.x) and prepends a CHANGELOG.md entry: .github/workflows/tests.yml line 64 enforces the AgentCulture rule that every PR bumps the version, docs included",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o11",
+      "claim_id": "c19",
+      "seam": "markdown lint on every touched file",
+      "behavior": "markdownlint-cli2 exits 0 on README.md, CLAUDE.md, CHANGELOG.md, docs/*.md and the eight SKILL.md files",
+      "source_text": "A reader who has only the README can name the eight legs in order, the three human gates, and what devague never does (call an LLM, run a test, orchestrate); markdownlint-cli2 passes on every touched file; every command block in README matches the shipped --help output",
+      "origin": "llm",
+      "status": "approved"
+    },
+    {
+      "id": "o12",
+      "claim_id": "c18",
+      "seam": "README.md first screen",
+      "behavior": "no claim ids, move names or ledger jargon before the first H2",
+      "source_text": "Humans meeting devague cold on GitHub or PyPI (a reader deciding whether to install it) first; operator agents driving the CLI second, via the skills and devague learn",
+      "origin": "llm",
+      "status": "approved"
+    }
+  ]
 }
