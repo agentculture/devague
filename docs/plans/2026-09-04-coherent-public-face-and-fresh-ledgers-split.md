@@ -143,7 +143,7 @@ Edit the Owner/Model columns before approving gate 2 — the default Model is a 
 ### Terminal tasks
 
 - `t9` — Verification sweep: boundaries untouched, no stale leg or verb text anywhere, lint and tests green, README answers the three reader questions
-  - git -C ../org status --short and git -C ../guildmaster status --short are both empty; git status in this repo lists changes only under README.md, CLAUDE.md, CHANGELOG.md, pyproject.toml, uv.lock, devague/__init__.py, docs/, tests/ and .claude/skills/
+  - git -C ../org status --short and git -C ../guildmaster status --short are both empty; git status in this repo lists changes only under README.md, CLAUDE.md, CHANGELOG.md, pyproject.toml, uv.lock, `devague/__init__.py`, docs/, tests/ and .claude/skills/
   - grep -rn 'six-leg\|seven-leg\|still unimplemented\|ships separately' README.md CLAUDE.md docs/*.md .claude/skills/*/SKILL.md returns nothing
   - markdownlint-cli2 on README.md, CLAUDE.md, CHANGELOG.md, docs/*.md and each of the eight SKILL.md files by explicit path exits 0; uv run pytest -n auto exits 0; uv run flake8 --config=.flake8 devague/ tests/ exits 0
   - The task report answers, from README.md alone, the eight legs in order, the three human gates, and the three things devague never does, quoting the README line that answers each
