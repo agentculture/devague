@@ -378,10 +378,10 @@ contract (stdout, `--json` for structured output, exit 0 on success).
 
 The trailing End state section (#70) never fails `split-plan`: on a `devague`
 new enough to have `plan deliverables`, it quotes that command's stdout
-verbatim under an `End state (from \`devague plan deliverables\`):` header; on
-an older `devague`, it prints exactly one hint line naming the minimum version
-(e.g. `hint: End state view requires devague >= 0.18.0 (devague plan
-deliverables)`) and `split-plan` still exits 0.
+verbatim under an ``End state (from `devague plan deliverables`):`` header; on
+an older `devague`, it prints exactly one hint line naming the minimum
+version (e.g. `hint: End state view requires devague >= 0.18.0 (devague plan deliverables)`)
+and `split-plan` still exits 0.
 
 `--write` adds exactly one line after all of the above: `wrote split
 artifact: <path>` on the first run, `updated split artifact: <path>` on every
