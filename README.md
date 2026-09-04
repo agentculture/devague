@@ -45,9 +45,9 @@ flowchart TB
     direction LR
     D[6 deviate] --> V[7 validate-delivery] --> Z[8 summarize-delivery]
   end
-  C --> G1{{Gate 1 — you approve the spec}} --> P
-  A --> G2{{Gate 2 — you approve the split plan}} --> D
-  Z --> G3{{Gate 3 — you review the PR}}
+  spec --> G1{{Gate 1 — you approve the spec}} --> plan
+  plan --> G2{{Gate 2 — you approve the split plan}} --> delivery
+  delivery --> G3{{Gate 3 — you review the PR}}
 ```
 
 1. **`/scope`** — the agent surveys what the idea touches and records each
