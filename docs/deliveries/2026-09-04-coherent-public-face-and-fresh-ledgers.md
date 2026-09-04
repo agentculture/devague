@@ -39,6 +39,7 @@ After: A newcomer reads README.md top to bottom and meets one eight-leg diagram,
 
 - `d1` — After t4's README lands and t7's pinning test merges, the main agent (not a workforce subagent) makes an additional editorial pass over README.md: validate it against the spec, make it welcoming, cut prose to light-or-none, keep it technical and clear; t7's test and t9's sweep must still pass afterwards — user request mid-run: the leading model owns the final README quality, beyond t4's acceptance criteria
 
+- `d2` — Post-run README restructure by the main agent: install and agent setup move to the top, the verb-level walkthrough and the three console captures are removed, tests/test_readme_commands.py is re-pinned to the new section list; supersedes the shape t4 and t7 delivered — user direction after gate 3 opened: devague is installed with uv tool install / uvx and the agent learns the skills via devague learn skills; specific commands do not matter to the human reader
 - CHANGELOG bullets from `t8` were corrected by the main agent after merge (think fix misdescribed; a CLAUDE.md quote misattributed to spec-contract.md) — no deviation record; recorded as lapse `l2` and fixed in `952fe6a`.
 - `t9`'s first acceptance criterion produced two false failures (untracked files in `../org` dated July, and the `.devague/` frame and plan JSON the spec and plan commits intentionally added); resolved by measurement (`git -C ../org diff --stat` empty), not by editing the criterion — recorded as lapse `l3`.
 - `t9` fixed a pre-existing MD038 lint error in assign-to-workforce/SKILL.md that the repo's `.claude/skills/**` lint ignore had hidden — within its instruction, no record needed.
@@ -48,6 +49,7 @@ After: A newcomer reads README.md top to bottom and meets one eight-leg diagram,
 | Plan item | Reason for divergence | Classification |
 |-----------|------------------------|-----------------|
 | `t4` (`d1`) | user request mid-run: the leading model owns the final README quality, beyond t4's acceptance criteria | `acceptable` |
+| `t4`, `t7` (`d2`) | user direction after gate 3 opened: devague is installed with uv tool install / uvx and the agent learns the skills via devague learn skills; specific commands do not matter to the human reader | `acceptable` |
 | `t8` | CHANGELOG entry needed two factual corrections after merge (`l2`); the version bump and quotes were correct | `acceptable` |
 | `t9` | criterion 1 as written flagged pre-existing untracked files and intended `.devague/` state as violations (`l3`); the honesty conditions h4 and h9 behind it hold | `acceptable` |
 
@@ -63,7 +65,8 @@ After: A newcomer reads README.md top to bottom and meets one eight-leg diagram,
 - render: `readme_renderer` on README.md — one `pre lang=mermaid` block, list items intact (PyPI fallback)
 - boundary: `git -C ../org diff --stat` and `--cached` — empty; `git -C ../guildmaster status --short` — empty
 - commits: `4e66665..171589e` (spec, plan, split, nine task merges, two main-agent reconciliations)
-- ledger: obligations `o1`–`o12`, evidence `e1`–`e12` (all pass, run commit `171589e`), deltas `b1` `b2`, deviation `d1`, lapses `l1`–`l3` — all approved
+- ledger: obligations `o1`–`o12`, evidence `e1`–`e12` (all pass, run commit `171589e`), deltas `b1` `b2`, deviations `d1` `d2`, lapses `l1`–`l3` — all approved
+- note: `d2` removed the console captures after `e2`/`e1` were filed; `c3`'s capture half and `h14` no longer hold on the final README and are superseded by decision `c29`, not claimed
 - PRs / issues: this branch's PR (opened after this artifact; closes #100 and #47)
 
 ## Delivery Claims

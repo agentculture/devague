@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-09-04T13:20:49Z",
-  "updated": "2026-09-04T14:08:43Z",
+  "updated": "2026-09-04T14:16:22Z",
   "claims": [
     {
       "id": "c1",
@@ -503,6 +503,18 @@
       "hard_questions": [],
       "links": [],
       "instruction": "The PR description carries this paragraph under a heading 'Why more than the README'; a reviewer who wants README-only can drop t2 and t3 without breaking t4-t9",
+      "revisions": []
+    },
+    {
+      "id": "c29",
+      "kind": "decision",
+      "text": "README.md leads with install (uv tool install devague, or uvx devague) and then how to set up the agent: ask your agent to run devague learn skills and create the eight operator skills; the human then works with the agent through /scope, /think and the rest. Command-level detail is dropped: the agent uses the CLI, the human never types the moves. Supersedes the section list in c27",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "Sections: Install, Set up your agent, Work with your agent, Why it works, What lands where; no console captures, at most one command per bash block",
       "revisions": []
     }
   ],

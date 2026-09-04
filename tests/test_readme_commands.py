@@ -32,10 +32,11 @@ README = REPO_ROOT / "README.md"
 _FENCE_RE = re.compile(r"^```(?P<lang>\S+)\n(?P<body>.*?)^```\s*$", re.MULTILINE | re.DOTALL)
 
 _EXPECTED_H2 = [
-    "## What devague does",
+    "## Install",
+    "## Set up your agent",
+    "## Work with your agent",
     "## Why it works",
-    "## How to use it",
-    "## Impact: what lands where",
+    "## What lands where",
 ]
 
 
@@ -169,7 +170,7 @@ def test_every_readme_bash_devague_line_matches_the_shipped_cli() -> None:
 def test_at_least_one_bash_command_line_was_actually_checked() -> None:
     # A regression guard against the extractor silently matching nothing (which
     # would make the criterion-1 test vacuously pass).
-    assert len(_bash_command_lines()) >= 5
+    assert len(_bash_command_lines()) >= 2
 
 
 # ── acceptance criterion 2: structural promises ────────────────────────────
@@ -217,22 +218,6 @@ def test_eight_leg_numbered_list_follows_the_mermaid_fence_in_flow_order() -> No
 
 
 _VERSION_COMMENT_RE = re.compile(r"^#\s*devague\s+\d+\.\d+\.\d+\s*$")
-
-
-def test_every_console_capture_block_opens_with_a_devague_version_comment() -> None:
-    text = _readme_text()
-    console_blocks = _fenced_blocks(text, "console")
-    assert console_blocks, "expected at least one ```console capture block"
-    for block in console_blocks:
-        first_line = block.splitlines()[0].strip() if block.splitlines() else ""
-        assert _VERSION_COMMENT_RE.match(first_line), (
-            "```console block does not open with a '# devague X.Y.Z' comment: " f"{first_line!r}"
-        )
-
-
-def test_exactly_three_console_capture_blocks() -> None:
-    text = _readme_text()
-    assert len(_fenced_blocks(text, "console")) == 3
 
 
 def test_h2_sections_appear_in_order() -> None:

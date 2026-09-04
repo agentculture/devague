@@ -6,11 +6,13 @@
 ## Audience
 
 - Humans meeting devague cold on GitHub or PyPI (a reader deciding whether to install it) first; operator agents driving the CLI second, via the skills and devague learn
+  - ⚠ contested by `d1` (acceptable): user request mid-run: the leading model owns the final README quality, beyond t4's acceptance criteria
 
 ## Before → After
 
 - After: A newcomer reads README.md top to bottom and meets one eight-leg diagram, numbered moves with real captured output, the three human gates, and the ledgers the CLI keeps; the eight skills agree with each other and with the CLI; CLAUDE.md and docs describe the shipped surface with no statement the code contradicts
   - instruction: Read README.md, the eight SKILL.md files and CLAUDE.md as a first-time reader; list any leg, verb or path they disagree on
+  - ⚠ contested by `d1` (acceptable): user request mid-run: the leading model owns the final README quality, beyond t4's acceptance criteria
 
 ## Why it matters
 
@@ -21,9 +23,11 @@
 
 - README.md replaces its stale three-stage arrow (README.md lines 10-12: idea, spec, plan, build) with an eight-leg pipeline diagram as a mermaid fence, and adds a numbered move walkthrough (01 scope ... 08 summarize-delivery) modeled on the site page's pipeline stages and method sections
   - instruction: Diagram: a left-to-right mermaid flowchart with the eight legs and the three human gates as annotated nodes; keep it under 20 lines so GitHub renders it legibly
+  - ⚠ contested by `d1` (acceptable): user request mid-run: the leading model owns the final README quality, beyond t4's acceptance criteria
   - honesty: README.md contains exactly one mermaid fence naming all eight legs in flow order and a numbered walkthrough with one entry per leg; markdownlint-cli2 README.md exits 0
 - README.md gains real, verified code examples: every command block is checked against the shipped 'devague --help' / 'devague plan --help' output, and one short verbatim terminal capture per engine (frame, plan, delivery ledger) shows actual output including the 'next:' stderr hint
   - instruction: Run each README command block in a throwaway frame under a scratch directory, paste stdout and the stderr next: line verbatim, and note the devague version the capture came from
+  - ⚠ contested by `d2` (acceptable): user direction after gate 3 opened: devague is installed with uv tool install / uvx and the agent learns the skills via devague learn skills; specific commands do not matter to the human reader
   - honesty: Every fenced devague command in README.md is present in the shipped --help output at the version README names, and every captured output block was pasted from a real run in this repo, never typed by hand
   - honesty: Each captured output block in README.md names the devague version it was recorded at, so a reader can tell when a capture has aged past the installed release
 - The deviate and summarize-delivery skills redraw their literal flow diagrams (deviate/SKILL.md lines 20-25, summarize-delivery/SKILL.md lines 22-27) as the eight-leg flow, and think/SKILL.md's after-export step (lines 275-277) cites .devague/frames/ and .devague/reviews/ instead of .devague/ and docs/reviews/ (closes issues 100 and 47)
@@ -131,8 +135,11 @@
   - instruction: The first paragraph of README.md names the agent as the operator and the human as the gate owner; no wording implies a human types the moves by hand
 - README.md is organised around the four things a reader cares about, in this order: what devague is doing, why it works (the method and the gates), how to use it (install, the moves, the skills), and impact — what lands in .devague/ (frames, plans, deliveries) and in docs/ (specs, plans, deliveries, current-spec.md)
   - instruction: Four top-level sections in that order; the impact section is a table of every artifact path the CLI writes, with the verb that writes it and whether it is committed
+  - ⚠ contested by `d2` (acceptable): user direction after gate 3 opened: devague is installed with uv tool install / uvx and the agent learns the skills via devague learn skills; specific commands do not matter to the human reader
 - Scope is wider than the README the user asked for, deliberately, and for three different reasons: CLAUDE.md is covered because two of its statements are false against the code (lines 49-50 say the oblige/evidence/delta verbs ship separately; lines 199-202 say devague scope is still unimplemented), a verified staleness finding; docs/spec-contract.md is covered for completeness, not staleness (it documents lapses and deviations but not obligations, evidence or deltas), so a reader of the README's impact section can follow every ledger to its contract; docs/skills.md is covered only as a consequence of the skill edits (t5, t6): it is the single source the eight skills copy the shared hand-off section and freshness rule from, and it would contradict them otherwise. Nothing else outside README.md and the eight skills is touched
   - instruction: The PR description carries this paragraph under a heading 'Why more than the README'; a reviewer who wants README-only can drop t2 and t3 without breaking t4-t9
+- README.md leads with install (uv tool install devague, or uvx devague) and then how to set up the agent: ask your agent to run devague learn skills and create the eight operator skills; the human then works with the agent through /scope, /think and the rest. Command-level detail is dropped: the agent uses the CLI, the human never types the moves. Supersedes the section list in c27
+  - instruction: Sections: Install, Set up your agent, Work with your agent, Why it works, What lands where; no console captures, at most one command per bash block
 
 ## Hard questions
 

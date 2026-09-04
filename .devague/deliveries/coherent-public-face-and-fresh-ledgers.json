@@ -2,7 +2,7 @@
   "plan_slug": "coherent-public-face-and-fresh-ledgers",
   "schema_version": 2,
   "created": "2026-09-04T13:58:44Z",
-  "updated": "2026-09-04T14:08:43Z",
+  "updated": "2026-09-04T14:16:22Z",
   "deviations": [
     {
       "id": "d1",
@@ -18,6 +18,21 @@
       "status": "approved",
       "classification": "acceptable",
       "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "Post-run README restructure by the main agent: install and agent setup move to the top, the verb-level walkthrough and the three console captures are removed, tests/test_readme_commands.py is re-pinned to the new section list; supersedes the shape t4 and t7 delivered",
+      "task_ref": "t4",
+      "reason": "user direction after gate 3 opened: devague is installed with uv tool install / uvx and the agent learns the skills via devague learn skills; specific commands do not matter to the human reader",
+      "affects": [
+        "c27",
+        "c3",
+        "h14"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 14
     }
   ],
   "evidence": [
