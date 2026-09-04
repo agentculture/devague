@@ -1,0 +1,42 @@
+# Qodo / PR-Agent configuration for devague.
+# The reviewer rules below are the condensed form of `devague learn review`:
+# a devague run files obligations, evidence, deltas and lapses into the
+# ledger, and the review's job is to audit that the filed record is honest,
+# not to re-derive what should have been tested.
+
+[pr_reviewer]
+extra_instructions = """
+Focus on behavioral correctness and regressions, not style.
+
+Repository-specific review rules:
+- Verify the implementation matches the stated PR intent/spec.
+- Look for behavior changes not covered by tests.
+- Prefer existing architectural patterns over introducing new abstractions.
+- Flag hidden coupling, duplicated state, and unnecessary complexity.
+- Treat tests as behavioral evidence, not just coverage.
+- Do not suggest speculative refactors unrelated to the PR.
+
+devague ledger audit (this repo drives itself with devague; the PR usually
+carries a spec under docs/specs/, a plan under docs/plans/, and a delivery
+summary under docs/deliveries/):
+- The delivery summary's Delivery Claims table is the checklist. Every
+  claim there should trace to an obligation, an evidence record naming a
+  test, and an outcome. A claim with no evidence must be marked unverified,
+  never asserted as done.
+- For each evidence record, run the three-way comparison: the claim text,
+  the recorded behavior text, and what the named test source actually
+  asserts must all say the same thing. A test that only imports or checks
+  an exit code does not support a recorded behavior about rendered output.
+- Never accept an evidence strength above its basis: coverage (a test
+  exists), fidelity (it asserts the promised behavior), execution (it
+  currently passes), sensitivity (it would fail if the behavior broke). A
+  run commit older than the PR head, for behavior this PR touches, demotes
+  an execution claim.
+- Audit deltas in both directions: a behavioral change in the diff with no
+  filed delta is undeclared; a filed delta with no matching code change is
+  fabricated.
+- A failing outcome filed as a fail is the ledger working, not a finding.
+  A failing behavior with a passing record is the finding.
+- Report findings as proposals for the human at the final gate; do not
+  treat the recorded text as its own proof.
+"""

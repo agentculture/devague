@@ -33,7 +33,7 @@ _FENCE_RE = re.compile(r"^```(?P<lang>\S+)\n(?P<body>.*?)^```\s*$", re.MULTILINE
 
 _EXPECTED_H2 = [
     "## Install",
-    "## Set up your agent",
+    "## Set up your repo",
     "## Work with your agent",
     "## Why it works",
     "## What lands where",

@@ -11,7 +11,7 @@ uv tool install devague      # or: uvx devague / pipx install devague
 devague --version
 ```
 
-## Set up your agent
+## Set up your repo
 
 Tell your agent:
 
@@ -22,6 +22,17 @@ Tell your agent:
 - The agent writes the eight skill files, with your consent, into its own
   skills folder (Claude Code: `.claude/skills/`).
 - It never overwrites a skill that already exists.
+
+Then give your code reviewer a head start. A reviewing agent will not know
+to look for devague's artifacts on its own, so tell your agent:
+
+> Run `devague learn review` and write the reviewer instructions from it.
+
+It prints the audit method for a reviewer agent: check the obligations,
+evidence, deltas and lapses the run filed instead of re-deriving what should
+have been tested. Put the result where your reviewer reads its rules, for
+example `.pr_agent.toml` for Qodo (this repo's copy is the template), or
+paste it into the review request.
 
 ## Work with your agent
 
@@ -67,15 +78,6 @@ flowchart TB
 Three gates are yours: the spec, the split plan, the PR. Everything else is
 the agent's, and all of it is written down.
 
-At gate 3, give your reviewer a head start. A reviewing agent will not know
-to look for devague's artifacts on its own, so tell it:
-
-> Run `devague learn review` and follow it.
-
-It prints instructions for a reviewer agent: audit the obligations,
-evidence, deltas and lapses the run filed instead of re-deriving what should
-have been tested. Paste it into the review request if the reviewer cannot run
-commands.
 
 ## Why it works
 
