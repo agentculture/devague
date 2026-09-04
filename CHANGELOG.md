@@ -28,15 +28,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   scope -> think -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
   ```
 
-- `think`'s after-export paths fixed to route through `/challenge` before
-  `/spec-to-plan`
-- `CLAUDE.md`'s Status section trimmed to the current release
-- `docs/spec-contract.md` gains Obligation / Evidence / Delta sections,
-  replacing the old placeholder sentence:
+- `think`'s after-export step now cites `.devague/frames/<slug>.json` and
+  `.devague/reviews/` instead of paths the CLI never writes (#47)
+- `CLAUDE.md`'s Status section trimmed to the current release, dropping two
+  statements the code contradicted, including:
 
   ```text
   exact `oblige` / `evidence` / `delta` CLI surface ships separately; this
   ```
+
+- `docs/spec-contract.md` gains Obligation / Evidence / Delta entity sections
+  matching the shipped dataclasses
 
 ### Added
 
