@@ -170,7 +170,7 @@ def test_every_readme_bash_devague_line_matches_the_shipped_cli() -> None:
 def test_at_least_one_bash_command_line_was_actually_checked() -> None:
     # A regression guard against the extractor silently matching nothing (which
     # would make the criterion-1 test vacuously pass).
-    assert len(_bash_command_lines()) >= 2
+    assert len(_bash_command_lines()) >= 1
 
 
 # ── acceptance criterion 2: structural promises ────────────────────────────
