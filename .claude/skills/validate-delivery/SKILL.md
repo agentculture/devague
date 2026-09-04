@@ -130,6 +130,8 @@ auto-approves, mirroring `deviate` and `lapse`.
   add a fourth standing human gate — it produces the record `/summarize-
   delivery` and the final PR review consume; the three gates (spec,
   implementation split plan, final PR) are unchanged.
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Worked example
 
@@ -212,6 +214,19 @@ that idea: it does not implement the full ledger or the derived-spec
 projection — it establishes where in the flow behavioral checking happens,
 what gets filed, and how the failure mode #97 documented gets closed instead
 of rediscovered.
+
+## Before and after this leg
+
+```text
+Previous leg: deviate
+Next leg: summarize-delivery
+```
+
+After every successful, non-exempt move, the CLI prints one `next: <recommended
+move>` line to stderr — follow it, or run `devague status` when unsure what
+comes next. The evidence and deltas filed here also feed `devague today`'s
+read-only projection of current behavior into the committed
+`docs/current-spec.md`.
 
 ## Provenance
 

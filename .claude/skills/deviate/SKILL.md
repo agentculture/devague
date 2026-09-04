@@ -18,10 +18,11 @@ type: command
 # deviate — record an approved mid-run departure from the confirmed plan
 
 The skill is named **`deviate`**; it is the **execution-time leg** of the
-devague method — the *sixth* leg, sitting between the two execution skills:
+devague method — the sixth of eight legs, sitting between the two execution skills:
 
 ```text
-scope -> think -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
+scope -> think -> challenge -> spec-to-plan -> assign-to-workforce ->
+deviate -> validate-delivery -> summarize-delivery
 ```
 
 Where `/assign-to-workforce` fans out a converged plan's waves and
@@ -117,6 +118,8 @@ by the plan slug, and never touches the plan JSON itself.
   human gates are the exported spec, the implementation split plan, and the
   final PR. `/deviate` does not add a fourth — it is the human owner of gate
   2 amending the approved split for one scoped, in-flight decision.
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Worked example
 
@@ -165,6 +168,17 @@ Drift From Plan and Mid-work Decisions sections quote these deviation records
 by their `dN` id instead of reconstructing drift from memory, so the
 connective tissue between the confirmed plan and the delivery summary is the
 ledger this skill wrote, not anyone's recollection of the run.
+
+## Before and after this leg
+
+```text
+Previous leg: assign-to-workforce
+Next leg: validate-delivery
+```
+
+After every successful, non-exempt move, the CLI prints one `next: <recommended
+move>` line to stderr — follow it, or run `devague status` when unsure what
+comes next.
 
 ## Provenance
 
