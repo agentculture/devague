@@ -234,7 +234,9 @@ Once the human approves, the main agent fans out each wave in order:
      in its transcript or final report; it never runs `devague lapse` itself,
      because it never runs any devague command inside its worktree (see the
      hard rule below). The **main agent** files the record (`devague lapse
-     "<what>" --code <code> --origin llm`) once the worktree is reconciled.
+     "<what>" --code <code> --origin llm`) the moment the task agent reports
+     it — not deferred to closeout — since written late is written
+     flattering.
 
 3. **Same-wave tasks run in parallel** (within-wave tasks have no
    inter-task dependency; the dependency graph guarantees this). Same-file
@@ -352,10 +354,11 @@ These protect the human-gate contract and the TDD guarantee.
   unverified grader, missing provenance, or another `LAPSE_CODES` case
   (`devague/frame.py`) — it reports the degradation in its transcript or
   final report; it does not file it. The **main agent** files that record
-  after reconciling the worktree (`devague lapse "<what>" --code <code>
-  --origin llm`), the same way it alone runs every plan-mutating move —
-  mirroring the `/scope` subagent boundary, where exploration subagents
-  report and only the main agent runs a `devague` move (#79/#91). Adjudicating
+  the moment the task agent's report surfaces it, not deferred to closeout
+  (`devague lapse "<what>" --code <code> --origin llm`), the same way it
+  alone runs every plan-mutating move — mirroring the `/scope` subagent
+  boundary, where exploration subagents report and only the main agent runs
+  a `devague` move (#79/#91). Adjudicating
   a filed lapse (`devague lapse --confirm`/`--reject`) is the same human who
   already owns gate 2/3 — no new role — typically exercised once the run
   reaches `/summarize-delivery`.
@@ -363,6 +366,8 @@ These protect the human-gate contract and the TDD guarantee.
   implementation split plan, (3) the final PR. No silent fourth gate.
 - **No LLM calls in the devague CLI.** The CLI is deterministic. This skill
   adds orchestration convention, not CLI behavior.
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Output contract
 
@@ -373,10 +378,10 @@ contract (stdout, `--json` for structured output, exit 0 on success).
 
 The trailing End state section (#70) never fails `split-plan`: on a `devague`
 new enough to have `plan deliverables`, it quotes that command's stdout
-verbatim under an `End state (from \`devague plan deliverables\`):` header; on
-an older `devague`, it prints exactly one hint line naming the minimum version
-(e.g. `hint: End state view requires devague >= 0.18.0 (devague plan
-deliverables)`) and `split-plan` still exits 0.
+verbatim under an ``End state (from `devague plan deliverables`):`` header; on
+an older `devague`, it prints exactly one hint line naming the minimum
+version (e.g. `hint: End state view requires devague >= 0.18.0 (devague plan deliverables)`)
+and `split-plan` still exits 0.
 
 `--write` adds exactly one line after all of the above: `wrote split
 artifact: <path>` on the first run, `updated split artifact: <path>` on every
@@ -433,6 +438,17 @@ task id, summary, instruction, acceptance criteria, and the targets it covers
 are all in that one payload. Quote those fields **verbatim** into each task
 agent's brief; the fan-out is honest only if what the subagent builds against
 is exactly what the user confirmed in the plan.
+
+## Before and after this leg
+
+```text
+Previous leg: spec-to-plan
+Next leg: deviate
+```
+
+After every successful, non-exempt move, the CLI prints one `next: <recommended
+move>` line to stderr — follow it, or run `devague plan status` when unsure
+what comes next.
 
 ## Provenance
 

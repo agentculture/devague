@@ -1,0 +1,320 @@
+{
+  "plan_slug": "coherent-public-face-and-fresh-ledgers",
+  "schema_version": 2,
+  "created": "2026-09-04T13:58:44Z",
+  "updated": "2026-09-04T14:49:42Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "After t4's README lands and t7's pinning test merges, the main agent (not a workforce subagent) makes an additional editorial pass over README.md: validate it against the spec, make it welcoming, cut prose to light-or-none, keep it technical and clear; t7's test and t9's sweep must still pass afterwards",
+      "task_ref": "t4",
+      "reason": "user request mid-run: the leading model owns the final README quality, beyond t4's acceptance criteria",
+      "affects": [
+        "c2",
+        "c18",
+        "c20"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "Post-run README restructure by the main agent: install and agent setup move to the top, the verb-level walkthrough and the three console captures are removed, tests/test_readme_commands.py is re-pinned to the new section list; supersedes the shape t4 and t7 delivered",
+      "task_ref": "t4",
+      "reason": "user direction after gate 3 opened: devague is installed with uv tool install / uvx and the agent learns the skills via devague learn skills; specific commands do not matter to the human reader",
+      "affects": [
+        "c27",
+        "c3",
+        "h14"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 14
+    }
+  ],
+  "evidence": [
+    {
+      "id": "e1",
+      "obligation_ref": "o1",
+      "test_ref": "tests/test_readme_commands.py",
+      "behavior_text": "asserts one mermaid fence, eight legs in order right after it, four H2s in order, three version-stamped captures",
+      "contract_text": "README has one eight-leg diagram and a numbered walkthrough",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "7 passed at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 2
+    },
+    {
+      "id": "e2",
+      "obligation_ref": "o2",
+      "test_ref": "tests/test_readme_commands.py::test_readme_commands_parse",
+      "behavior_text": "parses 9 devague command lines against the in-process argparse parser; zero misses",
+      "contract_text": "every README command block matches the shipped CLI",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "7 passed at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 3
+    },
+    {
+      "id": "e3",
+      "obligation_ref": "o3",
+      "test_ref": "grep -rn 'six-leg|seven-leg|docs/reviews' + md5sum of the three diagram blocks",
+      "behavior_text": "grep returned 0 hits; the three diagram blocks hash to one value",
+      "contract_text": "skills draw the eight-leg flow and cite real paths",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "run agent-side at the named commit; output 0 and 1",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 4
+    },
+    {
+      "id": "e4",
+      "obligation_ref": "o4",
+      "test_ref": "tr newline + grep across the eight SKILL.md",
+      "behavior_text": "the wrapped freshness sentence matched once in each of eight files",
+      "contract_text": "every filing skill carries the freshness rule verbatim",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "8 files, count 1 each, at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 5
+    },
+    {
+      "id": "e5",
+      "obligation_ref": "o5",
+      "test_ref": "grep -l for the hand-off heading, 'next: ' and 'devague today'",
+      "behavior_text": "8 hand-off sections, 8 next: mentions, 2 today mentions",
+      "contract_text": "the eight skills share one hand-off convention",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "counts 8 / 8 / 2 at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 6
+    },
+    {
+      "id": "e6",
+      "obligation_ref": "o6",
+      "test_ref": "uv run pytest -n auto -q",
+      "behavior_text": "full suite green",
+      "contract_text": "the test suite stays green after the skill edits",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "1651 passed in 5.42s at the named commit; baseline before the run was 1644",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 7
+    },
+    {
+      "id": "e7",
+      "obligation_ref": "o7",
+      "test_ref": "uv run --with readme-renderer[md] python -m readme_renderer README.md",
+      "behavior_text": "output contains one pre lang=mermaid block and 28 list items",
+      "contract_text": "the numbered walkthrough stands alone as the PyPI fallback",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "rendered at the named commit in scratch space",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 8
+    },
+    {
+      "id": "e8",
+      "obligation_ref": "o8",
+      "test_ref": "git -C ../org diff --stat and diff --cached --stat",
+      "behavior_text": "both empty: no tracked modification",
+      "contract_text": "no file under the org repo is modified by this work",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "t9's literal criterion 'status --short empty' FAILED because ../org carries seven untracked files dated 2026-07-10 to 2026-07-22, all predating this run; the honesty condition h4 (no modification) holds",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 9
+    },
+    {
+      "id": "e9",
+      "obligation_ref": "o9",
+      "test_ref": "awk over CLAUDE.md Status + grep -c of six entity headings in docs/spec-contract.md",
+      "behavior_text": "Status spans 20 lines (one paragraph + pointer); 6 entity sections present",
+      "contract_text": "CLAUDE.md Status shrinks; spec-contract gains the three record kinds",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "20 lines and 6 sections at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 10
+    },
+    {
+      "id": "e10",
+      "obligation_ref": "o10",
+      "test_ref": "uv run devague --version + grep -n in CHANGELOG.md",
+      "behavior_text": "prints devague 0.24.1; entry at CHANGELOG.md line 8",
+      "contract_text": "the PR bumps the version and prepends a CHANGELOG entry",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "verified at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 11
+    },
+    {
+      "id": "e11",
+      "obligation_ref": "o11",
+      "test_ref": "markdownlint-cli2 on README.md CLAUDE.md CHANGELOG.md docs/*.md, and on the eight SKILL.md copied beside a config without the skills ignore",
+      "behavior_text": "Summary: 0 error(s) twice",
+      "contract_text": "lint passes on every touched file",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "the .claude/skills ignore glob in the repo config is bypassed by copying, as t5/t6/t9 did",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 12
+    },
+    {
+      "id": "e12",
+      "obligation_ref": "o12",
+      "test_ref": "sed -n 1,12p README.md | grep for ids, capture, interrogate, converge",
+      "behavior_text": "0 hits before the first H2",
+      "contract_text": "the first screen uses no devague jargon",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "checked at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:07:03Z",
+        "commit": "171589e"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 13
+    },
+    {
+      "id": "e13",
+      "obligation_ref": "o2",
+      "test_ref": "tests/test_readme_commands.py::test_every_readme_bash_devague_line_matches_the_shipped_cli",
+      "behavior_text": "parses every devague line inside a bash fence of README.md against the in-process argparse parser; zero misses",
+      "contract_text": "every README command block matches the shipped CLI",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "5 passed at the named commit; replaces e2, whose --test named a node id (test_readme_commands_parse) that never existed (Qodo review of PR 114)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:45:33Z",
+        "commit": "8b6abf4"
+      },
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false,
+      "seq": 15
+    }
+  ],
+  "deltas": [
+    {
+      "id": "b1",
+      "kind": "added",
+      "behavior_text": "tests/test_readme_commands.py pins README.md to the shipped argparse parser and to its own structural promises (one diagram, eight legs, four H2s, version-stamped captures)",
+      "caused_by": [
+        "c24"
+      ],
+      "evidence_refs": [
+        "e1",
+        "e2"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b2",
+      "kind": "amended",
+      "behavior_text": "README.md after t4 was rewritten by the main agent into bullets, a rules table and a see-also list (202 lines); structure, captures and command blocks unchanged",
+      "caused_by": [
+        "d1"
+      ],
+      "evidence_refs": [
+        "e1",
+        "e2"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "superseded": false
+    }
+  ],
+  "supersessions": []
+}

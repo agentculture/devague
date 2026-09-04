@@ -20,10 +20,11 @@ type: command
 # summarize-delivery — turn a workforce run into an accountability artifact
 
 The skill is named **`summarize-delivery`**; it is the **delivery-side closure
-leg** that closes the devague method's six-leg flow:
+leg** that closes the devague method's eight-leg flow:
 
 ```text
-scope -> think -> spec-to-plan -> assign-to-workforce -> deviate -> summarize-delivery
+scope -> think -> challenge -> spec-to-plan -> assign-to-workforce ->
+deviate -> validate-delivery -> summarize-delivery
 ```
 
 It runs *after* the sibling **`/assign-to-workforce`** skill has executed (or
@@ -348,6 +349,8 @@ These are the point of the method — a delivery summary must be trustworthy.
   verbatim from the `devague summary` skeleton (or `devague plan waves --json`
   when hand-assembling). Drift is measured against the confirmed contract, not
   a reworded version of it.
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Worked example
 
@@ -447,6 +450,20 @@ gate (the final PR). Commit `docs/deliveries/<created-date>-<slug>.md` alongside
 the run's work so the reviewer can audit planned-versus-actual without replaying
 the transcript. This skill does not open the PR or mutate any state — it
 produces the artifact the human reviews.
+
+## Before and after this leg
+
+```text
+Previous leg: validate-delivery
+Next leg: nothing follows
+```
+
+After every successful, non-exempt move, the CLI prints one `next: <recommended
+move>` line to stderr — follow it, or run `devague status` when unsure what
+comes next. This skill's Delivery Claims table, and everything else it reads
+from the delivery ledger, is exactly what `devague today` projects forward
+into the committed `docs/current-spec.md` — the derived "what does the app do
+today" view, kept independent of any one dated export.
 
 ## Provenance
 

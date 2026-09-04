@@ -62,6 +62,40 @@ output contract, and a worked example. The three canonical skills are the
 reference for this shape — copy from the sources linked below rather than
 inventing structure.
 
+### Shared conventions
+
+Three pieces of text are shared across every skill's `SKILL.md`. This is
+their single definition — each per-skill section below points here instead
+of restating them, and every skill copies these verbatim rather than
+reinventing its own wording.
+
+**Hand-off section.** Each `SKILL.md`'s operating doc closes with a
+`## Before and after this leg` section, using this two-line template:
+
+```text
+Previous leg: <skill name, or "nothing precedes">
+Next leg: <skill name, or "nothing follows">
+```
+
+The terminal leg of the flow (currently `summarize-delivery`) writes
+literally `nothing follows` for "Next leg"; the opening leg (currently
+`scope`) writes literally `nothing precedes` for "Previous leg".
+
+**Freshness rule.** Every skill's `## Hard rules (do not violate)` section
+includes this sentence verbatim:
+
+> File the record the moment the thing happens, never at closeout — written
+> late is written flattering (issue 97).
+
+**Flow diagram.** The eight-leg flow is defined once, here, as this fenced
+block — the only diagram a skill may copy into its own `SKILL.md` (it
+matches `validate-delivery/SKILL.md` lines 27-29 byte for byte):
+
+```text
+scope -> think -> challenge -> spec-to-plan -> assign-to-workforce ->
+deviate -> validate-delivery -> summarize-delivery
+```
+
 ## The entry-point script — portable CLI resolver
 
 `scripts/<name>.sh` resolves the devague CLI portably and **forwards every move
@@ -200,6 +234,10 @@ hard-question-id> ...]`, plus `scope --list [--json]` and, since 0.21.0,
 "genuinely unknown, needs a user decision" finding down, whose provenance link
 was previously unrecordable. An unknown seed id is refused with a hint.
 
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
+
 - Source:
   [`.claude/skills/scope/`](https://github.com/agentculture/devague/blob/main/.claude/skills/scope/SKILL.md)
   (`SKILL.md` only).
@@ -216,6 +254,10 @@ questions, `instruction`, and inbound scope seeds), and `devague interrogate
 <cN> --resolve <qN> --decision "<text>"` closes out a blocking hard question —
 before that, one blocking question deadlocked `converge` permanently
 (#84, #48/#52).
+
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
 
 - Source:
   [`.claude/skills/think/`](https://github.com/agentculture/devague/blob/main/.claude/skills/think/SKILL.md)
@@ -262,6 +304,10 @@ The skill ships no entry-point script of its own — it drives the same flat
 `devague <move>` verbs `/think` already uses, so no new CLI surface,
 subparser, or state model exists to resolve (#20). New in 0.19.0.
 
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
+
 - Source:
   [`.claude/skills/challenge/`](https://github.com/agentculture/devague/blob/main/.claude/skills/challenge/SKILL.md)
   (`SKILL.md` only).
@@ -287,6 +333,10 @@ straight away (#90); and `plan defer <target-id> --reason "<text>"` deliberately
 excludes a target that belongs to a later milestone, which is what makes a
 milestone-scoped plan converge honestly instead of being covered by a task that
 merely names it (#85).
+
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
 
 - Source:
   [`.claude/skills/spec-to-plan/`](https://github.com/agentculture/devague/blob/main/.claude/skills/spec-to-plan/SKILL.md)
@@ -347,6 +397,10 @@ it are fully regenerated every run. Present the file (or plain `split-plan`'s
 stdout twin) at the go/no-go either way — `--write` keeps a committed record
 of what was approved, it does not replace the live review.
 
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
+
 - Source:
   [`.claude/skills/assign-to-workforce/`](https://github.com/agentculture/devague/blob/main/.claude/skills/assign-to-workforce/SKILL.md)
   (`SKILL.md` + `scripts/assign-to-workforce.sh`).
@@ -363,6 +417,10 @@ mid-flight. `--origin llm` lands `proposed`; only the user
 append-only ledger in `.devague/deliveries/<plan-slug>.json` and are the
 connective tissue `/summarize-delivery` quotes by `dN` id instead of
 reconstructing drift from memory. New in 0.18.0.
+
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
 
 - Source:
   [`.claude/skills/deviate/`](https://github.com/agentculture/devague/blob/main/.claude/skills/deviate/SKILL.md)
@@ -394,6 +452,10 @@ afterwards; none by a test failing") and issue
 skill is written against those verb names with minimal command examples so
 reconciliation stays cheap.
 
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
+
 - Source:
   [`.claude/skills/validate-delivery/`](https://github.com/agentculture/devague/blob/main/.claude/skills/validate-delivery/SKILL.md)
   (`SKILL.md` only).
@@ -417,6 +479,10 @@ reasoning-degradation lapse grounds a Delivery Claims confidence level
 honestly instead of letting it default to `high`; a still-**proposed** one is
 pending, not yet evidence; and adjudicating one (`devague lapse --confirm`/
 `--reject`) is the same gate-owning human's job, never this skill's.
+
+Its `SKILL.md` uses the shared hand-off section, freshness rule, and flow
+diagram defined once in [Shared conventions](#shared-conventions) — it does
+not restate them.
 
 - Source:
   [`.claude/skills/summarize-delivery/`](https://github.com/agentculture/devague/blob/main/.claude/skills/summarize-delivery/SKILL.md)

@@ -2,8 +2,8 @@
 
 ## Coverage boundary
 
-This projection is complete only over the behavior ledger: 2 of 12 plans have a ledgered delivery (`behavior-validation-and-today-spec`, `next-leg-hints`), spanning `2026-08-31T18:27:51Z` (plan `behavior-validation-and-today-spec`) through `2026-08-31T21:32:17Z` (plan `next-leg-hints`).
-10 of 12 frames have no ledgered delivery at all (`challenge-skill`, `devague-0-6-0-ships-the-human-review-loop-devague`, `devague-now-ships-a-documented-spec-contract-every`, `devague-ships-a-sharper-end-to-end-method-a-guided`, `devague-turns-a-converged-plan-into-parallel-simpl`, `execution-seam-and-deviate`, `issue-backlog-sweep`, `reasoning-degradation-ledger`, `resolve-parked-vagueness`, `summarize-delivery-skill`) — nothing in this document reflects them.
+This projection is complete only over the behavior ledger: 3 of 13 plans have a ledgered delivery (`behavior-validation-and-today-spec`, `coherent-public-face-and-fresh-ledgers`, `next-leg-hints`), spanning `2026-08-31T18:27:51Z` (plan `behavior-validation-and-today-spec`) through `2026-09-04T13:58:44Z` (plan `coherent-public-face-and-fresh-ledgers`).
+10 of 13 frames have no ledgered delivery at all (`challenge-skill`, `devague-0-6-0-ships-the-human-review-loop-devague`, `devague-now-ships-a-documented-spec-contract-every`, `devague-ships-a-sharper-end-to-end-method-a-guided`, `devague-turns-a-converged-plan-into-parallel-simpl`, `execution-seam-and-deviate`, `issue-backlog-sweep`, `reasoning-degradation-ledger`, `resolve-parked-vagueness`, `summarize-delivery-skill`) — nothing in this document reflects them.
 Anything predating this boundary, or belonging to an unledgered frame, is not reflected here by construction.
 
 ## Current behavior
@@ -20,6 +20,16 @@ Anything predating this boundary, or belonging to an unledgered frame, is not re
   - provenance: caused by `c20` — plan `behavior-validation-and-today-spec`, frame `behavior-validation-and-today-spec`
   - proof: best strength `execution`
     - evidence: automated — execution: pass (run 2026-08-31 @ 3945fb7)
+- tests/`test_readme_commands.py` pins README.md to the shipped argparse parser and to its own structural promises (one diagram, eight legs, four H2s, version-stamped captures) (`coherent-public-face-and-fresh-ledgers:b1`, added)
+  - provenance: caused by `c24` — plan `coherent-public-face-and-fresh-ledgers`, frame `coherent-public-face-and-fresh-ledgers`
+  - proof: best strength `execution`
+    - evidence: automated — execution: pass (run 2026-09-04 @ 171589e)
+    - evidence: automated — execution: pass (run 2026-09-04 @ 171589e)
+- README.md after t4 was rewritten by the main agent into bullets, a rules table and a see-also list (202 lines); structure, captures and command blocks unchanged (`coherent-public-face-and-fresh-ledgers:b2`, amended)
+  - provenance: caused by `d1` — plan `coherent-public-face-and-fresh-ledgers`, frame `coherent-public-face-and-fresh-ledgers`
+  - proof: best strength `execution`
+    - evidence: automated — execution: pass (run 2026-09-04 @ 171589e)
+    - evidence: automated — execution: pass (run 2026-09-04 @ 171589e)
 - every successful non-exempt devague verb now emits one next: stderr progression hint, overrideable via tool.devague in pyproject.toml or `DEVAGUE_HINTS` (`next-leg-hints:b1`, added)
   - provenance: caused by `c11` — plan `next-leg-hints`, frame `next-leg-hints`
   - proof: best strength `execution`

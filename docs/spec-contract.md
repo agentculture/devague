@@ -288,6 +288,44 @@ the what-to-build artifact rather than record process history (the same
 principle behind *Contested claims* below: process history points forward,
 the spec is not rewritten).
 
+### Obligation
+
+A filed behavioral obligation — a commitment attached to a claim's checkable
+seam, the frame-side half of the behavior-validation seam (`/validate-delivery`,
+issue #97/#108). Lives on the frame as `Frame.obligations`, mirroring
+`LapseRecord`'s chassis: prefix-generic id minting via `Frame._next`,
+origin-driven initial status, append-only with no delete path.
+
+- `id` — `o1`, `o2`, … minted from `Frame.obligations` — see the
+  frame/plan `o`-prefix collision note below.
+- `claim_id` — the claim this obligation is attached to; validated fail-closed
+  at the filing path (`Frame.add_obligation`), not in `__post_init__`, since
+  that constructor has no access to `Frame.claims`.
+- `seam` — the boundary/interface this obligation applies to, free text.
+- `behavior` — what is owed at that seam, free text.
+- `source_text` — a verbatim snapshot of the claim's text at filing time, so
+  later drift between the claim and what the obligation was filed against is
+  detectable (`obligation_drift`).
+- `origin` — `user` | `llm` (who filed it).
+- `status` — `proposed` | `approved` | `rejected`.
+
+Filed via `devague oblige <cN> --seam "<seam>" --behavior "<behavior>"`. A
+user-authored obligation (the default) auto-approves; an `llm`-authored one
+(`--origin llm`) lands `proposed` and needs an explicit user
+`devague oblige --confirm <oN>` / `--reject <oN>` — the same anti-fabrication
+rule as claims, tasks, deviations, and lapses. The only post-filing mutator is
+`Frame.set_obligation_status`: there is no amend and no delete — a wrong
+obligation is rejected and refiled, never edited in place.
+
+**Known ambiguity, not a fix (issue #108):** both `Frame.obligations` and
+`Plan.obligations` (see *CriterionObligation* under *The plan peer* below)
+mint ids from the same `_next(self.obligations, "o")` pattern, so a frame
+obligation `o3` and a plan obligation `o3` can coexist with no id-level way to
+tell which store an `o`-prefixed id names outside its own store's context.
+This is documented here as a known collision, not resolved — disambiguating
+would be a filing-path change to one or both stores, out of scope for this
+entity-only pass.
+
 ## Vocabulary
 
 ### Claim kinds
@@ -530,6 +568,37 @@ mid-run could never converge again. If the source frame has itself regressed
 below its own gate, the frame-drift error surfaces as-is rather than being
 reworded into "unknown coverage target".
 
+### CriterionObligation
+
+A filed behavioral obligation against one of a task's acceptance criteria —
+the plan-side twin of the frame's `Obligation` (issue #97/#108). Lives on the
+plan as `Plan.obligations`, mirroring `LapseRecord`'s chassis: prefix-generic
+id minting via `Plan._next`, origin-driven initial status, append-only with
+no delete path.
+
+- `id` — `o1`, `o2`, … minted from `Plan.obligations` — see the frame/plan
+  `o`-prefix collision note under *Obligation* above.
+- `task_id` — the task this obligation is attached to.
+- `criterion_index` — 1-based index into that task's `acceptance_criteria`
+  list, the same indexing convention `amend`'s `--accept-replace` /
+  `--accept-remove` use. Both `task_id` and `criterion_index` are validated
+  fail-closed at the filing path (`Plan.add_obligation`) against the task's
+  live acceptance-criteria list.
+- `criterion_snapshot` — a verbatim snapshot of the criterion's text at
+  filing time, so the obligation stays legible even if the criterion is
+  later amended or removed out from under it.
+- `seam` — the boundary/interface this obligation applies to, free text.
+- `behavior` — what is owed at that seam, free text.
+- `origin` — `user` | `llm` (who filed it).
+- `status` — `proposed` | `approved` | `rejected`.
+
+Filed via `devague plan oblige <tN> --criterion <N> --seam "<seam>" --behavior
+"<behavior>"`. A user-authored obligation (the default) auto-approves; an
+`llm`-authored one (`--origin llm`) lands `proposed` and needs an explicit
+user `devague plan oblige --confirm <oN>` / `--reject <oN>`. The only
+post-filing mutator is `Plan.set_obligation_status`: no amend, no delete —
+the same c20-style asymmetry as the Reasoning Degradation Ledger.
+
 ### Moves
 
 All plan moves take `--json` and `--plan <slug>` (default: the current plan).
@@ -663,8 +732,9 @@ operator flow — `scope` → `think` → `challenge` → `spec-to-plan` →
 sixth leg; the seventh, `/validate-delivery`, runs after a plan's waves
 merge and files record-only evidence (`devague oblige` / `devague evidence`
 / `devague delta`) that `devague summary`'s Delivery Claims table draws
-confidence from — its entity model ships in a parallel task and is not yet
-part of this contract.
+confidence from — its entity model (`EvidenceRecord`, `DeltaRecord`,
+`SupersessionEvent`) is documented below, alongside the frame- and plan-side
+`Obligation` / `CriterionObligation` records those evidence entries satisfy.
 
 The delivery ledger (`devague deviate` / `devague summary`) is the plan's
 **execution-side companion**, the smallest deterministic slice of a parked
@@ -682,6 +752,13 @@ resolves the plan first.
 - `schema_version` — integer; see *Schema versioning* below.
 - `created`, `updated` — ISO-8601 UTC timestamps, stamped on save.
 - `deviations` — list of DeviationRecord.
+- `evidence` — list of EvidenceRecord — the behavior-validation record family
+  (bvts t3, schema v2; see *EvidenceRecord* below).
+- `deltas` — list of DeltaRecord — the behavior-ledger record family (bvts
+  t3, schema v2; see *DeltaRecord* below).
+- `supersessions` — list of SupersessionEvent — the supersede/retract
+  history over evidence and delta records (bvts t3, schema v2; see
+  *SupersessionEvent* below).
 
 ### DeviationRecord
 
@@ -719,6 +796,113 @@ transition **from `proposed`** to `approved` or `rejected`: resolving a
 record that is not currently `proposed` (already `approved`, already
 `rejected`, or an auto-approved user record) is refused as a user error
 rather than silently overwritten.
+
+### RunReference
+
+When a piece of evidence last executed, and against what — nested inside an
+`EvidenceRecord`, not a top-level ledger entity.
+
+- `timestamp` — when the test last ran; required, never defaulted to "now"
+  — a backfilled reference would read fresher than the evidence really is.
+- `commit` — the commit SHA the test ran against; required, never defaulted
+  to HEAD, so a reviewer can re-run the named test and compare `commit`
+  against the PR head to check "currently passes" for real.
+
+Both fields are mandatory: a half-filled reference would be worse than none,
+so `RunReference.__post_init__` refuses an empty `timestamp` or `commit`.
+
+### EvidenceRecord
+
+An obligation met by a named test, asserting a named behavior — filed via
+`devague evidence`. Mirrors `DeviationRecord`'s chassis: prefix-generic id
+minting via `Delivery._next`, origin-driven initial status, append-only with
+no amend and no delete path.
+
+- `id` — `e1`, `e2`, …
+- `obligation_ref` — the obligation this evidence satisfies (an `oN` id from
+  either the frame's or the plan's obligation store — see the collision note
+  under *Obligation* above); a resolvable pointer, not the evidence itself.
+- `test_ref` — the test that asserts the behavior (e.g. a test node id); a
+  resolvable pointer, not the evidence itself.
+- `behavior_text` — what the named test actually asserts, quoted rather than
+  paraphrased.
+- `contract_text` — a snapshot of the claim or acceptance criterion at
+  filing time, for a human to read side by side with `behavior_text`.
+- `evidence_type` — one of `EVIDENCE_TYPES`: `automated`, `integration`,
+  `manual`, `observation`.
+- `strength` — one of `STRENGTH_LEVELS`: `coverage`, `fidelity`,
+  `execution`, `sensitivity`.
+- `strength_basis` — free text recorded beside `strength`, never inferred
+  from it: the filer states why the level was earned, and a reviewer accepts
+  no level above its stated basis.
+- `outcome` — one of `EVIDENCE_OUTCOMES`: `pass`, `fail` — recorded verbatim,
+  never rounded up.
+- `run` — optional RunReference (see above); `None` when not yet filed.
+- `origin` — `user` | `llm` (who filed it).
+- `status` — `proposed` | `approved` | `rejected`.
+- `superseded` — boolean; `False` until flipped by `Delivery.supersede` /
+  `Delivery.retract_supersession` — the only content-adjacent field that
+  changes after filing.
+- `seq` — position on the ledger's one shared filing timeline with
+  `DeviationRecord.seq`; `0` for a legacy record filed before `seq` existed.
+
+Filed via `devague evidence --obligation oN --test "<ref>" --behavior
+"<text>" --contract "<text>" --type K --strength K --basis "<text>"
+--outcome pass|fail [--run-commit <sha> --run-timestamp <ts>]
+[--origin user|llm]`. A user-authored record auto-approves; an
+`llm`-authored one (`--origin llm`) lands `proposed` and needs an explicit
+user `devague evidence --confirm <eN>` / `--reject <eN>`. The enum-like
+fields — `evidence_type`, `strength`, `outcome`, `origin`, `status` — validate
+in `__post_init__` (and therefore on every load), unlike `LapseRecord.code`:
+they are structural vocabularies that do not retire. The free-text fields
+(`behavior_text`, `contract_text`, `strength_basis`) are required by the CLI
+filing path (`devague evidence` refuses an empty one) but are not
+re-validated on load.
+
+### DeltaRecord
+
+One behavioral delta a delivery contributes to the behavior ledger — filed
+via `devague delta`. Append-only on the same terms as `EvidenceRecord`.
+
+- `id` — `b1`, `b2`, … (the `d` prefix is already taken by DeviationRecord).
+- `kind` — one of `DELTA_KINDS`: `added`, `amended`, `removed`.
+- `behavior_text` — the behavior added, amended, or removed, in readable
+  text — the payload.
+- `caused_by` — list of refs pointing backwards at what caused the change:
+  a confirmed claim (`cN`), an approved deviation (`dN`), or a prior delta on
+  the same ledger (`bN`, for delta-to-delta lineage); required at the filing
+  path — a delta with no cause is precisely the fabricated-delivery shape
+  gate 3 hunts for.
+- `evidence_refs` — list of refs pointing forwards at the evidence records
+  that validate the delta; defaults to `[]` and may legitimately stay empty,
+  since evidence is often filed afterwards.
+- `origin` — `user` | `llm` (who filed it).
+- `status` — `proposed` | `approved` | `rejected`.
+- `superseded` — boolean; `False` until flipped by `Delivery.supersede` /
+  `Delivery.retract_supersession`.
+
+A user-authored delta auto-approves; an `llm`-authored one (`--origin llm`)
+lands `proposed` and needs an explicit user `devague delta --confirm <bN>` /
+`--reject <bN>`. `kind` validates in `__post_init__` — a structural
+vocabulary that does not retire, unlike `LapseRecord.code`.
+
+### SupersessionEvent
+
+A supersede/retract event over an evidence or delta record — deliberately
+minimal: correcting a wrong record is filing a new one and superseding the
+old, never editing content, the same written-late-is-written-flattering
+discipline the Reasoning Degradation Ledger and deviation records already
+apply.
+
+- `id` — `s1`, `s2`, …
+- `action` — one of `SUPERSESSION_ACTIONS`: `supersede`, `retract`.
+- `target_ref` — the evidence or delta record this event acts on.
+- `replacement_ref` — optional; the record that replaces the target. `None`
+  is valid — a behavior can be superseded by nothing at all, it simply
+  stopped being claimed.
+- `origin` — `user` | `llm` (who filed it).
+
+`action` and `origin` validate in `__post_init__`.
 
 ### Moves
 

@@ -1,144 +1,119 @@
 # devague
 
-**`devague` is a command-line tool** that turns a vague feature idea into a
-buildable **spec**, then that spec into a buildable **plan** — by working
-backwards, then forwards. It is a small, deterministic Python CLI (no LLM calls
-inside it, fully unit-tested) — not an agent, service, or daemon. You install it
-and run `devague` from the repository you are speccing; state is plain JSON under
-`.devague/`.
-
-```text
-vague idea ──▶ buildable spec ──▶ buildable plan ──▶ build
-```
+Devague is a CLI that helps you turn a vague idea into a spec, a plan, and
+an accounted-for delivery. Your AI agent drives devague. You hold the three
+gates.
 
 ## Install
 
 ```bash
-uv tool install devague      # or: pipx install devague / pip install devague
+uv tool install devague      # or: uvx devague / pipx install devague
 devague --version
 ```
 
-## Two engines, one CLI
+## Set up your repo
 
-- **Frame engine** (idea→spec) — start from the announcement ("pretend it
-  shipped"), capture and pressure-test claims, park open vagueness, and `export`
-  a spec only once the frame *converges*. Flat verbs: `devague new` /
-  `capture` / `amend` / `interrogate` / `confirm` / `park` / `scope` /
-  `lapse` / `oblige` / `converge` / `export` / …
-- **Plan engine** (spec→plan) — seed a plan from a converged frame, cover every
-  target with tasks that carry acceptance criteria and an acyclic dependency
-  order, and `export` a plan only once it *converges*. Nested group:
-  `devague plan new` / `task` / `cover` / `defer` / `converge` / `export` / …
+Tell your agent:
 
-Alongside them sits the **delivery ledger** (plan→what actually shipped) —
-append-only records of how execution really went: `devague deviate` (mid-run
-departures from the confirmed plan), `oblige` (mark a claim's or acceptance
-criterion's behavioral obligation), `evidence` (a behavioral test met — or
-failed — an obligation, with the coverage/fidelity/execution/sensitivity
-strength ladder), `delta` (a behavior the run added, amended, or removed),
-`summary` (the render-only delivery summary), and `today` (project the
-behavior ledger into the committed, undated `docs/current-spec.md`).
+> Run `devague learn` and learn the eight devague skills.
 
-Nothing gets deleted to make a gate go green. A parked unknown, a blocking
-hard question, and a coverage target that belongs to a later milestone each
-have an explicit close-out move — `park --resolve`, `interrogate <cN>
---resolve <qN>`, and `plan defer` — that keeps the item on the record with
-the decision that closed it, and drops it out of the gate.
+- You instruct; the agent calls it. The command prints instructions written
+  for the agent, not for you: the method, then how to create the skills.
+- The agent writes the eight skill files, with your consent, into its own
+  skills folder (Claude Code: `.claude/skills/`).
+- It never overwrites a skill that already exists.
 
-Run `devague learn` (or `devague plan learn`) to learn the method, and `devague
-explain <move>` for any single move.
+Then give your code reviewer a head start. A reviewing agent will not know
+to look for devague's artifacts on its own, so tell your agent:
 
-Every successful, non-exempt move also prints a one-line `next: ...` stderr
-hint naming the recommended next move (`status` / `plan status` are exempt —
-they already report it). Turn hints off globally with `[tool.devague]
-hints = false` in `pyproject.toml`, replace one verb's text with
-`[tool.devague.hints]`, or disable them per invocation with `DEVAGUE_HINTS=off`
-(also `0` / `false`; the environment variable wins when both are set).
+> Run `devague learn review` and write the reviewer instructions from it.
 
-## Human Review Loop
+It prints the audit method for a reviewer agent: check the obligations,
+evidence, deltas and lapses the run filed instead of re-deriving what should
+have been tested. Put the result where your reviewer reads its rules, for
+example `.pr_agent.toml` for Qodo (this repo's copy is the template), or
+paste it into the review request.
 
-LLM-proposed claims and honesty conditions stay `proposed` until **you**
-confirm them — that anti-fabrication rule is the point of the method. The review
-loop makes that human step ergonomic at scale:
+## Work with your agent
 
-```bash
-devague review                 # list every proposed (unconfirmed) item, with ids
-devague review --json          # same, structured
-devague confirm c2 h1 h3       # confirm many ids in one transactional call
-devague reject c4 c5           # reject many ids in one call
-devague confirm --from-review .devague/reviews/<slug>.md   # apply an edited review file
+From here on you talk to the agent, one skill at a time, in this order:
+
+```mermaid
+flowchart TB
+  subgraph spec [spec]
+    direction LR
+    S[1 scope] --> T[2 think] --> C[3 challenge]
+  end
+  subgraph plan [plan]
+    direction LR
+    P[4 spec-to-plan] --> A[5 assign-to-workforce]
+  end
+  subgraph delivery [delivery]
+    direction LR
+    D[6 deviate] --> V[7 validate-delivery] --> Z[8 summarize-delivery]
+  end
+  spec --> G1{{Gate 1 — you approve the spec}} --> plan
+  plan --> G2{{Gate 2 — you approve the split plan}} --> delivery
+  delivery --> G3{{Gate 3 — you review the PR}}
 ```
 
-`review` is **not** gated on convergence and never mutates state. It writes a
-durable, explicitly non-authoritative artifact you can review out of band, then
-apply: each item is emitted with a `pending` marker — change it to `confirm` or
-`reject` and feed the file back with `confirm --from-review`. `pending` lines are
-never auto-confirmed; a batch is transactional (one bad id ⇒ nothing changes).
-Rejecting a claim sweeps its still-live honesty conditions and unresolved hard
-questions with it (`c4 -> rejected (also rejected: h3, q1)`), so rejected
-content leaves the review pool and the exported spec together. The plan side
-mirrors all of this: `devague plan confirm t1 t2 t3` / `plan reject …` are
-multi-id and transactional too.
+1. **`/scope`** — the agent surveys what the idea touches and records each
+   finding.
+2. **`/think`** — the agent works backwards from the announcement into a
+   spec; every proposal waits for your confirm; it exports once the frame
+   converges.
+3. **`/challenge`** — the agent hunts blind spots in the spec; findings come
+   back to you as proposals.
+4. **`/spec-to-plan`** — the agent turns the spec into tasks with acceptance
+   criteria and a dependency order; you confirm the plan.
+5. **`/assign-to-workforce`** — you approve the split; the agent fans tasks
+   out to a workforce of agents, one worktree each, merges gated by tests.
+6. **`/deviate`** — the run stops when it must leave the plan; you approve
+   the departure; it is recorded.
+7. **`/validate-delivery`** — the agent runs the behavioral tests and files
+   evidence and deltas; failing stays failing.
+8. **`/summarize-delivery`** — the agent writes the accountability artifact
+   and opens the PR you review.
 
-Open questions / pending decisions live as durable working state too:
+Three gates are yours: the spec, the split plan, the PR. Inside them you
+also adjudicate: every proposal the agent files waits for your confirm, and a
+mid-run deviation waits for your approval. Everything else is the agent's,
+and all of it is written down.
 
-```bash
-devague question "should batch confirm be transactional?"   # record a pending decision
-devague question --list                                     # review them
-devague question --resolve q1 --decision "yes, transactional"
-```
+## Why it works
 
-Applying a resolved decision into the frame stays an explicit move (e.g.
-`devague capture --kind decision "…"` then `devague confirm`).
+- **Gates, not vibes.** A spec or plan exports only after it converges.
+- **The agent never confirms itself.** Anything it proposes stays proposed
+  until you confirm it.
+- **Nothing is deleted to go green.** Unknowns are parked, questions are
+  resolved, out-of-milestone targets are deferred, all on the record.
+- **Ledgers are append-only and filed on the spot.** The agent documents a
+  claim right as it happens, reducing the chance of mis-documentation due to
+  attention drift. Deviations, evidence, behavior deltas and reasoning lapses
+  are recorded the moment they happen, never reconstructed at the end.
 
-### `.devague/` — what's committed vs working state
+What devague never does:
 
-| Path | Committed? |
-|------|-----------|
-| `.devague/frames/`, `.devague/plans/` | yes — the converged frame/plan state |
-| `.devague/reviews/<slug>.md` | no — local review working state |
-| `.devague/questions/<slug>.md` | no — local pending-decision working state |
-| `.devague/current`, `.devague/current_plan` | no — local pointers |
+- **Call an LLM.** The CLI is deterministic and fully unit-tested.
+- **Run a test.** Tests run agent-side; devague records the result.
+- **Orchestrate agents.** It describes the dependency graph; the skill does
+  the fan-out.
 
-devague keeps `reviews/` and `questions/` out of git for you (it manages
-`.gitignore`). Promote one into `docs/` only if you intentionally want it
-committed.
+## What lands where
 
-## Driving it from an agent
+| Path | Written by | Git |
+|------|-----------|-----|
+| `.devague/frames/<slug>.json` | `/scope`, `/think`, `/challenge` | committed |
+| `.devague/plans/<slug>.json` | `/spec-to-plan` | committed |
+| `.devague/deliveries/<plan-slug>.json` | `/deviate`, `/validate-delivery` | committed |
+| `.devague/reviews/`, `.devague/questions/` | review and decision working files | gitignored (devague adds the rule) |
+| `docs/specs/<date>-<slug>.md` | `/think` export | committed — the spec |
+| `docs/plans/<date>-<slug>.md` | `/spec-to-plan` export, `/assign-to-workforce` split | committed — the plan and split |
+| `docs/deliveries/<date>-<slug>.md` | `/summarize-delivery` | committed — what actually shipped |
+| `docs/current-spec.md` | `/summarize-delivery` (`devague today`) | committed — what the app does now |
 
-Inside AgentCulture, an assistant drives this CLI through a family of operator
-skills that cover the **eight-leg flow** end to end, in order: **`/scope`**
-(idea→explored scope, the optional opening leg), **`/think`** (idea→spec),
-**`/challenge`** (a risk-scaled blind-spot discovery pass between /think and
-/spec-to-plan), **`/spec-to-plan`** (spec→plan), **`/assign-to-workforce`**
-(plan→parallel implementation), **`/deviate`** (the execution-time leg — stop
-an in-flight fan-out the moment it must diverge from the confirmed plan, get
-explicit human approval via `devague deviate`, and resume),
-**`/validate-delivery`** (the execution-to-evidence leg — run the plan's
-behavioral tests agent-side once waves merge, and file evidence and
-behavioral deltas via the CLI; unmet is unmet), and
-**`/summarize-delivery`** (execution→a committed accountability artifact).
-`/challenge` is method-only — no wrapper script, no new CLI verb; findings
-route through moves the CLI already exposes. `/validate-delivery` is
-method-only too (the CLI never runs a test itself), but its filings land
-through the record-only delivery verbs — `devague oblige` / `evidence` /
-`delta` — with `llm`-origin filings landing `proposed` for human
-adjudication, same anti-fabrication contract as everywhere else. The CLI-driving pair — `/think` and `/spec-to-plan` — add a
-portable wrapper and a `status` next-move helper over the convergence gate;
-the CLI is the deterministic affordance and the agent decides the next move.
+See also:
 
-Cutting across all eight legs is `devague lapse` (issue #97) — file a
-reasoning-degradation lapse (an assumption silently substituted for a check)
-the moment it happens, instead of reconstructing a corrections record from
-memory once the run ends. It is never a gate: filing is friction-free
-(`llm`-origin lands `proposed`, a user-authored one auto-approves), it never
-blocks convergence on either engine, and only an **approved** entry is ever
-cited as confidence evidence in `/summarize-delivery`'s Delivery Claims
-section.
-
-These skills serve two audiences: **operators** — the main agent that drives
-the deterministic CLI move by move across all eight legs — and the **humans**
-who own the three standing gates: the exported spec, the go/no-go on the
-implementation split plan (including any mid-run deviation approved against
-it via `/deviate`), and the final PR review. See `CLAUDE.md` for that workflow
-and `docs/superpowers/specs/` for the design docs.
+- `docs/skills.md` — the eight skills in long form.
+- `docs/spec-contract.md` — every record kind and move contract.
+- `CLAUDE.md` — how this repo drives itself with devague.
