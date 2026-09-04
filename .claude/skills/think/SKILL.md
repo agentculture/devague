@@ -167,6 +167,11 @@ recommended next move (first gap):
 
 Run it whenever you're unsure what to do next.
 
+After every successful, non-exempt move (`status` itself is exempt, since
+reporting the next move is already its whole purpose) the CLI also prints a
+`next: <recommended move>` line to **stderr**. Follow that hint or run
+`devague status` — either gets you the same recommended next move.
+
 ### Export hygiene — keep the artifacts lint-clean
 
 The exported spec-md must pass the repo's markdown lint. Two gotchas found by
@@ -220,6 +225,8 @@ These are the point of the method — convergence must mean something.
   leave a decided blocking park sitting forever, and never hand-edit
   `.devague` state to work around it — the resolve move is the CLI's own
   escape hatch.
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Output contract
 
@@ -273,8 +280,8 @@ Once `export` writes the spec **and the user has reviewed it**, close the
 idea→spec leg cleanly before moving on:
 
 1. **Commit the spec.** Commit the exported `docs/specs/<slug>.md` (along with
-   the `.devague/<slug>.json` frame state and any review artifact under
-   `docs/reviews/`) so the converged frame is durable in history, not just on
+   the `.devague/frames/<slug>.json` frame state and any review artifact under
+   `.devague/reviews/`) so the converged frame is durable in history, not just on
    disk. Use a focused message, e.g. `git commit -m "spec: <slug> (devague
    /think)"`. The frame and the spec are the evidence trail for every confirmed
    claim — keep them together. (Per the repo's standing convention this normally
@@ -289,6 +296,13 @@ idea→spec leg cleanly before moving on:
 
 Don't pause for a "what next?" menu after a reviewed export — the standing flow
 is **commit, then `/challenge`, then `/spec-to-plan`**.
+
+## Before and after this leg
+
+```text
+Previous leg: scope
+Next leg: challenge
+```
 
 ## Provenance
 

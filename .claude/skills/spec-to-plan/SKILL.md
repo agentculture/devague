@@ -95,6 +95,11 @@ recommended next move (first gap):
 
 Run it whenever you're unsure what to do next.
 
+After every successful, non-exempt move (`status` itself is exempt, since
+reporting the next move is already its whole purpose) the CLI also prints a
+`next: <recommended move>` line to **stderr**. Follow that hint or run
+`devague plan status` — either gets you the same recommended next move.
+
 ## Hard rules (do not violate)
 
 These are the point of the method — convergence must mean something.
@@ -126,6 +131,8 @@ These are the point of the method — convergence must mean something.
 - **Converge against the live frame.** `converge`/`export` re-load the source
   frame every time. If the frame was deleted or has regressed below convergence,
   they refuse — re-converge the spec (in `/think`) first.
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Coaching toward small, file-disjoint, TDD-gated tasks
 
@@ -314,6 +321,13 @@ skill needs to fan the plan's waves out to parallel subagents, get the human's
 go/no-go on the implementation split plan, and TDD-gate each merge. Continue
 with `/assign-to-workforce` next; if a fan-out mid-run needs to diverge from
 this plan, that is `/deviate`'s job, not a silent edit here.
+
+## Before and after this leg
+
+```text
+Previous leg: challenge
+Next leg: assign-to-workforce
+```
 
 ## Provenance
 

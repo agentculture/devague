@@ -119,6 +119,11 @@ already exist, so run `devague new` first:
 | `devague scope --amend <sN> --finding "<corrected>"` | Replace an entry's finding in place — same `id`, `surface`, and `seeds` (#84). Use this instead of recording a second entry that says "supersedes s18"; there is no revision trail here, unlike claim `amend`. |
 | `devague scope --list [--json]` | Read every recorded entry back. |
 
+After every successful, non-exempt move (`status` itself is exempt, since
+reporting the next move is already its whole purpose) the CLI prints a
+`next: <recommended move>` line to **stderr**. Follow that hint or run
+`devague status` — either gets you the same recommended next move.
+
 Boundary / non-goal / in-scope claims still land the same way they always
 did, through the normal frame moves — `devague scope` documents *what surface
 you explored and what you learned*, `capture` records *the claim that
@@ -162,6 +167,8 @@ unrelated claim-attached question with the same number.
   adaptive. Never block a small idea on a survey it doesn't need — and even
   a broad survey that fans out to subagents skips the fan-out entirely if the
   idea itself is small (4 or fewer candidate surfaces, step 2).
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Worked example
 
@@ -206,6 +213,13 @@ into the buildable artifact (#53 t6). When the survey is done, continue with
 `/think`'s remaining moves (`interrogate`, `confirm`/`reject`, `converge`,
 `export`) to take the frame the rest of the way. The user confirms
 LLM-proposed claims there, as always.
+
+## Before and after this leg
+
+```text
+Previous leg: nothing precedes
+Next leg: think
+```
 
 ## Provenance
 

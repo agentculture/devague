@@ -121,7 +121,10 @@ through these structured lenses (from issue 73):
 1. **Confirm the entry condition.** A converged frame that `/think` has
    already exported, and no plan seeded from it yet (`devague status` shows
    where the frame stands; the exported spec-md is the artifact under
-   challenge).
+   challenge). After every successful, non-exempt move the CLI also prints a
+   `next: <recommended move>` line to **stderr** (`status` itself is exempt,
+   since reporting the next move is already its whole purpose) — follow that
+   hint or run `devague status` for the same recommended next move.
 2. **Set the depth.** Check the idea against the c19 escalation signals
    above. Any hit → rigorous; none → lightweight. Say which you chose and
    why — the depth decision is part of the pass's record.
@@ -238,6 +241,8 @@ blocking risks visible until resolved.
 - **The sweep is read-only until it routes.** Reading spec, frame, and
   surfaces never edits files or state; probes run in scratch space. The only
   mutations are the recording moves themselves.
+- File the record the moment the thing happens, never at closeout — written
+  late is written flattering (issue 97).
 
 ## Worked example
 
@@ -296,6 +301,13 @@ any residual surprise risk you routed plan-side lands via
 through mid-fan-out, that is `/deviate`'s job — and every approved `dN`
 deviation record is evidence for what the *next* challenge pass's lenses
 should look harder at.
+
+## Before and after this leg
+
+```text
+Previous leg: think
+Next leg: spec-to-plan
+```
 
 ## Provenance
 
