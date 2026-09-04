@@ -847,13 +847,17 @@ no amend and no delete path.
   `DeviationRecord.seq`; `0` for a legacy record filed before `seq` existed.
 
 Filed via `devague evidence --obligation oN --test "<ref>" --behavior
-"<text>" --type K --strength K --basis "<text>" --outcome pass|fail
-[--run-commit <sha> --run-timestamp <ts>] [--origin]`. A user-authored
-record auto-approves; an `llm`-authored one (`--origin llm`) lands
-`proposed` and needs an explicit user `devague evidence --confirm <eN>` /
-`--reject <eN>`. `behavior_text`/`contract_text`/`evidence_type`/`strength`/
-`strength_basis`/`outcome` all validate in `__post_init__`, unlike
-`LapseRecord.code` — they are structural vocabularies that do not retire.
+"<text>" --contract "<text>" --type K --strength K --basis "<text>"
+--outcome pass|fail [--run-commit <sha> --run-timestamp <ts>]
+[--origin user|llm]`. A user-authored record auto-approves; an
+`llm`-authored one (`--origin llm`) lands `proposed` and needs an explicit
+user `devague evidence --confirm <eN>` / `--reject <eN>`. The enum-like
+fields — `evidence_type`, `strength`, `outcome`, `origin`, `status` — validate
+in `__post_init__` (and therefore on every load), unlike `LapseRecord.code`:
+they are structural vocabularies that do not retire. The free-text fields
+(`behavior_text`, `contract_text`, `strength_basis`) are required by the CLI
+filing path (`devague evidence` refuses an empty one) but are not
+re-validated on load.
 
 ### DeltaRecord
 
@@ -864,10 +868,11 @@ via `devague delta`. Append-only on the same terms as `EvidenceRecord`.
 - `kind` — one of `DELTA_KINDS`: `added`, `amended`, `removed`.
 - `behavior_text` — the behavior added, amended, or removed, in readable
   text — the payload.
-- `caused_by` — list of refs pointing backwards at the confirmed claim or
-  approved deviation that caused the change; required at the filing path — a
-  delta with no cause is precisely the fabricated-delivery shape gate 3
-  hunts for.
+- `caused_by` — list of refs pointing backwards at what caused the change:
+  a confirmed claim (`cN`), an approved deviation (`dN`), or a prior delta on
+  the same ledger (`bN`, for delta-to-delta lineage); required at the filing
+  path — a delta with no cause is precisely the fabricated-delivery shape
+  gate 3 hunts for.
 - `evidence_refs` — list of refs pointing forwards at the evidence records
   that validate the delta; defaults to `[]` and may legitimately stay empty,
   since evidence is often filed afterwards.

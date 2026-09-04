@@ -55,7 +55,7 @@ After: A newcomer reads README.md top to bottom and meets one eight-leg diagram,
 
 ## Evidence
 
-- tests: `tests/test_readme_commands.py` — pass (7 passed)
+- tests: `tests/test_readme_commands.py` — pass (7 passed at 171589e; 5 passed at head after deviation d2 dropped the capture assertions)
 - tests: `tests/test_spec_to_plan_skill.py tests/test_teaching_surface_sweep.py tests/test_cli_learn.py tests/test_summary.py` — pass (199 passed)
 - tests: `uv run pytest -n auto -q` — pass (1651 passed; baseline before the run 1644)
 - lint: `uv run flake8 --config=.flake8 devague/ tests/` — clean
@@ -74,7 +74,7 @@ After: A newcomer reads README.md top to bottom and meets one eight-leg diagram,
 | Claim | Confidence | Evidence |
 |-------|------------|----------|
 | `c2` — README.md replaces its stale three-stage arrow (README.md lines 10-12: idea, spec, plan, build) with an eight-leg pipeline diagram as a mermaid fence, and adds a numbered move walkthrough (01 scope ... 08 summarize-delivery) modeled on the site page's pipeline stages and method sections | `execution` | `tests/test_readme_commands.py` (run 2026-09-04) |
-| `c3` — README.md gains real, verified code examples: every command block is checked against the shipped 'devague --help' / 'devague plan --help' output, and one short verbatim terminal capture per engine (frame, plan, delivery ledger) shows actual output including the 'next:' stderr hint | `coverage` | `tests/test_readme_commands.py::test_readme_commands_parse` (run 2026-09-04) |
+| `c3` — README.md gains real, verified code examples: every command block is checked against the shipped 'devague --help' / 'devague plan --help' output, and one short verbatim terminal capture per engine (frame, plan, delivery ledger) shows actual output including the 'next:' stderr hint | `coverage` | `tests/test_readme_commands.py::test_every_readme_bash_devague_line_matches_the_shipped_cli` (run 2026-09-04; e13 replaces e2, whose test ref named a node that never existed — lapse l4) |
 | `c4` — README.md does not copy the site page's leg count: agentculture.org/agents/devague still presents seven legs and seven operator skills (no validate-delivery, no lapse, no oblige/evidence/delta, no today); the README stays ahead and the site is updated separately in the org repo | `fidelity` | `git -C ../org diff --stat and diff --cached --stat` (run 2026-09-04) |
 | `c6` — The deviate and summarize-delivery skills redraw their literal flow diagrams (deviate/SKILL.md lines 20-25, summarize-delivery/SKILL.md lines 22-27) as the eight-leg flow, and think/SKILL.md's after-export step (lines 275-277) cites .devague/frames/ and .devague/reviews/ instead of .devague/ and docs/reviews/ (closes issues 100 and 47) | `execution` | `grep -rn 'six-leg\|seven-leg\|docs/reviews' + md5sum of the three diagram blocks` (run 2026-09-04) |
 | `c7` — Every skill that files a ledger record carries one explicit freshness rule in its hard rules: file the record at the moment the thing happens, never at closeout; today only challenge (line 178), deviate (lines 4-5, 44, 109) and summarize-delivery (lines 33, 308) say so, while scope, spec-to-plan, assign-to-workforce and validate-delivery do not | `execution` | `tr newline + grep across the eight SKILL.md` (run 2026-09-04) |

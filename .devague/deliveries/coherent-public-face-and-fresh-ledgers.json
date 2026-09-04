@@ -2,7 +2,7 @@
   "plan_slug": "coherent-public-face-and-fresh-ledgers",
   "schema_version": 2,
   "created": "2026-09-04T13:58:44Z",
-  "updated": "2026-09-04T14:16:22Z",
+  "updated": "2026-09-04T14:45:33Z",
   "deviations": [
     {
       "id": "d1",
@@ -263,6 +263,25 @@
       "status": "approved",
       "superseded": false,
       "seq": 13
+    },
+    {
+      "id": "e13",
+      "obligation_ref": "o2",
+      "test_ref": "tests/test_readme_commands.py::test_every_readme_bash_devague_line_matches_the_shipped_cli",
+      "behavior_text": "parses every devague line inside a bash fence of README.md against the in-process argparse parser; zero misses",
+      "contract_text": "every README command block matches the shipped CLI",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "5 passed at the named commit; replaces e2, whose --test named a node id (test_readme_commands_parse) that never existed (Qodo review of PR 114)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-09-04T14:45:33Z",
+        "commit": "8b6abf4"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 15
     }
   ],
   "deltas": [

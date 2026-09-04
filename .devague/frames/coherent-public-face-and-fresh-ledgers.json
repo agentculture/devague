@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-09-04T13:20:49Z",
-  "updated": "2026-09-04T14:16:22Z",
+  "updated": "2026-09-04T14:45:33Z",
   "claims": [
     {
       "id": "c1",
@@ -780,6 +780,18 @@
       ],
       "origin": "llm",
       "status": "approved"
+    },
+    {
+      "id": "l4",
+      "code": "provenance-missing",
+      "what": "e2's --test field named tests/test_readme_commands.py::test_readme_commands_parse, a node id written from memory of the brief rather than read from the file; the real test is test_every_readme_bash_devague_line_matches_the_shipped_cli; corrected by e13",
+      "skipped_check": "reading the test module's def names before filing the evidence record",
+      "refs": [
+        "e2",
+        "t7"
+      ],
+      "origin": "llm",
+      "status": "proposed"
     }
   ],
   "obligations": [

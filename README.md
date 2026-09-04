@@ -75,8 +75,10 @@ flowchart TB
 8. **`/summarize-delivery`** — the agent writes the accountability artifact
    and opens the PR you review.
 
-Three gates are yours: the spec, the split plan, the PR. Everything else is
-the agent's, and all of it is written down.
+Three gates are yours: the spec, the split plan, the PR. Inside them you
+also adjudicate: every proposal the agent files waits for your confirm, and a
+mid-run deviation waits for your approval. Everything else is the agent's,
+and all of it is written down.
 
 ## Why it works
 
