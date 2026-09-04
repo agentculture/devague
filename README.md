@@ -78,7 +78,6 @@ flowchart TB
 Three gates are yours: the spec, the split plan, the PR. Everything else is
 the agent's, and all of it is written down.
 
-
 ## Why it works
 
 - **Gates, not vibes.** A spec or plan exports only after it converges.
