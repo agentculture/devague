@@ -17,10 +17,8 @@ Tell your agent:
 
 > Run `devague learn` and learn the eight devague skills.
 
-```bash
-devague learn                # what the agent reads: the method, then how to create the skills
-```
-
+- You instruct; the agent calls it. The command prints instructions written
+  for the agent, not for you: the method, then how to create the skills.
 - The agent writes the eight skill files, with your consent, into its own
   skills folder (Claude Code: `.claude/skills/`).
 - It never overwrites a skill that already exists.
