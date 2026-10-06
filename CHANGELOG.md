@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.2] - 2026-10-07
+
+### Added
+
+- culture.yaml `gate:` section (setup `uv sync`, test `uv run pytest -n auto`): the commands the culture-rules PR fixer runs before its GitHub App pushes a fix to a devague PR
+
 ## [0.24.1] - 2026-09-04
 
 ### Changed
