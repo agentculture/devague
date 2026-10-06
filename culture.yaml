@@ -1,3 +1,11 @@
 agents:
 - suffix: devague
   backend: claude
+
+# The PR fixer's test gate (culture-rules): the commands its engine runs, from a
+# checkout of this repo's base branch, before the GitHub App pushes an agent's fix.
+gate:
+  setup:
+  - [uv, sync]
+  test:
+  - [uv, run, pytest, -n, auto]
